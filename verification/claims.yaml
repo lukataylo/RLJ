@@ -135,6 +135,13 @@ claims:
     must_pass: true
     test: "tests/data_quality/test_signals.py::test_active_and_horizon_consistency"
 
+  # ---- autonomy (multi-agent sense->decide->act loop) ---------------------
+  - id: autonomy-loop
+    statement: "Autonomy controller detects crowdsourced congestion, re-plans around it, and dispatches"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_autonomy.py::test_autonomy_loop_reacts_to_congestion"
+
   # ---- world-class solver quality + scale ---------------------------------
   - id: solver-optimality-gap
     statement: "Zero optimality gap vs Google OR-Tools on the clinical objective (static)"
