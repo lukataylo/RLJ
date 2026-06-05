@@ -1,0 +1,269 @@
+{
+  "source": "scheduled",
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "City Bridge Foundation / towerbridge.org.uk (bundled)",
+  "geometry": [
+    {
+      "lat": 51.5061,
+      "lng": -0.0755
+    },
+    {
+      "lat": 51.5055,
+      "lng": -0.0751
+    },
+    {
+      "lat": 51.5049,
+      "lng": -0.0747
+    }
+  ],
+  "centre": {
+    "lat": 51.5055,
+    "lng": -0.0751
+  },
+  "schedule": {
+    "0": [
+      {
+        "time": "06:45",
+        "duration_min": 10,
+        "vessel": "Paddle Steamer Waverley"
+      },
+      {
+        "time": "09:15",
+        "duration_min": 9,
+        "vessel": "Dixie Queen"
+      },
+      {
+        "time": "11:30",
+        "duration_min": 11,
+        "vessel": "Silver Sturgeon"
+      },
+      {
+        "time": "13:45",
+        "duration_min": 10,
+        "vessel": "Tower RNLI Lifeboat"
+      },
+      {
+        "time": "15:30",
+        "duration_min": 8,
+        "vessel": "Jubilant"
+      },
+      {
+        "time": "18:00",
+        "duration_min": 10,
+        "vessel": "Gloriana"
+      },
+      {
+        "time": "20:30",
+        "duration_min": 12,
+        "vessel": "Sabre"
+      }
+    ],
+    "1": [
+      {
+        "time": "07:00",
+        "duration_min": 10,
+        "vessel": "Dixie Queen"
+      },
+      {
+        "time": "09:45",
+        "duration_min": 9,
+        "vessel": "Edwardian"
+      },
+      {
+        "time": "12:00",
+        "duration_min": 10,
+        "vessel": "Silver Sturgeon"
+      },
+      {
+        "time": "14:15",
+        "duration_min": 11,
+        "vessel": "Paddle Steamer Waverley"
+      },
+      {
+        "time": "16:30",
+        "duration_min": 9,
+        "vessel": "Jubilant"
+      },
+      {
+        "time": "19:00",
+        "duration_min": 10,
+        "vessel": "Gloriana"
+      }
+    ],
+    "2": [
+      {
+        "time": "06:30",
+        "duration_min": 9,
+        "vessel": "Sabre"
+      },
+      {
+        "time": "08:45",
+        "duration_min": 10,
+        "vessel": "Silver Sturgeon"
+      },
+      {
+        "time": "11:00",
+        "duration_min": 12,
+        "vessel": "Dixie Queen"
+      },
+      {
+        "time": "13:30",
+        "duration_min": 10,
+        "vessel": "Gloriana"
+      },
+      {
+        "time": "15:45",
+        "duration_min": 8,
+        "vessel": "Edwardian"
+      },
+      {
+        "time": "18:15",
+        "duration_min": 10,
+        "vessel": "Paddle Steamer Waverley"
+      },
+      {
+        "time": "21:00",
+        "duration_min": 11,
+        "vessel": "Jubilant"
+      }
+    ],
+    "3": [
+      {
+        "time": "07:15",
+        "duration_min": 10,
+        "vessel": "Jubilant"
+      },
+      {
+        "time": "09:30",
+        "duration_min": 9,
+        "vessel": "Gloriana"
+      },
+      {
+        "time": "12:15",
+        "duration_min": 10,
+        "vessel": "Sabre"
+      },
+      {
+        "time": "14:45",
+        "duration_min": 11,
+        "vessel": "Silver Sturgeon"
+      },
+      {
+        "time": "17:00",
+        "duration_min": 10,
+        "vessel": "Dixie Queen"
+      },
+      {
+        "time": "19:45",
+        "duration_min": 9,
+        "vessel": "Edwardian"
+      }
+    ],
+    "4": [
+      {
+        "time": "06:45",
+        "duration_min": 10,
+        "vessel": "Edwardian"
+      },
+      {
+        "time": "09:00",
+        "duration_min": 9,
+        "vessel": "Sabre"
+      },
+      {
+        "time": "11:15",
+        "duration_min": 10,
+        "vessel": "Paddle Steamer Waverley"
+      },
+      {
+        "time": "13:30",
+        "duration_min": 12,
+        "vessel": "Gloriana"
+      },
+      {
+        "time": "16:00",
+        "duration_min": 10,
+        "vessel": "Dixie Queen"
+      },
+      {
+        "time": "18:30",
+        "duration_min": 9,
+        "vessel": "Silver Sturgeon"
+      },
+      {
+        "time": "21:15",
+        "duration_min": 11,
+        "vessel": "Jubilant"
+      }
+    ],
+    "5": [
+      {
+        "time": "07:30",
+        "duration_min": 10,
+        "vessel": "Paddle Steamer Waverley"
+      },
+      {
+        "time": "10:00",
+        "duration_min": 11,
+        "vessel": "Dixie Queen"
+      },
+      {
+        "time": "12:30",
+        "duration_min": 10,
+        "vessel": "Gloriana"
+      },
+      {
+        "time": "14:45",
+        "duration_min": 9,
+        "vessel": "Silver Sturgeon"
+      },
+      {
+        "time": "17:15",
+        "duration_min": 10,
+        "vessel": "Sabre"
+      },
+      {
+        "time": "19:30",
+        "duration_min": 10,
+        "vessel": "Jubilant"
+      },
+      {
+        "time": "21:45",
+        "duration_min": 8,
+        "vessel": "Edwardian"
+      }
+    ],
+    "6": [
+      {
+        "time": "08:00",
+        "duration_min": 10,
+        "vessel": "Gloriana"
+      },
+      {
+        "time": "10:30",
+        "duration_min": 9,
+        "vessel": "Silver Sturgeon"
+      },
+      {
+        "time": "12:45",
+        "duration_min": 10,
+        "vessel": "Dixie Queen"
+      },
+      {
+        "time": "15:00",
+        "duration_min": 11,
+        "vessel": "Paddle Steamer Waverley"
+      },
+      {
+        "time": "17:30",
+        "duration_min": 9,
+        "vessel": "Sabre"
+      },
+      {
+        "time": "20:00",
+        "duration_min": 10,
+        "vessel": "Edwardian"
+      }
+    ]
+  }
+}

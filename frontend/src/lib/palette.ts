@@ -54,6 +54,52 @@ export const COURIER_RGB: Record<string, [number, number, number]> = {
 // Disruptions glow hot-orange (the Tron contrast accent).
 export const DISRUPTION_RGB: [number, number, number] = [255, 122, 24];
 
+// Per-class disruption colours so bridge / event / congestion / manual read apart.
+export const DISRUPTION_CLASS_RGB: Record<string, [number, number, number]> = {
+  bridge: [255, 122, 24], // hot orange
+  event: [197, 122, 255], // violet
+  congestion: [255, 59, 92], // red
+  courier: [255, 194, 75], // amber
+  manual: [255, 157, 47], // orange
+};
+
+export const DISRUPTION_CLASS_HEX: Record<string, string> = {
+  bridge: "#ff7a18",
+  event: "#c57aff",
+  congestion: "#ff3b5c",
+  courier: "#ffc24b",
+  manual: "#ff9d2f",
+};
+
+// NHS facility colours by kind (cyan-family clinical palette).
+export const FACILITY_RGB: Record<string, [number, number, number]> = {
+  hospital: [255, 86, 120], // clinical red-pink
+  lab: [24, 240, 255], // cyan
+  gp: [35, 240, 199], // mint
+  clinic: [120, 220, 120], // green
+  pharmacy: [78, 168, 255], // blue
+};
+
+export const FACILITY_HEX: Record<string, string> = {
+  hospital: "#ff5678",
+  lab: "#18f0ff",
+  gp: "#23f0c7",
+  clinic: "#78dc78",
+  pharmacy: "#4ea8ff",
+};
+
+export function facilityRGB(type: string): [number, number, number] {
+  return FACILITY_RGB[type] ?? [180, 200, 230];
+}
+
+// Crowdsourced driver / probe fleet — electric cyan dots.
+export const DRIVER_RGB: [number, number, number] = [120, 240, 255];
+export const DRIVER_HEX = "#78f0ff";
+
+// Junction signal phase colours (green-wave readout).
+export const SIGNAL_GREEN_RGB: [number, number, number] = [35, 240, 199];
+export const SIGNAL_RED_RGB: [number, number, number] = [255, 59, 92];
+
 // Traffic congestion ramp: neon cyan -> amber -> hot-red over a 0..1 value.
 export function congestionRGB(c: number): [number, number, number] {
   const t = Math.max(0, Math.min(1, c));

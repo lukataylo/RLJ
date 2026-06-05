@@ -105,10 +105,13 @@ def solve(req: OptimizeRequest, *, time_limit_s: int = 2) -> Optional[Plan]:
             time_dim.SetCumulVarSoftUpperBound(
                 didx, due, PRIORITY_LATE_PENALTY.get(jobs[j].priority, 20))
         # cold-chain vehicle eligibility: restrict VehicleVar domain to cold vehicles
-        # (plus -1 = "not served", so the job can still be dropped). Version-stable.
-        if jobs[j].cold_chain and 0 < len(cold_vehicles) < C:
-            routing.VehicleVar(pidx).SetValues([-1] + cold_vehicles)
-            routing.VehicleVar(didx).SetValues([-1] + cold_vehicles)
+        # (plus -1 = "not served", so the job can still be dropped). When NO courier is
+        # cold-capable the domain is just [-1], forcing the cold job to be left unassigned
+        # rather than put in a fridge-less van. Version-stable.
+        if jobs[j].cold_chain and len(cold_vehicles) < C:
+            allowed = [-1] + cold_vehicles
+            routing.VehicleVar(pidx).SetValues(allowed)
+            routing.VehicleVar(didx).SetValues(allowed)
         # droppable as a pair
         routing.AddDisjunction([pidx, didx], DROP_PENALTY, 2)
 

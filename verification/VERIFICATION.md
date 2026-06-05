@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-05T23:07:00.893221+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-05T23:26:07.453715+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (25/25) · verified 30/30 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (35/35) · verified 40/40 · failing 0 · unverified 0
 
 ## impact
 
@@ -56,6 +56,12 @@ _Generated 2026-06-05T23:07:00.893221+00:00 — machine output of `make verify`.
 | ✅ ⭐ | More contributing drivers significantly improve clinical STAT on-time (network effect) | `test_more_drivers_help` | verified |
 | ✅ | Flywheel benefit is monotone in driver participation | `test_benefit_is_monotone` | verified |
 
+## autonomy
+
+| | claim | test | status |
+|--|--|--|--|
+| ✅ ⭐ | Autonomy controller detects crowdsourced congestion, re-plans around it, and dispatches | `test_autonomy_loop_reacts_to_congestion` | verified |
+
 ## e2e
 
 | | claim | test | status |
@@ -63,3 +69,22 @@ _Generated 2026-06-05T23:07:00.893221+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Driver voice assistant routes the FAQ questions to the correct tools | `test_driver_assistant_answers` | verified |
 | ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
 | ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |
+| ✅ ⭐ | Telemetry -> congestion -> re-plan loop works end-to-end over the live stack | `test_telemetry_flywheel_loop` | verified |
+
+## completeness
+
+| | claim | test | status |
+|--|--|--|--|
+| ✅ ⭐ | No unimplemented stubs in source outside the documented GB10 seams | `test_no_notimplemented_outside_allowlist` | verified |
+| ✅ ⭐ | Every UI button is wired to a real handler (no dead buttons) | `test_no_unwired_buttons` | verified |
+| ✅ ⭐ | Every contract REST endpoint is implemented and reachable | `test_orchestrator_rest_endpoints_implemented` | verified |
+| ✅ ⭐ | Every declared WebSocket event is actually emitted (no dead channels) | `test_ws_events_declared_are_emitted` | verified |
+
+## unhappy
+
+| | claim | test | status |
+|--|--|--|--|
+| ✅ ⭐ | A cold-chain job with no fridge-equipped courier is left unassigned, never mis-assigned | `test_infeasible_cold_job_unassigned_no_crash` | verified |
+| ✅ ⭐ | If the routing service is down, the orchestrator still returns a plan (greedy fallback) | `test_routing_down_uses_greedy_fallback` | verified |
+| ✅ ⭐ | Malformed job input is rejected (422) and the system stays healthy | `test_malformed_job_is_422_and_system_healthy` | verified |
+| ✅ ⭐ | Out-of-bounds / over-speed pings are rejected; valid ones still ingested | `test_bad_pings_rejected_good_accepted` | verified |

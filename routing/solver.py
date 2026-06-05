@@ -34,9 +34,13 @@ def plan(req: OptimizeRequest, *, ortools_time_s: int = ORTOOLS_TIME_S) -> Plan:
         out.objective.solve_ms = (time.perf_counter() - t0) * 1e3
         return out
 
-    # Scale gate: the insertion/local-search members are O(J^3) and only run on small
-    # instances; large fleets rely on greedy + OR-Tools/cuOpt (which scale), with OR-Tools
-    # given more time. This keeps the service fast and stable from 1 to hundreds of jobs.
+    # Tiered portfolio for low latency + scale:
+    #  * small (<=12 jobs, the real-time replan case): metaheuristics only (greedy +
+    #    insertion + GPU-ACO + LS). These already tie OR-Tools on the clinical objective on
+    #    small instances, so we skip OR-Tools' fixed time budget and replan in ~100ms.
+    #  * mid (13-25): add OR-Tools (modest budget) for extra assurance.
+    #  * big (>25): O(J^3) members off; rely on greedy + OR-Tools/cuOpt (which scale).
+    small = P.J <= 12
     big = P.J > 25
     candidates: list[Plan] = [solver_baseline.greedy_plan(req)]  # always-available net
     if not big:
@@ -51,13 +55,14 @@ def plan(req: OptimizeRequest, *, ortools_time_s: int = ORTOOLS_TIME_S) -> Plan:
             candidates.append(cuopt)
     except Exception:  # noqa: BLE001
         pass
-    try:
-        ot_time = ortools_time_s if not big else max(ortools_time_s, min(6, 1 + P.J // 25))
-        ort = solver_ortools.solve(req, time_limit_s=ot_time)    # Google OR-Tools
-        if ort is not None:
-            candidates.append(ort)
-    except Exception:  # noqa: BLE001
-        pass
+    if not small:  # OR-Tools earns its latency cost only on mid/large instances
+        try:
+            ot_time = max(0.2, min(6, 1 + P.J // 25)) if big else 0.5
+            ort = solver_ortools.solve(req, time_limit_s=ot_time)  # Google OR-Tools
+            if ort is not None:
+                candidates.append(ort)
+        except Exception:  # noqa: BLE001
+            pass
 
     pool = [c for c in candidates if c is not None]
     if not big:  # local-search refine is only affordable on small instances

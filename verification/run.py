@@ -90,7 +90,11 @@ def main() -> int:
     failing = [r for r in rows if r["status"] == "failing"]
     unverified = [r for r in rows if r["status"] == "unverified"]
     must = [r for r in rows if r["must_pass"]]
-    must_green = all(r["status"] == "verified" for r in must)
+    must_verified = all(r["status"] == "verified" for r in must)
+    # Strict gate: every external test in the suite must pass, not only the mapped claims.
+    test_failed = sum(1 for v in outcomes.values() if v["outcome"] in ("failed", "error"))
+    test_passed = sum(1 for v in outcomes.values() if v["outcome"] == "passed")
+    must_green = must_verified and test_failed == 0
 
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     status_doc = {
@@ -101,6 +105,8 @@ def main() -> int:
             "must_pass_total": len(must),
             "must_pass_verified": sum(r["status"] == "verified" for r in must),
             "must_pass_green": must_green,
+            "tests_passed": test_passed,
+            "tests_failed": test_failed,
         },
         "claims": rows,
     }
@@ -113,6 +119,7 @@ def main() -> int:
     s = status_doc["summary"]
     print(f"\n{'='*60}")
     print(f"VERIFIED {s['verified']}/{s['total']}  |  failing {s['failing']}  |  unverified {s['unverified']}")
+    print(f"external tests: {s['tests_passed']} passed, {s['tests_failed']} failed")
     print(f"must-pass: {s['must_pass_verified']}/{s['must_pass_total']}  ->  "
           f"{'✅ GREEN' if must_green else '❌ NOT GREEN'}")
     print('='*60)

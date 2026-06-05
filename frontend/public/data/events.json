@@ -1,0 +1,145 @@
+{
+  "source": "scheduled",
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "bundled public-event programme (London venues)",
+  "venues": [
+    {
+      "id": "wembley",
+      "name": "Wembley Stadium",
+      "lat": 51.556,
+      "lng": -0.2796
+    },
+    {
+      "id": "emirates",
+      "name": "Emirates Stadium",
+      "lat": 51.5549,
+      "lng": -0.1084
+    },
+    {
+      "id": "stamford-bridge",
+      "name": "Stamford Bridge",
+      "lat": 51.4817,
+      "lng": -0.191
+    },
+    {
+      "id": "the-o2",
+      "name": "The O2 Arena",
+      "lat": 51.503,
+      "lng": 0.0032
+    },
+    {
+      "id": "london-stadium",
+      "name": "London Stadium",
+      "lat": 51.5386,
+      "lng": -0.0166
+    },
+    {
+      "id": "tottenham",
+      "name": "Tottenham Hotspur Stadium",
+      "lat": 51.6043,
+      "lng": -0.0664
+    },
+    {
+      "id": "excel",
+      "name": "ExCeL London",
+      "lat": 51.5081,
+      "lng": 0.0294
+    },
+    {
+      "id": "twickenham",
+      "name": "Twickenham Stadium",
+      "lat": 51.456,
+      "lng": -0.3414
+    }
+  ],
+  "events": [
+    {
+      "date": "2026-06-05",
+      "venue": "wembley",
+      "title": "England v Spain (friendly)",
+      "start": "19:45",
+      "end": "21:45",
+      "attendance": 88000
+    },
+    {
+      "date": "2026-06-05",
+      "venue": "the-o2",
+      "title": "Arena concert",
+      "start": "20:00",
+      "end": "22:30",
+      "attendance": 18000
+    },
+    {
+      "date": "2026-06-05",
+      "venue": "excel",
+      "title": "MedTech Expo",
+      "start": "09:00",
+      "end": "17:00",
+      "attendance": 22000
+    },
+    {
+      "date": "2026-06-06",
+      "venue": "twickenham",
+      "title": "Rugby international",
+      "start": "15:00",
+      "end": "17:00",
+      "attendance": 80000
+    },
+    {
+      "date": "2026-06-06",
+      "venue": "emirates",
+      "title": "Premier League fixture",
+      "start": "12:30",
+      "end": "14:30",
+      "attendance": 60000
+    },
+    {
+      "date": "2026-06-06",
+      "venue": "london-stadium",
+      "title": "Athletics meet",
+      "start": "18:00",
+      "end": "21:00",
+      "attendance": 55000
+    },
+    {
+      "date": "2026-06-07",
+      "venue": "tottenham",
+      "title": "Premier League fixture",
+      "start": "16:30",
+      "end": "18:30",
+      "attendance": 61000
+    },
+    {
+      "date": "2026-06-07",
+      "venue": "stamford-bridge",
+      "title": "Premier League fixture",
+      "start": "14:00",
+      "end": "16:00",
+      "attendance": 40000
+    },
+    {
+      "date": "2026-06-07",
+      "venue": "the-o2",
+      "title": "Arena concert",
+      "start": "19:30",
+      "end": "22:00",
+      "attendance": 20000
+    },
+    {
+      "date": "2026-06-08",
+      "venue": "wembley",
+      "title": "Cup final",
+      "start": "17:00",
+      "end": "19:00",
+      "attendance": 90000
+    },
+    {
+      "date": "2026-06-08",
+      "venue": "excel",
+      "title": "MedTech Expo (day 2)",
+      "start": "09:00",
+      "end": "16:00",
+      "attendance": 21000
+    }
+  ]
+}

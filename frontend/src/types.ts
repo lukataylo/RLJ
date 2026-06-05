@@ -106,12 +106,41 @@ export interface Notification {
   message: string;
 }
 
+// ---- Flywheel: crowdsourced drivers + congestion field (contracts/driver-api.md) ----
+export type VehicleType = "bike" | "scooter" | "car" | "van";
+
+export interface Driver {
+  id: string;
+  name?: string;
+  vehicle_type: VehicleType;
+  consent: boolean;
+  joined_at?: string;
+  points?: number;
+}
+
+export interface CongestionCell {
+  cell: string; // rounded lat_lng grid id
+  lat: number;
+  lng: number;
+  congestion: number; // 0=free-flow, 1=jammed
+  speed_mps?: number;
+  n_probes?: number;
+  updated_at?: string;
+}
+
+export interface CongestionField {
+  cells: CongestionCell[];
+  generated_at?: string | null;
+}
+
 // ---- Orchestrator state snapshot (GET /state and WS "state" payload) ----
 export interface StateSnapshot {
   jobs: DeliveryJob[];
   couriers: Courier[];
   plan: Plan | null;
   disruptions: DisruptionEvent[];
+  drivers?: Driver[];
+  congestion?: CongestionField;
 }
 
 // ---- WebSocket event envelope: every server->client message is {type,payload,ts} ----
@@ -132,7 +161,9 @@ export type WsEvent =
   | { type: "courier_moved"; payload: CourierMoved; ts: string }
   | { type: "disruption"; payload: DisruptionEvent; ts: string }
   | { type: "agent_log"; payload: AgentLog; ts: string }
-  | { type: "notification"; payload: Notification; ts: string };
+  | { type: "notification"; payload: Notification; ts: string }
+  | { type: "congestion_updated"; payload: CongestionField; ts: string }
+  | { type: "driver_joined"; payload: Driver; ts: string };
 
 export type WsEventType = WsEvent["type"];
 

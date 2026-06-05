@@ -2,8 +2,10 @@
 // Base URL comes from VITE_ORCHESTRATOR_URL, default http://localhost:8000.
 
 import type {
+  CongestionField,
   DeliveryJob,
   DisruptionEvent,
+  Driver,
   Plan,
   StateSnapshot,
   WsEvent,
@@ -59,6 +61,28 @@ export async function postDisruption(
 /** POST /optimize — force a re-plan. Returns the new Plan. */
 export async function optimize(): Promise<Plan> {
   return json<Plan>(await fetch(`${BASE}/optimize`, { method: "POST" }));
+}
+
+/** GET /congestion — live crowdsourced congestion field. Empty field on 404/error. */
+export async function getCongestion(): Promise<CongestionField> {
+  try {
+    const res = await fetch(`${BASE}/congestion`);
+    if (!res.ok) return { cells: [] };
+    return (await res.json()) as CongestionField;
+  } catch {
+    return { cells: [] };
+  }
+}
+
+/** GET /drivers — crowdsourced fleet roster. Empty list on 404/error. */
+export async function getDrivers(): Promise<Driver[]> {
+  try {
+    const res = await fetch(`${BASE}/drivers`);
+    if (!res.ok) return [];
+    return (await res.json()) as Driver[];
+  } catch {
+    return [];
+  }
 }
 
 // ----------------------------------------------------------------- WebSocket

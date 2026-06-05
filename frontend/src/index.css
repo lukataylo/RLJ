@@ -769,11 +769,18 @@ button {
   position: absolute;
   top: 104px;
   right: 16px;
+  bottom: 96px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 9px;
   z-index: 11;
+  overflow-y: auto;
+  pointer-events: none;
+  scrollbar-width: thin;
+}
+.map-overlays::-webkit-scrollbar {
+  width: 0;
 }
 .map-chip {
   display: inline-flex;
@@ -830,12 +837,183 @@ button {
   bottom: 96px;
   left: 16px;
   z-index: 11;
-  padding: 10px 14px;
+  padding: 11px 14px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: rgba(6, 12, 22, 0.66);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
+  max-width: 58%;
+}
+/* grouped legend layout */
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 18px;
+}
+.legend-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.legend-cap {
+  font-family: var(--font-display);
+  font-size: 8.5px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.legend-group > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.legend-ramp {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: var(--muted);
+}
+.legend-ramp .ramp-bar {
+  width: 86px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #18f0ff, #ffc24b 52%, #ff3b5c);
+  box-shadow: 0 0 8px rgba(24, 240, 255, 0.35);
+}
+.legend-ramp em {
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ---------------- Layers control panel ---------------- */
+.layers-panel,
+.datasource-panel {
+  width: 224px;
+  border-radius: var(--radius-sm);
+  padding: 11px 12px 10px;
+  pointer-events: auto;
+}
+.lp-head,
+.dsp-head {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-bottom: 9px;
+}
+.lp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lp-row {
+  display: grid;
+  grid-template-columns: 16px 12px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 5px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.lp-row:hover {
+  background: rgba(24, 240, 255, 0.07);
+}
+.lp-row.absent {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.lp-row input {
+  accent-color: var(--cyan);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  margin: 0;
+}
+.lp-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  box-shadow: 0 0 7px currentColor;
+}
+.lp-label {
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  color: var(--text);
+}
+.lp-row:not(.on) .lp-label {
+  color: var(--muted);
+}
+.lp-count {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--cyan);
+  min-width: 22px;
+  text-align: right;
+}
+
+/* ---------------- Data sources panel ---------------- */
+.dsp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.dsp-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+}
+.dsp-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text);
+  letter-spacing: 0.2px;
+}
+.dsp-live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulseDot 1.6s ease-in-out infinite;
+}
+.dsp-count {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--cyan);
+  min-width: 26px;
+  text-align: right;
+}
+
+/* ---------------- deck.gl tooltip ---------------- */
+.deck-tip {
+  font-family: var(--font-body) !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  color: var(--text) !important;
+  background: rgba(6, 12, 22, 0.92) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: 9px !important;
+  padding: 8px 11px !important;
+  box-shadow: var(--glow-cyan-soft) !important;
+  pointer-events: none;
+  max-width: 240px;
+}
+.deck-tip b {
+  color: #f4fbff;
+}
+.deck-tip .tip-dim {
+  color: var(--muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
 /* bottom detail strip */

@@ -4,9 +4,11 @@
 import { create } from "zustand";
 import type {
   AgentLog,
+  CongestionField,
   Courier,
   DeliveryJob,
   DisruptionEvent,
+  Driver,
   MetricSample,
   Notification,
   Plan,
@@ -28,6 +30,8 @@ interface OpsState {
   couriers: Record<string, Courier>;
   plan: Plan | null;
   disruptions: DisruptionEvent[];
+  drivers: Record<string, Driver>;
+  congestion: CongestionField;
   logs: LogLine[];
   lastNotification: Notification | null;
   history: MetricSample[];
@@ -55,6 +59,8 @@ export const useStore = create<OpsState>((set, get) => ({
   couriers: {},
   plan: null,
   disruptions: [],
+  drivers: {},
+  congestion: { cells: [] },
   logs: [],
   lastNotification: null,
   history: [],
@@ -70,6 +76,8 @@ export const useStore = create<OpsState>((set, get) => ({
       couriers: byId(snap.couriers ?? []),
       plan: snap.plan ?? null,
       disruptions: snap.disruptions ?? [],
+      drivers: byId(snap.drivers ?? []),
+      congestion: snap.congestion ?? { cells: [] },
     });
     recordSample(get, set);
   },
@@ -141,6 +149,22 @@ export const useStore = create<OpsState>((set, get) => ({
           level: "info",
           message: `[${n.channel}] ${n.message}`,
           source: "notification",
+        });
+        break;
+      }
+      case "congestion_updated": {
+        const field = e.payload as CongestionField;
+        set({ congestion: field ?? { cells: [] } });
+        break;
+      }
+      case "driver_joined": {
+        const d = e.payload as Driver;
+        set((s) => ({ drivers: { ...s.drivers, [d.id]: d } }));
+        get().pushLog({
+          ts: e.ts,
+          level: "info",
+          message: `Driver ${d.name ?? d.id} (${d.vehicle_type}) joined the flywheel.`,
+          source: "system",
         });
         break;
       }

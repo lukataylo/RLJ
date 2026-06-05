@@ -135,6 +135,49 @@ claims:
     must_pass: true
     test: "tests/data_quality/test_signals.py::test_active_and_horizon_consistency"
 
+  # ---- NVIDIA-judge benchmarks (independent, threshold-based) --------------
+  - id: bench-latency-p50
+    statement: "Real-time replan p50 < 400ms on CPU (GB10 target <50ms)"
+    category: benchmark
+    must_pass: true
+    test: "tests/benchmarks/test_benchmarks.py::test_routing_latency_p50_fastpath"
+
+  - id: bench-latency-p95
+    statement: "Replan p95 < 2000ms on CPU"
+    category: benchmark
+    must_pass: true
+    test: "tests/benchmarks/test_benchmarks.py::test_routing_latency_p95_cpu"
+
+  - id: bench-scale-100
+    statement: "100-job instance solved < 18s with >=90% served"
+    category: benchmark
+    must_pass: true
+    test: "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput"
+
+  - id: bench-anticipation
+    statement: "Anticipation lift >= 0.15 STAT on-time and significant (judge benchmark)"
+    category: benchmark
+    must_pass: true
+    test: "tests/benchmarks/test_benchmarks.py::test_anticipation_lift_and_significance"
+
+  - id: bench-flywheel
+    statement: "Flywheel lift >= 0.15 STAT on-time and significant (judge benchmark)"
+    category: benchmark
+    must_pass: true
+    test: "tests/benchmarks/test_benchmarks.py::test_flywheel_lift_and_significance"
+
+  - id: bench-telemetry-throughput
+    statement: "Congestion estimation over 10k pings < 2s"
+    category: benchmark
+    must_pass: true
+    test: "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s"
+
+  - id: bench-data-integrity
+    statement: "Every dataset is dq_passed and loadable; tampered data is refused"
+    category: benchmark
+    must_pass: true
+    test: "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable"
+
   # ---- autonomy (multi-agent sense->decide->act loop) ---------------------
   - id: autonomy-loop
     statement: "Autonomy controller detects crowdsourced congestion, re-plans around it, and dispatches"
@@ -230,3 +273,34 @@ claims:
     category: e2e
     must_pass: true
     test: "tests/e2e/test_demo_flow.py::test_voice_call_emitted"
+
+  - id: e2e-flywheel-loop
+    statement: "Telemetry -> congestion -> re-plan loop works end-to-end over the live stack"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop"
+
+  # ---- unhappy paths (resilience under bad input / failure) ---------------
+  - id: unhappy-cold-safety
+    statement: "A cold-chain job with no fridge-equipped courier is left unassigned, never mis-assigned"
+    category: unhappy
+    must_pass: true
+    test: "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash"
+
+  - id: unhappy-routing-fallback
+    statement: "If the routing service is down, the orchestrator still returns a plan (greedy fallback)"
+    category: unhappy
+    must_pass: true
+    test: "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback"
+
+  - id: unhappy-malformed-422
+    statement: "Malformed job input is rejected (422) and the system stays healthy"
+    category: unhappy
+    must_pass: true
+    test: "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy"
+
+  - id: unhappy-bad-telemetry
+    statement: "Out-of-bounds / over-speed pings are rejected; valid ones still ingested"
+    category: unhappy
+    must_pass: true
+    test: "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted"

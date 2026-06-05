@@ -268,7 +268,24 @@ def _to_plan(P: _P, assign: dict[str, list[str]]) -> Plan:
                 generated_at=P.now)
 
 
+def _has_cold_violation(P: _P, pl: Plan) -> bool:
+    """A plan is infeasible if a cold-chain job is assigned to a non-cold-capable courier."""
+    for r in pl.routes:
+        if P.cold_ok.get(r.courier_id, True):
+            continue
+        for s in r.stops:
+            job = P.job_by_id.get(s.job_id)
+            if job is not None and job.cold_chain:
+                return True
+    return False
+
+
 def pick_best(plans: list[Plan], P: _P) -> Plan:
+    # Hard-feasibility filter: never let a cold-chain-violating plan win if any feasible
+    # candidate exists (defence-in-depth against a solver member emitting an infeasible plan).
+    feasible = [pl for pl in plans if not _has_cold_violation(P, pl)]
+    plans = feasible or plans
+
     def key(pl: Plan):
         assign = {}
         for r in pl.routes:
