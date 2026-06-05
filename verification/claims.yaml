@@ -1,0 +1,105 @@
+# RLJ claims ledger — the single source of truth for "what is verified".
+#
+# A claim is shown as ✅ Verified ONLY when its bound external test passed in the
+# latest run. No human/LLM judgement sets these — verification/run.py reads the
+# pytest/playwright results and stamps each claim. must_pass:true claims gate the
+# build (make verify exits non-zero if any is not verified).
+#
+# status values (set by run.py, never by hand): verified | failing | unverified
+# `test` is a pytest nodeid (file::test) or a substring that matches one.
+
+claims:
+  # ---- impact (the numbers we put on stage) -------------------------------
+  - id: stat-compliance
+    statement: "STAT samples meet their clinical window ≥95% of the time"
+    category: impact
+    must_pass: true
+    test: "tests/backtests/test_routing_sla.py::test_stat_window_compliance"
+
+  - id: beats-baseline
+    statement: "Solver beats naive greedy dispatch on windows met"
+    category: impact
+    must_pass: true
+    test: "tests/backtests/test_routing_sla.py::test_beats_greedy"
+
+  - id: eta-sane
+    statement: "Reported ETAs and total time are physically plausible (no scaling bug)"
+    category: impact
+    must_pass: true
+    test: "tests/backtests/test_routing_sla.py::test_eta_plausibility"
+
+  # ---- performance (the GPU / local story) --------------------------------
+  - id: realtime-replan
+    statement: "Re-optimises within the real-time budget"
+    category: performance
+    must_pass: true
+    test: "tests/backtests/test_routing_sla.py::test_solve_budget"
+
+  - id: no-regression
+    statement: "Solver objective does not regress vs the golden baseline"
+    category: performance
+    must_pass: false
+    test: "tests/backtests/test_routing_sla.py::test_golden_no_regression"
+
+  # ---- contracts (cross-stream integrity) ---------------------------------
+  - id: plan-schema
+    statement: "Every Plan emitted validates against the shared schema"
+    category: contract
+    must_pass: true
+    test: "tests/contracts/test_schema_conformance.py::test_plan_validates"
+
+  - id: job-schema
+    statement: "Every DeliveryJob accepted validates against the shared schema"
+    category: contract
+    must_pass: true
+    test: "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates"
+
+  - id: optimize-contract
+    statement: "Routing /optimize honours the OptimizeRequest/Response contract"
+    category: contract
+    must_pass: true
+    test: "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract"
+
+  # ---- data quality (only verified data is used) --------------------------
+  - id: data-facilities-bbox
+    statement: "All NHS facility coordinates lie within Greater London"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_facilities.py::test_within_london_bbox"
+
+  - id: data-facilities-complete
+    statement: "Facility dataset has no missing required fields or duplicate ids"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_facilities.py::test_required_fields_and_unique"
+
+  - id: data-demand-valid
+    statement: "Synthetic demand is schema-valid with sane time windows"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_demand.py::test_demand_schema_and_windows"
+
+  - id: data-manifest-gate
+    statement: "App only loads datasets whose data-quality suite passed (dq_passed=true)"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_manifest.py::test_only_verified_data_loadable"
+
+  - id: data-roadgraph
+    statement: "Road graph is connected and covers the London bbox"
+    category: data
+    must_pass: false
+    test: "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox"
+
+  # ---- end-to-end demo (the thing we actually show) -----------------------
+  - id: reroute-on-closure
+    statement: "Closing a road triggers a live re-route and scoreboard update"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_demo_flow.py::test_close_road_reroutes"
+
+  - id: voice-loop
+    statement: "A new job produces a voice_call dispatch notification"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_demo_flow.py::test_voice_call_emitted"
