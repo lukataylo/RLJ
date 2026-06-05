@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-06-05T21:50:58.835853+00:00",
+  "scenario_now": "2026-06-05T08:00:00+00:00",
+  "datasets": {
+    "facilities": {
+      "source": "bundled-nhs-london",
+      "path": "data/facilities.json",
+      "rows": 26,
+      "sha256": "d6b868efe1bea1dfe9f3172fabd4980bb0d1dc120883080020d6317e73f6f3ea",
+      "fetched_at": "2026-06-05T21:50:58.821252+00:00",
+      "dq_passed": true,
+      "dq_suite": "tests/data_quality/test_facilities.py"
+    },
+    "demand": {
+      "source": "synthetic(seed=7, now=2026-06-05T08:00:00+00:00)",
+      "path": "data/demand.json",
+      "rows": 30,
+      "sha256": "09297cd1f8cf39f57c271c48630cca2712a27a416d4c5b5cbc0f0dd7e0376ed7",
+      "fetched_at": "2026-06-05T21:50:58.828543+00:00",
+      "dq_passed": true,
+      "dq_suite": "tests/data_quality/test_demand.py"
+    },
+    "roads": {
+      "source": "synthetic-grid (osmnx if available)",
+      "path": "frontend/public/data/roads.geojson",
+      "rows": 586,
+      "sha256": "564c9538bb832d3365971ce86104476639f06ebc7994e11a7dcab5c92644f17a",
+      "fetched_at": "2026-06-05T21:50:58.835849+00:00",
+      "dq_passed": true,
+      "dq_suite": "tests/data_quality/test_road_graph.py"
+    }
+  }
+}

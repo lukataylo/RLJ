@@ -26,8 +26,9 @@ from models import (
     Stop,
 )
 
-AVG_SPEED_MPS = 6.5   # keep identical to orchestrator/greedy.py for fair comparison
+AVG_SPEED_MPS = 6.5
 SERVICE_S = 120
+CIRCUITY = 1.4   # match traveltime.py so greedy and ACO/LS use the same travel model
 PRIORITY_RANK = {"stat": 0, "urgent": 1, "routine": 2}
 
 
@@ -35,7 +36,7 @@ def _haversine_m(a, b) -> float:
     lat1, lng1, lat2, lng2 = map(radians, [a.lat, a.lng, b.lat, b.lng])
     dlat, dlng = lat2 - lat1, lng2 - lng1
     h = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlng / 2) ** 2
-    return 2 * 6_371_000 * asin(sqrt(h))
+    return 2 * 6_371_000 * asin(sqrt(h)) * CIRCUITY
 
 
 # =====================================================================================
@@ -61,7 +62,11 @@ def greedy_plan(req: OptimizeRequest, *, solver_name: str = "greedy-fallback") -
     windows_met = 0
 
     for job in jobs:
-        candidates = [c for c in couriers if state[c.id][2] >= job.capacity_units]
+        # respect capacity AND cold-chain capability (an honest baseline never counts an
+        # infeasible cold assignment as a met window)
+        candidates = [c for c in couriers
+                      if state[c.id][2] >= job.capacity_units
+                      and (not job.cold_chain or bool(getattr(c, "cold_capable", True)))]
         if not candidates:
             unassigned.append(job.id)
             continue

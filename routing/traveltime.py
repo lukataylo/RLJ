@@ -39,9 +39,16 @@ except Exception:  # noqa: BLE001 - any import failure means "no GPU here"
 import numpy as np  # always available; used for host-side return values
 
 EARTH_RADIUS_M = 6_371_000.0
-# ~23 km/h urban average including stops — matches orchestrator/greedy.py so the
-# baseline comparison in bench.py is apples-to-apples.
+# ~23 km/h urban average including stops.
 AVG_SPEED_MPS = 6.5
+# Straight-line -> road distance multiplier (urban circuity). Real driving distance is
+# ~1.3-1.5x great-circle; using it makes ETAs realistic vs the greedy straight-line model.
+CIRCUITY = 1.4
+# Disruption model (approximate, no road graph): a leg whose straight segment passes
+# within CLOSURE_RADIUS_M of a closure/traffic geometry is inflated by these factors.
+CLOSURE_RADIUS_M = 350.0
+ROAD_CLOSURE_FACTOR = 6.0   # detour: effectively forces the solver around the closure
+TRAFFIC_FACTOR = 2.0        # congestion: slower but passable
 
 
 def haversine_matrix(lats: Sequence[float], lngs: Sequence[float]) -> np.ndarray:
@@ -78,17 +85,63 @@ def build_travel_time_matrix(
     multiplier seam (see below) but does not yet do true edge-level closures — that is
     the job of the road-graph tiers.
     """
-    dist_m = haversine_matrix(lats, lngs)
+    dist_m = haversine_matrix(lats, lngs) * CIRCUITY
     travel_s = dist_m / max(speed_mps, 1e-6)
 
-    # --- disruption seam ------------------------------------------------------------
-    # Road-graph tiers will remove/penalise the closed edges and re-run SSSP. With only
-    # a straight-line model we cannot know which legs cross a closure, so we leave the
-    # matrix unchanged here and document the seam. (A cheap approximation a future PR
-    # could add: inflate any leg whose segment passes within R metres of a closure
-    # polyline by a congestion factor.)
-    _ = disruptions
+    # --- disruption penalties -------------------------------------------------------
+    # Approximation of the road-graph tiers' edge removal: inflate any leg whose straight
+    # segment passes within CLOSURE_RADIUS_M of a closure/traffic geometry. This is what
+    # makes "close a road" actually re-route the solver without a full road graph.
+    if disruptions:
+        travel_s = _apply_disruptions(travel_s, np.asarray(lats, dtype=np.float64),
+                                      np.asarray(lngs, dtype=np.float64), disruptions)
     return travel_s
+
+
+def _point_seg_min_m(plat, plng, alat, alng, blat, blng, samples: int = 5) -> float:
+    """Min great-circle distance (m) between sampled points of segment a->b and point p.
+    Cheap equirectangular approximation — fine at city scale."""
+    ts = np.linspace(0.0, 1.0, samples)
+    slat = alat + (blat - alat) * ts
+    slng = alng + (blng - alng) * ts
+    mlat = np.radians((slat + plat) / 2.0)
+    dx = np.radians(slng - plng) * np.cos(mlat)
+    dy = np.radians(slat - plat)
+    return float(np.min(np.hypot(dx, dy)) * EARTH_RADIUS_M)
+
+
+def _disruption_points(d) -> list[tuple[float, float]]:
+    geom = d.geometry if hasattr(d, "geometry") else d.get("geometry")
+    pts = []
+    for g in (geom or []):
+        if hasattr(g, "lat"):
+            pts.append((g.lat, g.lng))
+        else:
+            pts.append((g["lat"], g["lng"]))
+    return pts
+
+
+def _apply_disruptions(travel_s: np.ndarray, lats, lngs, disruptions) -> np.ndarray:
+    out = travel_s.copy()
+    N = len(lats)
+    for d in disruptions:
+        kind = d.kind if hasattr(d, "kind") else d.get("kind")
+        if kind == "courier_down":
+            continue  # handled by marking the courier offline upstream
+        factor = ROAD_CLOSURE_FACTOR if kind == "road_closure" else TRAFFIC_FACTOR
+        pts = _disruption_points(d)
+        if not pts:
+            continue
+        for i in range(N):
+            for j in range(i + 1, N):
+                hit = any(
+                    _point_seg_min_m(plat, plng, lats[i], lngs[i], lats[j], lngs[j]) < CLOSURE_RADIUS_M
+                    for plat, plng in pts
+                )
+                if hit:
+                    out[i, j] *= factor
+                    out[j, i] *= factor
+    return out
 
 
 # =====================================================================================

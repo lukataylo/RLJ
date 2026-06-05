@@ -22,6 +22,7 @@ import logging
 
 from fastapi import FastAPI
 
+import solver
 import solver_aco
 import solver_baseline
 from models import OptimizeRequest, OptimizeResponse, Plan
@@ -35,7 +36,7 @@ app = FastAPI(title="RLJ Routing Service", version="0.1.0")
 def _select_solver() -> str:
     """Decide the headline solver for /healthz. ACO is always available; its label
     reflects whether the CuPy GPU backend is active (gpu-aco) or numpy (aco-numpy)."""
-    return solver_aco.SOLVER_NAME
+    return solver.SOLVER_NAME
 
 
 SELECTED_SOLVER = _select_solver()
@@ -43,11 +44,11 @@ SELECTED_SOLVER = _select_solver()
 
 def _solve(req: OptimizeRequest) -> Plan:
     """Run the fallback ladder. Always returns a valid Plan."""
-    # Rung 1 — custom GPU/numpy ACO (headline).
+    # Rung 1 — production portfolio: greedy + insertion + GPU ACO, all local-search refined.
     try:
-        return solver_aco.solve(req)
+        return solver.plan(req)
     except Exception:  # noqa: BLE001
-        log.exception("ACO solver failed; descending the fallback ladder")
+        log.exception("portfolio solver failed; descending the fallback ladder")
 
     # Rung 2 — NVIDIA cuOpt (GPU, optional).
     try:

@@ -1,0 +1,184 @@
+[
+  {
+    "id": "RJ1-STH",
+    "name": "St Thomas' Hospital",
+    "type": "hospital",
+    "lat": 51.498,
+    "lng": -0.1188
+  },
+  {
+    "id": "RJ1-GUY",
+    "name": "Guy's Hospital",
+    "type": "hospital",
+    "lat": 51.5033,
+    "lng": -0.0875
+  },
+  {
+    "id": "R1H-RLH",
+    "name": "Royal London Hospital",
+    "type": "hospital",
+    "lat": 51.519,
+    "lng": -0.059
+  },
+  {
+    "id": "RRV-UCH",
+    "name": "University College Hospital (UCLH)",
+    "type": "hospital",
+    "lat": 51.5246,
+    "lng": -0.1357
+  },
+  {
+    "id": "RJZ-KCH",
+    "name": "King's College Hospital",
+    "type": "hospital",
+    "lat": 51.4685,
+    "lng": -0.0937
+  },
+  {
+    "id": "RRV-BART",
+    "name": "St Bartholomew's Hospital",
+    "type": "hospital",
+    "lat": 51.5176,
+    "lng": -0.1003
+  },
+  {
+    "id": "RYJ-CXH",
+    "name": "Charing Cross Hospital",
+    "type": "hospital",
+    "lat": 51.487,
+    "lng": -0.2186
+  },
+  {
+    "id": "RAL-RFH",
+    "name": "Royal Free Hospital",
+    "type": "hospital",
+    "lat": 51.553,
+    "lng": -0.1647
+  },
+  {
+    "id": "RQM-CWH",
+    "name": "Chelsea and Westminster Hospital",
+    "type": "hospital",
+    "lat": 51.4842,
+    "lng": -0.1817
+  },
+  {
+    "id": "RYJ-SMH",
+    "name": "St Mary's Hospital, Paddington",
+    "type": "hospital",
+    "lat": 51.517,
+    "lng": -0.1736
+  },
+  {
+    "id": "RYJ-HMH",
+    "name": "Hammersmith Hospital",
+    "type": "hospital",
+    "lat": 51.5167,
+    "lng": -0.236
+  },
+  {
+    "id": "RKE-WHT",
+    "name": "Whittington Hospital",
+    "type": "hospital",
+    "lat": 51.5658,
+    "lng": -0.139
+  },
+  {
+    "id": "RQX-HOM",
+    "name": "Homerton University Hospital",
+    "type": "hospital",
+    "lat": 51.5497,
+    "lng": -0.0445
+  },
+  {
+    "id": "LAB-HSL",
+    "name": "Health Services Laboratories (The Halo Building)",
+    "type": "lab",
+    "lat": 51.529,
+    "lng": -0.12
+  },
+  {
+    "id": "LAB-SYN",
+    "name": "Synnovis Pathology (Guy's)",
+    "type": "lab",
+    "lat": 51.503,
+    "lng": -0.0882
+  },
+  {
+    "id": "LAB-TDL",
+    "name": "The Doctors Laboratory (TDL)",
+    "type": "lab",
+    "lat": 51.521,
+    "lng": -0.139
+  },
+  {
+    "id": "LAB-VPK",
+    "name": "Viapath North Pathology Hub",
+    "type": "lab",
+    "lat": 51.469,
+    "lng": -0.093
+  },
+  {
+    "id": "GP-HURLEY",
+    "name": "The Hurley Clinic",
+    "type": "gp",
+    "lat": 51.492,
+    "lng": -0.11
+  },
+  {
+    "id": "GP-SPF",
+    "name": "Spitalfields Practice",
+    "type": "gp",
+    "lat": 51.519,
+    "lng": -0.075
+  },
+  {
+    "id": "GP-BLOOM",
+    "name": "Bloomsbury Surgery",
+    "type": "gp",
+    "lat": 51.523,
+    "lng": -0.128
+  },
+  {
+    "id": "GP-HAMP",
+    "name": "Hampstead Group Practice",
+    "type": "gp",
+    "lat": 51.555,
+    "lng": -0.178
+  },
+  {
+    "id": "CL-VICT",
+    "name": "Victoria Medical Centre",
+    "type": "clinic",
+    "lat": 51.4935,
+    "lng": -0.142
+  },
+  {
+    "id": "PH-BOOTS-PIC",
+    "name": "Boots Pharmacy, Piccadilly Circus",
+    "type": "pharmacy",
+    "lat": 51.5098,
+    "lng": -0.1342
+  },
+  {
+    "id": "PH-JBC",
+    "name": "John Bell & Croyden Pharmacy",
+    "type": "pharmacy",
+    "lat": 51.5176,
+    "lng": -0.151
+  },
+  {
+    "id": "PH-ZAFASH",
+    "name": "Zafash 24hr Pharmacy",
+    "type": "pharmacy",
+    "lat": 51.491,
+    "lng": -0.193
+  },
+  {
+    "id": "PH-BLISS",
+    "name": "Bliss Chemist, Marble Arch",
+    "type": "pharmacy",
+    "lat": 51.5135,
+    "lng": -0.16
+  }
+]

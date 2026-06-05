@@ -1,0 +1,773 @@
+[
+  {
+    "id": "job-0000",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.492,
+      "lng": -0.11,
+      "name": "The Hurley Clinic",
+      "facility_id": "GP-HURLEY"
+    },
+    "destination": {
+      "lat": 51.521,
+      "lng": -0.139,
+      "name": "The Doctors Laboratory (TDL)",
+      "facility_id": "LAB-TDL"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:03:00+00:00",
+      "due_by": "2026-06-05T10:04:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT sample pickup from The Hurley Clinic to The Doctors Laboratory (TDL)"
+  },
+  {
+    "id": "job-0001",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.492,
+      "lng": -0.11,
+      "name": "The Hurley Clinic",
+      "facility_id": "GP-HURLEY"
+    },
+    "destination": {
+      "lat": 51.517,
+      "lng": -0.1736,
+      "name": "St Mary's Hospital, Paddington",
+      "facility_id": "RYJ-SMH"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:07:00+00:00",
+      "due_by": "2026-06-05T10:59:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE sample pickup from The Hurley Clinic to St Mary's Hospital, Paddington"
+  },
+  {
+    "id": "job-0002",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.519,
+      "lng": -0.075,
+      "name": "Spitalfields Practice",
+      "facility_id": "GP-SPF"
+    },
+    "destination": {
+      "lat": 51.503,
+      "lng": -0.0882,
+      "name": "Synnovis Pathology (Guy's)",
+      "facility_id": "LAB-SYN"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:12:00+00:00",
+      "due_by": "2026-06-05T08:58:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT sample pickup from Spitalfields Practice to Synnovis Pathology (Guy's)"
+  },
+  {
+    "id": "job-0003",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.491,
+      "lng": -0.193,
+      "name": "Zafash 24hr Pharmacy",
+      "facility_id": "PH-ZAFASH"
+    },
+    "destination": {
+      "lat": 51.46802,
+      "lng": -0.07047,
+      "name": "Patient residence"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:17:00+00:00",
+      "due_by": "2026-06-05T09:23:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT medication delivery from Zafash 24hr Pharmacy to patient"
+  },
+  {
+    "id": "job-0004",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.519,
+      "lng": -0.075,
+      "name": "Spitalfields Practice",
+      "facility_id": "GP-SPF"
+    },
+    "destination": {
+      "lat": 51.553,
+      "lng": -0.1647,
+      "name": "Royal Free Hospital",
+      "facility_id": "RAL-RFH"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:22:00+00:00",
+      "due_by": "2026-06-05T09:09:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT sample pickup from Spitalfields Practice to Royal Free Hospital"
+  },
+  {
+    "id": "job-0005",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.4935,
+      "lng": -0.142,
+      "name": "Victoria Medical Centre",
+      "facility_id": "CL-VICT"
+    },
+    "destination": {
+      "lat": 51.517,
+      "lng": -0.1736,
+      "name": "St Mary's Hospital, Paddington",
+      "facility_id": "RYJ-SMH"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:14:00+00:00",
+      "due_by": "2026-06-05T11:22:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE sample pickup from Victoria Medical Centre to St Mary's Hospital, Paddington"
+  },
+  {
+    "id": "job-0006",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.519,
+      "lng": -0.075,
+      "name": "Spitalfields Practice",
+      "facility_id": "GP-SPF"
+    },
+    "destination": {
+      "lat": 51.5246,
+      "lng": -0.1357,
+      "name": "University College Hospital (UCLH)",
+      "facility_id": "RRV-UCH"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:09:00+00:00",
+      "due_by": "2026-06-05T10:15:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT sample pickup from Spitalfields Practice to University College Hospital (UCLH)"
+  },
+  {
+    "id": "job-0007",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.491,
+      "lng": -0.193,
+      "name": "Zafash 24hr Pharmacy",
+      "facility_id": "PH-ZAFASH"
+    },
+    "destination": {
+      "lat": 51.50788,
+      "lng": -0.29486,
+      "name": "Patient residence"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:05:00+00:00",
+      "due_by": "2026-06-05T11:19:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE medication delivery from Zafash 24hr Pharmacy to patient"
+  },
+  {
+    "id": "job-0008",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.492,
+      "lng": -0.11,
+      "name": "The Hurley Clinic",
+      "facility_id": "GP-HURLEY"
+    },
+    "destination": {
+      "lat": 51.521,
+      "lng": -0.139,
+      "name": "The Doctors Laboratory (TDL)",
+      "facility_id": "LAB-TDL"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:18:00+00:00",
+      "due_by": "2026-06-05T09:28:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT sample pickup from The Hurley Clinic to The Doctors Laboratory (TDL)"
+  },
+  {
+    "id": "job-0009",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.555,
+      "lng": -0.178,
+      "name": "Hampstead Group Practice",
+      "facility_id": "GP-HAMP"
+    },
+    "destination": {
+      "lat": 51.5167,
+      "lng": -0.236,
+      "name": "Hammersmith Hospital",
+      "facility_id": "RYJ-HMH"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:02:00+00:00",
+      "due_by": "2026-06-05T10:22:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT sample pickup from Hampstead Group Practice to Hammersmith Hospital"
+  },
+  {
+    "id": "job-0010",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.5098,
+      "lng": -0.1342,
+      "name": "Boots Pharmacy, Piccadilly Circus",
+      "facility_id": "PH-BOOTS-PIC"
+    },
+    "destination": {
+      "lat": 51.53354,
+      "lng": -0.18139,
+      "name": "Patient residence"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:21:00+00:00",
+      "due_by": "2026-06-05T10:37:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT medication delivery from Boots Pharmacy, Piccadilly Circus to patient"
+  },
+  {
+    "id": "job-0011",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.523,
+      "lng": -0.128,
+      "name": "Bloomsbury Surgery",
+      "facility_id": "GP-BLOOM"
+    },
+    "destination": {
+      "lat": 51.529,
+      "lng": -0.12,
+      "name": "Health Services Laboratories (The Halo Building)",
+      "facility_id": "LAB-HSL"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:11:00+00:00",
+      "due_by": "2026-06-05T10:06:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT sample pickup from Bloomsbury Surgery to Health Services Laboratories (The Halo Building)"
+  },
+  {
+    "id": "job-0012",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.523,
+      "lng": -0.128,
+      "name": "Bloomsbury Surgery",
+      "facility_id": "GP-BLOOM"
+    },
+    "destination": {
+      "lat": 51.498,
+      "lng": -0.1188,
+      "name": "St Thomas' Hospital",
+      "facility_id": "RJ1-STH"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:12:00+00:00",
+      "due_by": "2026-06-05T10:14:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT sample pickup from Bloomsbury Surgery to St Thomas' Hospital"
+  },
+  {
+    "id": "job-0013",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.4935,
+      "lng": -0.142,
+      "name": "Victoria Medical Centre",
+      "facility_id": "CL-VICT"
+    },
+    "destination": {
+      "lat": 51.4685,
+      "lng": -0.0937,
+      "name": "King's College Hospital",
+      "facility_id": "RJZ-KCH"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:26:00+00:00",
+      "due_by": "2026-06-05T09:24:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT sample pickup from Victoria Medical Centre to King's College Hospital"
+  },
+  {
+    "id": "job-0014",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.5135,
+      "lng": -0.16,
+      "name": "Bliss Chemist, Marble Arch",
+      "facility_id": "PH-BLISS"
+    },
+    "destination": {
+      "lat": 51.58112,
+      "lng": -0.25756,
+      "name": "Patient residence"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:07:00+00:00",
+      "due_by": "2026-06-05T11:18:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE medication delivery from Bliss Chemist, Marble Arch to patient"
+  },
+  {
+    "id": "job-0015",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.5176,
+      "lng": -0.151,
+      "name": "John Bell & Croyden Pharmacy",
+      "facility_id": "PH-JBC"
+    },
+    "destination": {
+      "lat": 51.43518,
+      "lng": -0.32804,
+      "name": "Patient residence"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:11:00+00:00",
+      "due_by": "2026-06-05T09:15:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT medication delivery from John Bell & Croyden Pharmacy to patient"
+  },
+  {
+    "id": "job-0016",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.5098,
+      "lng": -0.1342,
+      "name": "Boots Pharmacy, Piccadilly Circus",
+      "facility_id": "PH-BOOTS-PIC"
+    },
+    "destination": {
+      "lat": 51.4759,
+      "lng": 0.08807,
+      "name": "Patient residence"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:21:00+00:00",
+      "due_by": "2026-06-05T11:36:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE medication delivery from Boots Pharmacy, Piccadilly Circus to patient"
+  },
+  {
+    "id": "job-0017",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.555,
+      "lng": -0.178,
+      "name": "Hampstead Group Practice",
+      "facility_id": "GP-HAMP"
+    },
+    "destination": {
+      "lat": 51.4842,
+      "lng": -0.1817,
+      "name": "Chelsea and Westminster Hospital",
+      "facility_id": "RQM-CWH"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:02:00+00:00",
+      "due_by": "2026-06-05T09:58:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT sample pickup from Hampstead Group Practice to Chelsea and Westminster Hospital"
+  },
+  {
+    "id": "job-0018",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.492,
+      "lng": -0.11,
+      "name": "The Hurley Clinic",
+      "facility_id": "GP-HURLEY"
+    },
+    "destination": {
+      "lat": 51.469,
+      "lng": -0.093,
+      "name": "Viapath North Pathology Hub",
+      "facility_id": "LAB-VPK"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:04:00+00:00",
+      "due_by": "2026-06-05T09:06:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT sample pickup from The Hurley Clinic to Viapath North Pathology Hub"
+  },
+  {
+    "id": "job-0019",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.492,
+      "lng": -0.11,
+      "name": "The Hurley Clinic",
+      "facility_id": "GP-HURLEY"
+    },
+    "destination": {
+      "lat": 51.519,
+      "lng": -0.059,
+      "name": "Royal London Hospital",
+      "facility_id": "R1H-RLH"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:04:00+00:00",
+      "due_by": "2026-06-05T11:14:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE sample pickup from The Hurley Clinic to Royal London Hospital"
+  },
+  {
+    "id": "job-0020",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.555,
+      "lng": -0.178,
+      "name": "Hampstead Group Practice",
+      "facility_id": "GP-HAMP"
+    },
+    "destination": {
+      "lat": 51.469,
+      "lng": -0.093,
+      "name": "Viapath North Pathology Hub",
+      "facility_id": "LAB-VPK"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:15:00+00:00",
+      "due_by": "2026-06-05T11:19:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE sample pickup from Hampstead Group Practice to Viapath North Pathology Hub"
+  },
+  {
+    "id": "job-0021",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.492,
+      "lng": -0.11,
+      "name": "The Hurley Clinic",
+      "facility_id": "GP-HURLEY"
+    },
+    "destination": {
+      "lat": 51.487,
+      "lng": -0.2186,
+      "name": "Charing Cross Hospital",
+      "facility_id": "RYJ-CXH"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:15:00+00:00",
+      "due_by": "2026-06-05T10:31:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT sample pickup from The Hurley Clinic to Charing Cross Hospital"
+  },
+  {
+    "id": "job-0022",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.4935,
+      "lng": -0.142,
+      "name": "Victoria Medical Centre",
+      "facility_id": "CL-VICT"
+    },
+    "destination": {
+      "lat": 51.553,
+      "lng": -0.1647,
+      "name": "Royal Free Hospital",
+      "facility_id": "RAL-RFH"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:17:00+00:00",
+      "due_by": "2026-06-05T11:07:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE sample pickup from Victoria Medical Centre to Royal Free Hospital"
+  },
+  {
+    "id": "job-0023",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.491,
+      "lng": -0.193,
+      "name": "Zafash 24hr Pharmacy",
+      "facility_id": "PH-ZAFASH"
+    },
+    "destination": {
+      "lat": 51.48886,
+      "lng": 0.10596,
+      "name": "Patient residence"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:07:00+00:00",
+      "due_by": "2026-06-05T11:14:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE medication delivery from Zafash 24hr Pharmacy to patient"
+  },
+  {
+    "id": "job-0024",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.519,
+      "lng": -0.075,
+      "name": "Spitalfields Practice",
+      "facility_id": "GP-SPF"
+    },
+    "destination": {
+      "lat": 51.5246,
+      "lng": -0.1357,
+      "name": "University College Hospital (UCLH)",
+      "facility_id": "RRV-UCH"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:23:00+00:00",
+      "due_by": "2026-06-05T11:38:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE sample pickup from Spitalfields Practice to University College Hospital (UCLH)"
+  },
+  {
+    "id": "job-0025",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.492,
+      "lng": -0.11,
+      "name": "The Hurley Clinic",
+      "facility_id": "GP-HURLEY"
+    },
+    "destination": {
+      "lat": 51.529,
+      "lng": -0.12,
+      "name": "Health Services Laboratories (The Halo Building)",
+      "facility_id": "LAB-HSL"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:15:00+00:00",
+      "due_by": "2026-06-05T09:08:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT sample pickup from The Hurley Clinic to Health Services Laboratories (The Halo Building)"
+  },
+  {
+    "id": "job-0026",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.5135,
+      "lng": -0.16,
+      "name": "Bliss Chemist, Marble Arch",
+      "facility_id": "PH-BLISS"
+    },
+    "destination": {
+      "lat": 51.5498,
+      "lng": 0.0171,
+      "name": "Patient residence"
+    },
+    "priority": "routine",
+    "time_window": {
+      "ready_at": "2026-06-05T08:11:00+00:00",
+      "due_by": "2026-06-05T11:03:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "ROUTINE medication delivery from Bliss Chemist, Marble Arch to patient"
+  },
+  {
+    "id": "job-0027",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.523,
+      "lng": -0.128,
+      "name": "Bloomsbury Surgery",
+      "facility_id": "GP-BLOOM"
+    },
+    "destination": {
+      "lat": 51.519,
+      "lng": -0.059,
+      "name": "Royal London Hospital",
+      "facility_id": "R1H-RLH"
+    },
+    "priority": "stat",
+    "time_window": {
+      "ready_at": "2026-06-05T08:28:00+00:00",
+      "due_by": "2026-06-05T09:32:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "STAT sample pickup from Bloomsbury Surgery to Royal London Hospital"
+  },
+  {
+    "id": "job-0028",
+    "type": "med_delivery",
+    "origin": {
+      "lat": 51.5098,
+      "lng": -0.1342,
+      "name": "Boots Pharmacy, Piccadilly Circus",
+      "facility_id": "PH-BOOTS-PIC"
+    },
+    "destination": {
+      "lat": 51.55528,
+      "lng": -0.27245,
+      "name": "Patient residence"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:22:00+00:00",
+      "due_by": "2026-06-05T10:36:00+00:00"
+    },
+    "cold_chain": false,
+    "capacity_units": 1,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT medication delivery from Boots Pharmacy, Piccadilly Circus to patient"
+  },
+  {
+    "id": "job-0029",
+    "type": "sample_pickup",
+    "origin": {
+      "lat": 51.523,
+      "lng": -0.128,
+      "name": "Bloomsbury Surgery",
+      "facility_id": "GP-BLOOM"
+    },
+    "destination": {
+      "lat": 51.521,
+      "lng": -0.139,
+      "name": "The Doctors Laboratory (TDL)",
+      "facility_id": "LAB-TDL"
+    },
+    "priority": "urgent",
+    "time_window": {
+      "ready_at": "2026-06-05T08:23:00+00:00",
+      "due_by": "2026-06-05T10:25:00+00:00"
+    },
+    "cold_chain": true,
+    "capacity_units": 2,
+    "status": "new",
+    "created_at": "2026-06-05T08:00:00+00:00",
+    "raw_text": "URGENT sample pickup from Bloomsbury Surgery to The Doctors Laboratory (TDL)"
+  }
+]

@@ -44,6 +44,7 @@ export interface Courier {
   name?: string;
   location: Location;
   capacity?: number;
+  cold_capable?: boolean;
   status: CourierStatus;
   assigned_route_id?: string | null;
   phone?: string;
@@ -134,3 +135,45 @@ export type WsEvent =
   | { type: "notification"; payload: Notification; ts: string };
 
 export type WsEventType = WsEvent["type"];
+
+// ---- Verification status report (public/status.json, written by verification/run.py) ----
+export type ClaimStatus = "verified" | "failing" | "unverified";
+
+export interface VerificationClaim {
+  id: string;
+  statement: string;
+  category: string;
+  must_pass: boolean;
+  test?: string;
+  status: ClaimStatus;
+  duration_s?: number | null;
+}
+
+export interface VerificationSummary {
+  total: number;
+  verified: number;
+  failing: number;
+  unverified: number;
+  must_pass_total: number;
+  must_pass_verified: number;
+  must_pass_green: boolean;
+}
+
+export interface VerificationReport {
+  generated_at: string;
+  summary: VerificationSummary;
+  claims: VerificationClaim[];
+}
+
+// ---- A single sampled point of operational metrics (for sparklines) ----
+export interface MetricSample {
+  ts: number;
+  windowsMet: number;
+  windowsTotal: number;
+  windowPct: number;
+  solveMs: number | null;
+  totalTimeMin: number | null;
+  activeCouriers: number;
+  statInFlight: number;
+  onTime: number;
+}

@@ -1,0 +1,27 @@
+{
+  "scn-0-5j-3c": {
+    "windows_met": 5,
+    "unassigned": 0,
+    "windows_total": 5
+  },
+  "scn-1-8j-3c": {
+    "windows_met": 8,
+    "unassigned": 0,
+    "windows_total": 8
+  },
+  "scn-2-10j-4c": {
+    "windows_met": 10,
+    "unassigned": 0,
+    "windows_total": 10
+  },
+  "scn-3-12j-4c": {
+    "windows_met": 12,
+    "unassigned": 0,
+    "windows_total": 12
+  },
+  "scn-4-6j-2c": {
+    "windows_met": 6,
+    "unassigned": 0,
+    "windows_total": 6
+  }
+}

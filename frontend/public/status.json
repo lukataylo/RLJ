@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-05T21:39:30.933968+00:00",
+  "generated_at": "2026-06-05T21:50:59.194738+00:00",
   "summary": {
     "total": 15,
-    "verified": 0,
+    "verified": 13,
     "failing": 0,
-    "unverified": 15,
+    "unverified": 2,
     "must_pass_total": 13,
-    "must_pass_verified": 0,
+    "must_pass_verified": 11,
     "must_pass_green": false
   },
   "claims": [
@@ -16,8 +16,8 @@
       "category": "impact",
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_stat_window_compliance",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0002
     },
     {
       "id": "beats-baseline",
@@ -25,8 +25,8 @@
       "category": "impact",
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_beats_greedy",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0008
     },
     {
       "id": "eta-sane",
@@ -34,8 +34,8 @@
       "category": "impact",
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_eta_plausibility",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0001
     },
     {
       "id": "realtime-replan",
@@ -43,8 +43,8 @@
       "category": "performance",
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_solve_budget",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0001
     },
     {
       "id": "no-regression",
@@ -52,8 +52,8 @@
       "category": "performance",
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0002
     },
     {
       "id": "plan-schema",
@@ -61,8 +61,8 @@
       "category": "contract",
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0473
     },
     {
       "id": "job-schema",
@@ -70,8 +70,8 @@
       "category": "contract",
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0453
     },
     {
       "id": "optimize-contract",
@@ -79,8 +79,8 @@
       "category": "contract",
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.049
     },
     {
       "id": "data-facilities-bbox",
@@ -88,8 +88,8 @@
       "category": "data",
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0054
     },
     {
       "id": "data-facilities-complete",
@@ -97,8 +97,8 @@
       "category": "data",
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0161
     },
     {
       "id": "data-demand-valid",
@@ -106,8 +106,8 @@
       "category": "data",
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0091
     },
     {
       "id": "data-manifest-gate",
@@ -115,8 +115,8 @@
       "category": "data",
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0231
     },
     {
       "id": "data-roadgraph",
@@ -124,8 +124,8 @@
       "category": "data",
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0462
     },
     {
       "id": "reroute-on-closure",

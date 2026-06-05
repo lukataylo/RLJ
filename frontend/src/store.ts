@@ -1,4 +1,5 @@
 // Small zustand store holding live operational state, updated from WS events.
+// Single source of truth for the UI; also retains a short metric history for sparklines.
 
 import { create } from "zustand";
 import type {
@@ -6,11 +7,13 @@ import type {
   Courier,
   DeliveryJob,
   DisruptionEvent,
+  MetricSample,
   Notification,
   Plan,
   StateSnapshot,
   WsEvent,
 } from "./types";
+import { sampleMetrics } from "./lib/format";
 
 export interface LogLine {
   ts: string;
@@ -27,15 +30,18 @@ interface OpsState {
   disruptions: DisruptionEvent[];
   logs: LogLine[];
   lastNotification: Notification | null;
+  history: MetricSample[];
+  selectedCourierId: string | null;
 
-  // derived selectors are computed in components; these are the mutators:
   setConnected: (v: boolean) => void;
   hydrate: (snap: StateSnapshot) => void;
   applyEvent: (e: WsEvent) => void;
   pushLog: (line: Omit<LogLine, "ts"> & { ts?: string }) => void;
+  selectCourier: (id: string | null) => void;
 }
 
 const MAX_LOGS = 200;
+const MAX_HISTORY = 60;
 
 function byId<T extends { id: string }>(arr: T[]): Record<string, T> {
   const out: Record<string, T> = {};
@@ -51,16 +57,22 @@ export const useStore = create<OpsState>((set, get) => ({
   disruptions: [],
   logs: [],
   lastNotification: null,
+  history: [],
+  selectedCourierId: null,
 
   setConnected: (v) => set({ connected: v }),
 
-  hydrate: (snap) =>
+  selectCourier: (id) => set({ selectedCourierId: id }),
+
+  hydrate: (snap) => {
     set({
       jobs: byId(snap.jobs ?? []),
       couriers: byId(snap.couriers ?? []),
       plan: snap.plan ?? null,
       disruptions: snap.disruptions ?? [],
-    }),
+    });
+    recordSample(get, set);
+  },
 
   pushLog: (line) =>
     set((s) => ({
@@ -84,10 +96,12 @@ export const useStore = create<OpsState>((set, get) => ({
       case "job_created": {
         const job = e.payload as DeliveryJob;
         set((s) => ({ jobs: { ...s.jobs, [job.id]: job } }));
+        recordSample(get, set);
         break;
       }
       case "plan_updated": {
         set({ plan: e.payload as Plan });
+        recordSample(get, set);
         break;
       }
       case "courier_moved": {
@@ -133,3 +147,16 @@ export const useStore = create<OpsState>((set, get) => ({
     }
   },
 }));
+
+function recordSample(
+  get: () => OpsState,
+  set: (partial: Partial<OpsState>) => void,
+) {
+  const s = get();
+  const sample = sampleMetrics(
+    s.plan,
+    Object.values(s.jobs),
+    Object.values(s.couriers),
+  );
+  set({ history: [...s.history, sample].slice(-MAX_HISTORY) });
+}
