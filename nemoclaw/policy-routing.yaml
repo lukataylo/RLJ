@@ -1,0 +1,9 @@
+preset:
+  name: rlj-routing
+  description: "RLJ routing reasoning — fully local, no outbound network (inference.local only)"
+
+# No network_policies block: the sandbox keeps only its default local inference access.
+# Patient-derived job data stays on the box. Verify with:
+#   nemoclaw rlj-routing exec -- bash -c 'curl -sS --max-time 5 https://example.com'
+#   -> expect: curl: (56) CONNECT tunnel failed, response 403
+network_policies: {}

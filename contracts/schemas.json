@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RLJ shared data model",
+  "description": "Canonical entities exchanged between voice, routing, frontend and the orchestrator. Language-neutral; mirror these in pydantic (orchestrator/models.py) and TypeScript (frontend/src/types.ts).",
+  "$defs": {
+    "LatLng": {
+      "type": "object",
+      "required": ["lat", "lng"],
+      "properties": {
+        "lat": { "type": "number" },
+        "lng": { "type": "number" }
+      }
+    },
+    "Location": {
+      "type": "object",
+      "required": ["lat", "lng"],
+      "properties": {
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "name": { "type": "string", "description": "e.g. 'St Thomas' Hospital lab'" },
+        "facility_id": { "type": "string", "description": "NHS ODS code or local id, if known" }
+      }
+    },
+    "Priority": {
+      "type": "string",
+      "enum": ["stat", "urgent", "routine"],
+      "description": "stat = drop everything (clinical emergency); urgent = same-window; routine = best effort"
+    },
+    "TimeWindow": {
+      "type": "object",
+      "properties": {
+        "ready_at": { "type": "string", "format": "date-time", "description": "earliest pickup" },
+        "due_by":   { "type": "string", "format": "date-time", "description": "clinical deadline at destination" }
+      }
+    },
+    "DeliveryJob": {
+      "type": "object",
+      "required": ["id", "type", "origin", "destination", "priority", "status"],
+      "properties": {
+        "id":        { "type": "string" },
+        "type":      { "type": "string", "enum": ["sample_pickup", "med_delivery"] },
+        "origin":      { "$ref": "#/$defs/Location" },
+        "destination": { "$ref": "#/$defs/Location" },
+        "priority":  { "$ref": "#/$defs/Priority" },
+        "time_window": { "$ref": "#/$defs/TimeWindow" },
+        "cold_chain": { "type": "boolean", "default": false },
+        "capacity_units": { "type": "number", "default": 1, "description": "load consumed on the vehicle" },
+        "status":    { "type": "string", "enum": ["new", "assigned", "in_transit", "delivered", "failed"], "default": "new" },
+        "raw_text":  { "type": "string", "description": "verbatim intake from the voice agent, for traceability" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Courier": {
+      "type": "object",
+      "required": ["id", "location", "status"],
+      "properties": {
+        "id":       { "type": "string" },
+        "name":     { "type": "string" },
+        "location": { "$ref": "#/$defs/Location" },
+        "capacity": { "type": "number", "default": 6 },
+        "status":   { "type": "string", "enum": ["idle", "enroute", "offline"], "default": "idle" },
+        "assigned_route_id": { "type": ["string", "null"] },
+        "phone":    { "type": "string", "description": "for outbound voice ETA calls" }
+      }
+    },
+    "Stop": {
+      "type": "object",
+      "required": ["job_id", "kind", "location", "sequence"],
+      "properties": {
+        "job_id":   { "type": "string" },
+        "kind":     { "type": "string", "enum": ["pickup", "dropoff"] },
+        "location": { "$ref": "#/$defs/Location" },
+        "sequence": { "type": "integer", "description": "order within the route, 0-based" },
+        "eta":      { "type": "string", "format": "date-time" },
+        "window_met": { "type": "boolean", "description": "is eta within the job's due_by" }
+      }
+    },
+    "Route": {
+      "type": "object",
+      "required": ["courier_id", "stops"],
+      "properties": {
+        "courier_id":     { "type": "string" },
+        "stops":          { "type": "array", "items": { "$ref": "#/$defs/Stop" } },
+        "polyline":       { "type": "array", "items": { "$ref": "#/$defs/LatLng" }, "description": "decoded path for the map" },
+        "total_time_s":   { "type": "number" },
+        "total_distance_m": { "type": "number" },
+        "feasible":       { "type": "boolean" }
+      }
+    },
+    "Plan": {
+      "type": "object",
+      "required": ["routes", "generated_at"],
+      "properties": {
+        "routes":      { "type": "array", "items": { "$ref": "#/$defs/Route" } },
+        "unassigned":  { "type": "array", "items": { "type": "string" }, "description": "job ids that could not be served" },
+        "objective": {
+          "type": "object",
+          "properties": {
+            "total_time_s":   { "type": "number" },
+            "windows_met":    { "type": "integer" },
+            "windows_total":  { "type": "integer" },
+            "solver":         { "type": "string", "description": "e.g. 'gpu-aco', 'cuopt', 'greedy-fallback'" },
+            "solve_ms":       { "type": "number" }
+          }
+        },
+        "generated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DisruptionEvent": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id":    { "type": "string" },
+        "kind":  { "type": "string", "enum": ["road_closure", "traffic", "courier_down"] },
+        "geometry": { "type": "array", "items": { "$ref": "#/$defs/LatLng" }, "description": "closed segment / affected area" },
+        "courier_id": { "type": ["string", "null"], "description": "set when kind=courier_down" },
+        "source": { "type": "string", "enum": ["tfl", "manual"], "default": "manual" },
+        "at":    { "type": "string", "format": "date-time" }
+      }
+    },
+    "Notification": {
+      "type": "object",
+      "required": ["id", "channel", "message"],
+      "description": "Emitted by the orchestrator; consumed by the voice agent (call/TTS) or shown in the UI.",
+      "properties": {
+        "id":      { "type": "string" },
+        "channel": { "type": "string", "enum": ["voice_call", "telegram", "ui"] },
+        "to":      { "type": "string", "description": "courier/clinic phone or chat id" },
+        "job_id":  { "type": ["string", "null"] },
+        "message": { "type": "string", "description": "what to say / show" }
+      }
+    },
+    "OptimizeRequest": {
+      "type": "object",
+      "description": "Orchestrator -> routing service. The routing stream implements POST /optimize for exactly this.",
+      "required": ["jobs", "couriers"],
+      "properties": {
+        "jobs":        { "type": "array", "items": { "$ref": "#/$defs/DeliveryJob" } },
+        "couriers":    { "type": "array", "items": { "$ref": "#/$defs/Courier" } },
+        "disruptions": { "type": "array", "items": { "$ref": "#/$defs/DisruptionEvent" } },
+        "now":         { "type": "string", "format": "date-time", "description": "planning clock" }
+      }
+    },
+    "OptimizeResponse": {
+      "type": "object",
+      "required": ["plan"],
+      "properties": {
+        "plan": { "$ref": "#/$defs/Plan" }
+      }
+    }
+  }
+}

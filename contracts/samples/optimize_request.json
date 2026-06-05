@@ -1,0 +1,31 @@
+{
+  "now": "2026-06-06T09:00:00Z",
+  "couriers": [
+    { "id": "crt-1", "name": "Van A", "location": { "lat": 51.5079, "lng": -0.0877, "name": "London Bridge depot" }, "capacity": 6, "status": "idle", "assigned_route_id": null, "phone": "+44700900001" },
+    { "id": "crt-2", "name": "Van B", "location": { "lat": 51.5246, "lng": -0.1340, "name": "Euston depot" }, "capacity": 6, "status": "idle", "assigned_route_id": null, "phone": "+44700900002" }
+  ],
+  "jobs": [
+    {
+      "id": "job-1", "type": "sample_pickup", "priority": "stat", "cold_chain": true, "capacity_units": 1, "status": "new",
+      "origin": { "lat": 51.5290, "lng": -0.1225, "name": "Somers Town GP surgery" },
+      "destination": { "lat": 51.4980, "lng": -0.1188, "name": "St Thomas' Hospital lab", "facility_id": "RJ122" },
+      "time_window": { "ready_at": "2026-06-06T09:00:00Z", "due_by": "2026-06-06T10:30:00Z" },
+      "raw_text": "Urgent INR bloods from Somers Town surgery to St Thomas lab by half ten, cold chain."
+    },
+    {
+      "id": "job-2", "type": "med_delivery", "priority": "urgent", "cold_chain": false, "capacity_units": 2, "status": "new",
+      "origin": { "lat": 51.5185, "lng": -0.0731, "name": "Royal London pharmacy" },
+      "destination": { "lat": 51.5416, "lng": -0.0042, "name": "Bow housebound patient" },
+      "time_window": { "ready_at": "2026-06-06T09:15:00Z", "due_by": "2026-06-06T12:00:00Z" },
+      "raw_text": "Insulin delivery to housebound patient in Bow before midday."
+    },
+    {
+      "id": "job-3", "type": "sample_pickup", "priority": "routine", "cold_chain": true, "capacity_units": 1, "status": "new",
+      "origin": { "lat": 51.5410, "lng": -0.1430, "name": "Camden clinic" },
+      "destination": { "lat": 51.4980, "lng": -0.1188, "name": "St Thomas' Hospital lab", "facility_id": "RJ122" },
+      "time_window": { "ready_at": "2026-06-06T09:30:00Z", "due_by": "2026-06-06T13:00:00Z" },
+      "raw_text": "Routine histology samples, Camden clinic to St Thomas, sometime this afternoon."
+    }
+  ],
+  "disruptions": []
+}

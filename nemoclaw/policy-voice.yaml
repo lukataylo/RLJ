@@ -1,0 +1,26 @@
+preset:
+  name: rlj-voice
+  description: "RLJ voice agent — ElevenLabs + local orchestrator egress only"
+
+network_policies:
+  rlj-voice:
+    name: rlj-voice
+    endpoints:
+      - host: api.elevenlabs.io
+        port: 443
+        access: full
+        tls: skip
+      - host: host.openshell.internal   # the local orchestrator on the host
+        port: 8000
+        access: full
+        tls: skip
+      # Optional courier notifications via Telegram — uncomment to enable:
+      # - host: api.telegram.org
+      #   port: 443
+      #   access: full
+      #   tls: skip
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/node }
+      - { path: /usr/bin/curl }
