@@ -1,55 +1,66 @@
-// Shared command-center palette. Hex for CSS-in-JS, RGB tuples for deck.gl layers.
+// Shared command-center palette — TRON neon edition.
+// Hex for CSS-in-JS, RGB tuples for deck.gl layers.
+//
+// Direction: near-black base, electric cyan primary, hot-orange secondary
+// (classic Tron cyan-vs-orange). Status colours keep their meaning:
+//   STAT = neon red/orange · urgent = amber · routine = cyan-blue.
 
 import type { Priority, CourierStatus } from "../types";
 
 export const HEX = {
-  bg0: "#0a0e16",
-  bg1: "#0d1117",
-  panel: "rgba(255,255,255,0.04)",
-  panelBorder: "rgba(255,255,255,0.08)",
-  muted: "#8b97a8",
-  text: "#ffffff",
-  green: "#3ddc84",
-  amber: "#ffb020",
-  red: "#ff4d4f",
-  blue: "#4da6ff",
-  cyan: "#22d3ee",
+  bg0: "#05070d",
+  bg1: "#060a12",
+  panel: "rgba(120,200,255,0.045)",
+  panelBorder: "rgba(0,229,255,0.22)",
+  muted: "#7f93ad",
+  text: "#eaf6ff",
+  // Tron accents
+  cyan: "#18f0ff", // primary
+  cyanDeep: "#00e5ff",
+  orange: "#ff9d2f", // secondary / contrast
+  orangeHot: "#ff7a18",
+  blue: "#4ea8ff", // electric mid
+  // status
+  green: "#23f0c7", // neon mint (idle / good)
+  amber: "#ffc24b",
+  red: "#ff3b5c",
 } as const;
 
-// Priority colours (UI + map).
+// Priority colours (UI + map). STAT pops neon red, urgent amber, routine cyan-blue.
 export const PRIORITY_HEX: Record<Priority, string> = {
-  stat: "#ff4d4f",
-  urgent: "#ffb020",
-  routine: "#4da6ff",
+  stat: "#ff3b5c",
+  urgent: "#ffc24b",
+  routine: "#4ea8ff",
 };
 
 export const PRIORITY_RGB: Record<Priority, [number, number, number]> = {
-  stat: [255, 77, 79],
-  urgent: [255, 176, 32],
-  routine: [77, 166, 255],
+  stat: [255, 59, 92],
+  urgent: [255, 194, 75],
+  routine: [78, 168, 255],
 };
 
 export const COURIER_HEX: Record<CourierStatus, string> = {
-  idle: "#3ddc84",
-  enroute: "#22d3ee",
-  offline: "#6b7689",
+  idle: "#23f0c7",
+  enroute: "#18f0ff",
+  offline: "#5d6b82",
 };
 
 export const COURIER_RGB: Record<string, [number, number, number]> = {
-  idle: [61, 220, 132],
-  enroute: [34, 211, 238],
-  offline: [107, 118, 137],
+  idle: [35, 240, 199],
+  enroute: [24, 240, 255],
+  offline: [93, 107, 130],
 };
 
-export const DISRUPTION_RGB: [number, number, number] = [255, 77, 79];
+// Disruptions glow hot-orange (the Tron contrast accent).
+export const DISRUPTION_RGB: [number, number, number] = [255, 122, 24];
 
-// Traffic congestion ramp: green -> amber -> red over a 0..1 value.
+// Traffic congestion ramp: neon cyan -> amber -> hot-red over a 0..1 value.
 export function congestionRGB(c: number): [number, number, number] {
   const t = Math.max(0, Math.min(1, c));
   const stops: [number, [number, number, number]][] = [
-    [0, [61, 220, 132]],
-    [0.5, [255, 176, 32]],
-    [1, [255, 77, 79]],
+    [0, [24, 240, 255]],
+    [0.5, [255, 194, 75]],
+    [1, [255, 59, 92]],
   ];
   for (let i = 0; i < stops.length - 1; i++) {
     const [a, ca] = stops[i];
@@ -63,5 +74,5 @@ export function congestionRGB(c: number): [number, number, number] {
       ];
     }
   }
-  return [255, 77, 79];
+  return [255, 59, 92];
 }

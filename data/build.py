@@ -16,9 +16,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import demand as demand_mod
+import events as events_mod
 import facilities as facilities_mod
 import quality
 import roadgraph as roadgraph_mod
+import signals as signals_mod
+import towerbridge as towerbridge_mod
 from loader import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -96,6 +99,54 @@ def build(now: str = demand_mod.SNAPSHOT_NOW, demand_n: int = 30, seed: int = 7)
         "fetched_at": _now_iso(),
         "dq_passed": road_passed,
         "dq_suite": "tests/data_quality/test_road_graph.py",
+    }
+
+    # ---- signals: Tower Bridge lift schedule ------------------------------ #
+    sample_date = now[:10]  # validate the scenario day
+    tb_path = towerbridge_mod.TOWERBRIDGE_PATH
+    tb_passed, tb_rows = True, 0
+    try:
+        towerbridge_mod.write_towerbridge(tb_path)
+        lifts = towerbridge_mod.lift_events(sample_date)
+        tb_rows = len(lifts)
+        quality.validate_timed_events(lifts)
+        if not all(quality.is_fresh(l["fetched_at"], now=now) for l in lifts):
+            raise AssertionError("Tower Bridge records are stale")
+    except Exception as e:  # noqa: BLE001
+        tb_passed = False
+        print(f"[towerbridge] DQ FAILED: {e}")
+    datasets["towerbridge"] = {
+        "source": "scheduled",
+        "path": _rel(tb_path),
+        "rows": tb_rows,
+        "sha256": sha256_file(tb_path) if tb_path.exists() else "",
+        "fetched_at": towerbridge_mod.BUNDLE_FETCHED_AT,
+        "dq_passed": tb_passed,
+        "dq_suite": "tests/data_quality/test_signals.py",
+    }
+
+    # ---- signals: public-event congestion --------------------------------- #
+    ev_path = events_mod.EVENTS_PATH
+    ev_passed, ev_rows = True, 0
+    try:
+        events_mod.write_events(ev_path)
+        ev_rows = len(events_mod.BUNDLED_EVENTS)
+        quality.validate_timed_events(events_mod.event_disruptions(sample_date))
+        # also validate the full merged signal timeline for the scenario day
+        quality.validate_timed_events(signals_mod.timed_events(sample_date))
+        if not quality.is_fresh(events_mod.BUNDLE_FETCHED_AT, now=now):
+            raise AssertionError("event records are stale")
+    except Exception as e:  # noqa: BLE001
+        ev_passed = False
+        print(f"[events] DQ FAILED: {e}")
+    datasets["events"] = {
+        "source": "scheduled",
+        "path": _rel(ev_path),
+        "rows": ev_rows,
+        "sha256": sha256_file(ev_path) if ev_path.exists() else "",
+        "fetched_at": events_mod.BUNDLE_FETCHED_AT,
+        "dq_passed": ev_passed,
+        "dq_suite": "tests/data_quality/test_signals.py",
     }
 
     manifest = {"generated_at": _now_iso(), "scenario_now": now, "datasets": datasets}

@@ -6,9 +6,21 @@ import { useMemo } from "react";
 import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
 import { HEX } from "../lib/palette";
-import { avgEtaSlackMin, fmtInt, fmtMs, fmtSigned, statInFlight, activeCouriers } from "../lib/format";
+import { avgEtaSlackMin, fmtInt, statInFlight, activeCouriers } from "../lib/format";
 import Sparkline from "./Sparkline";
 import VerifiedBadge from "./VerifiedBadge";
+import CountUp from "./CountUp";
+
+// Signed animated number that keeps the leading "+" for positive slack.
+function SignedCount({ value }: { value: number | null }) {
+  if (value == null || Number.isNaN(value)) return <>—</>;
+  return (
+    <>
+      {value > 0 ? "+" : ""}
+      <CountUp value={value} />
+    </>
+  );
+}
 
 interface CardProps {
   label: string;
@@ -68,7 +80,7 @@ export default function KpiCards({ status }: { status: UseStatus }) {
     <div className="kpi-row">
       <KpiCard
         label="STAT in flight"
-        value={fmtInt(stat)}
+        value={<CountUp value={stat} />}
         spark={statHist}
         color={HEX.red}
         claimId="stat-compliance"
@@ -78,7 +90,7 @@ export default function KpiCards({ status }: { status: UseStatus }) {
         label="Samples on-time today"
         value={
           <>
-            {fmtInt(windowsMet)}
+            <CountUp value={windowsMet} />
             <span className="kpi-frac">/{fmtInt(windowsTotal)}</span>
           </>
         }
@@ -99,7 +111,7 @@ export default function KpiCards({ status }: { status: UseStatus }) {
       />
       <KpiCard
         label="Re-plan time"
-        value={fmtMs(obj?.solve_ms)}
+        value={obj?.solve_ms != null ? <CountUp value={obj.solve_ms} /> : "—"}
         unit="ms"
         spark={solveHist}
         color={HEX.amber}
@@ -109,7 +121,7 @@ export default function KpiCards({ status }: { status: UseStatus }) {
       />
       <KpiCard
         label="Avg ETA slack"
-        value={fmtSigned(slack)}
+        value={<SignedCount value={slack} />}
         unit="min"
         spark={slackHist}
         color={HEX.blue}
@@ -118,7 +130,7 @@ export default function KpiCards({ status }: { status: UseStatus }) {
       />
       <KpiCard
         label="Active couriers"
-        value={fmtInt(active)}
+        value={<CountUp value={active} />}
         spark={activeHist}
         color={HEX.green}
         claimId="eta-sane"

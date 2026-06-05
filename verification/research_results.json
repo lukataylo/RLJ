@@ -1,0 +1,78 @@
+{
+  "n_scenarios": 30,
+  "metric": "realised STAT on-time rate",
+  "summary": {
+    "greedy": {
+      "stat_on_time_mean": 0.8833333333333333,
+      "window_rate_mean": 0.9461904761904762,
+      "weighted_late_mean": 10204.199260737103
+    },
+    "ours_blind": {
+      "stat_on_time_mean": 0.6833333333333333,
+      "window_rate_mean": 0.8715873015873016,
+      "weighted_late_mean": 58456.48236477807
+    },
+    "ours_reactive": {
+      "stat_on_time_mean": 0.6833333333333333,
+      "window_rate_mean": 0.8763492063492063,
+      "weighted_late_mean": 58331.20256104716
+    },
+    "ours_anticipatory": {
+      "stat_on_time_mean": 1.0,
+      "window_rate_mean": 1.0,
+      "weighted_late_mean": 0.0
+    },
+    "ortools_reactive": {
+      "stat_on_time_mean": 0.9,
+      "window_rate_mean": 0.9649206349206348,
+      "weighted_late_mean": 3378.790548061935
+    },
+    "ortools_anticipatory": {
+      "stat_on_time_mean": 1.0,
+      "window_rate_mean": 1.0,
+      "weighted_late_mean": 0.0
+    }
+  },
+  "contrasts": {
+    "anticipation_vs_reactive_ours": {
+      "hi": "ours_anticipatory",
+      "lo": "ours_reactive",
+      "p_value": 1.6906362816507832e-05,
+      "median_diff": 0.5,
+      "mean_diff": 0.31666666666666665,
+      "n_nonzero": 18
+    },
+    "anticipation_vs_blind_ours": {
+      "hi": "ours_anticipatory",
+      "lo": "ours_blind",
+      "p_value": 1.6906362816507832e-05,
+      "median_diff": 0.5,
+      "mean_diff": 0.31666666666666665,
+      "n_nonzero": 18
+    },
+    "anticipation_vs_greedy": {
+      "hi": "ours_anticipatory",
+      "lo": "greedy",
+      "p_value": 0.004075485796751351,
+      "median_diff": 0.0,
+      "mean_diff": 0.11666666666666667,
+      "n_nonzero": 7
+    },
+    "ours_anticipatory_vs_ortools_reactive": {
+      "hi": "ours_anticipatory",
+      "lo": "ortools_reactive",
+      "p_value": 0.0316588934150228,
+      "median_diff": 0.0,
+      "mean_diff": 0.1,
+      "n_nonzero": 4
+    },
+    "anticipation_vs_reactive_ortools": {
+      "hi": "ortools_anticipatory",
+      "lo": "ortools_reactive",
+      "p_value": 0.0316588934150228,
+      "median_diff": 0.0,
+      "mean_diff": 0.1,
+      "n_nonzero": 4
+    }
+  }
+}

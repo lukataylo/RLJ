@@ -101,10 +101,10 @@ function buildLayers(
         extruded: true,
         getPolygon: (d) => d.polygon,
         getElevation: (d) => d.height,
-        getFillColor: [38, 47, 64, 220],
-        getLineColor: [70, 84, 110, 120],
+        getFillColor: [14, 28, 48, 225],
+        getLineColor: [24, 240, 255, 70],
         lineWidthMinPixels: 1,
-        material: { ambient: 0.6, diffuse: 0.6, shininess: 32, specularColor: [60, 70, 90] },
+        material: { ambient: 0.55, diffuse: 0.7, shininess: 48, specularColor: [40, 120, 150] },
       }),
     );
   }
@@ -191,14 +191,30 @@ function buildLayers(
       priority: routePriority(plan, r.courier_id, jobs),
       path: r.polyline!.map((p) => [p.lng, p.lat] as [number, number]),
     }));
+  // 3a. Neon "bloom" underlay — a wide, translucent pass beneath each route to
+  // fake an outer glow for the Tron look.
+  layers.push(
+    new PathLayer<(typeof routePaths)[number]>({
+      id: "routes-glow",
+      data: routePaths,
+      getPath: (d) => d.path,
+      getColor: (d) =>
+        [...PRIORITY_RGB[d.priority], d.courier_id === selectedCourierId ? 90 : 55] as [number, number, number, number],
+      getWidth: (d) => (d.courier_id === selectedCourierId ? 22 : 16),
+      widthUnits: "pixels",
+      capRounded: true,
+      jointRounded: true,
+      updateTriggers: { getColor: selectedCourierId, getWidth: selectedCourierId },
+    }),
+  );
   layers.push(
     new PathLayer<(typeof routePaths)[number]>({
       id: "routes",
       data: routePaths,
       getPath: (d) => d.path,
       getColor: (d) =>
-        [...PRIORITY_RGB[d.priority], d.courier_id === selectedCourierId ? 255 : 190] as [number, number, number, number],
-      getWidth: (d) => (d.courier_id === selectedCourierId ? 7 : 5),
+        [...PRIORITY_RGB[d.priority], d.courier_id === selectedCourierId ? 255 : 200] as [number, number, number, number],
+      getWidth: (d) => (d.courier_id === selectedCourierId ? 6 : 4),
       widthUnits: "pixels",
       capRounded: true,
       jointRounded: true,
@@ -218,6 +234,17 @@ function buildLayers(
     .filter((h) => h.pos) as { courier_id: string; priority: Priority; pos: [number, number] }[];
   layers.push(
     new ScatterplotLayer<(typeof heads)[number]>({
+      id: "trip-heads-glow",
+      data: heads,
+      getPosition: (d) => d.pos,
+      getRadius: 26,
+      radiusUnits: "pixels",
+      getFillColor: (d) => [...PRIORITY_RGB[d.priority], 70] as [number, number, number, number],
+      updateTriggers: { getPosition: phase },
+    }),
+  );
+  layers.push(
+    new ScatterplotLayer<(typeof heads)[number]>({
       id: "trip-heads",
       data: heads,
       getPosition: (d) => d.pos,
@@ -232,6 +259,21 @@ function buildLayers(
   );
 
   // 5. Couriers, colour by status; selected gets a halo ring.
+  // Neon bloom underlay beneath each courier dot.
+  layers.push(
+    new ScatterplotLayer<Courier>({
+      id: "couriers-glow",
+      data: couriers,
+      getPosition: (c) => [c.location.lng, c.location.lat],
+      getRadius: 320,
+      radiusUnits: "meters",
+      radiusMinPixels: 14,
+      radiusMaxPixels: 44,
+      getFillColor: (c) =>
+        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), c.id === selectedCourierId ? 80 : 45] as [number, number, number, number],
+      updateTriggers: { getFillColor: selectedCourierId },
+    }),
+  );
   layers.push(
     new ScatterplotLayer<Courier>({
       id: "couriers",
@@ -243,7 +285,7 @@ function buildLayers(
       radiusMaxPixels: 20,
       stroked: true,
       lineWidthMinPixels: 2,
-      getLineColor: (c) => (c.id === selectedCourierId ? [255, 255, 255, 255] : [10, 14, 22, 255]),
+      getLineColor: (c) => (c.id === selectedCourierId ? [255, 255, 255, 255] : [5, 7, 13, 255]),
       getFillColor: (c) =>
         [...(COURIER_RGB[c.status] ?? [200, 200, 200]), 255] as [number, number, number, number],
       pickable: true,
@@ -494,13 +536,13 @@ export default function MapView() {
       </div>
 
       <div className="map-legend">
-        <span><i className="ldot" style={{ background: "#ff4d4f" }} /> STAT</span>
-        <span><i className="ldot" style={{ background: "#ffb020" }} /> Urgent</span>
-        <span><i className="ldot" style={{ background: "#4da6ff" }} /> Routine</span>
+        <span style={{ color: "#ff3b5c" }}><i className="ldot" style={{ background: "#ff3b5c" }} /> STAT</span>
+        <span style={{ color: "#ffc24b" }}><i className="ldot" style={{ background: "#ffc24b" }} /> Urgent</span>
+        <span style={{ color: "#4ea8ff" }}><i className="ldot" style={{ background: "#4ea8ff" }} /> Routine</span>
         <span className="lsep" />
-        <span><i className="ldot" style={{ background: "#3ddc84" }} /> Idle</span>
-        <span><i className="ldot" style={{ background: "#22d3ee" }} /> En route</span>
-        <span><i className="ldot" style={{ background: "#6b7689" }} /> Offline</span>
+        <span style={{ color: "#23f0c7" }}><i className="ldot" style={{ background: "#23f0c7" }} /> Idle</span>
+        <span style={{ color: "#18f0ff" }}><i className="ldot" style={{ background: "#18f0ff" }} /> En route</span>
+        <span style={{ color: "#5d6b82" }}><i className="ldot" style={{ background: "#5d6b82" }} /> Offline</span>
       </div>
     </div>
   );

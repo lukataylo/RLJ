@@ -91,6 +91,50 @@ claims:
     must_pass: false
     test: "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox"
 
+  # ---- research: anticipatory routing significantly beats baselines -------
+  - id: research-anticipation-beats-reaction
+    statement: "Schedule-anticipation significantly beats live-only reactive routing (paired Wilcoxon p<0.05)"
+    category: research
+    must_pass: true
+    test: "tests/backtests/test_policy_value.py::test_anticipation_beats_reaction"
+
+  - id: research-anticipation-beats-blind
+    statement: "Schedule-anticipation significantly beats disruption-blind routing"
+    category: research
+    must_pass: true
+    test: "tests/backtests/test_policy_value.py::test_anticipation_beats_blind"
+
+  - id: research-beats-greedy
+    statement: "Anticipatory method significantly beats naive greedy dispatch"
+    category: research
+    must_pass: true
+    test: "tests/backtests/test_policy_value.py::test_beats_greedy_significantly"
+
+  - id: research-beats-ortools
+    statement: "Anticipatory method beats Google OR-Tools operating reactively (information advantage)"
+    category: research
+    must_pass: true
+    test: "tests/backtests/test_policy_value.py::test_beats_or_tools_reactive"
+
+  - id: research-generalises
+    statement: "Anticipation also helps OR-Tools (effect is the information, not our solver)"
+    category: research
+    must_pass: false
+    test: "tests/backtests/test_policy_value.py::test_anticipation_generalises_to_ortools"
+
+  # ---- data quality: scheduled-signal feeds -------------------------------
+  - id: data-signals-valid
+    statement: "Tower Bridge + event timed-disruption feeds are schema-valid within London"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_signals.py::test_timed_events_valid"
+
+  - id: data-signals-anticipation
+    statement: "Horizon disruptions are a superset of active (schedule sees imminent closures reaction can't)"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_signals.py::test_active_and_horizon_consistency"
+
   # ---- end-to-end demo (the thing we actually show) -----------------------
   - id: reroute-on-closure
     statement: "Closing a road triggers a live re-route and scoreboard update"

@@ -42,20 +42,44 @@ export default function Sparkline({
   const x = (i: number) => pad + (i / (n - 1)) * (width - pad * 2);
   const y = (v: number) => height - pad - ((v - min) / span) * (height - pad * 2);
 
-  const line = clean.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const pts = clean.map((v, i) => [x(i), y(v)] as const);
+  const line = pts.map(([px, py], i) => `${i === 0 ? "M" : "L"}${px.toFixed(1)},${py.toFixed(1)}`).join(" ");
   const area = `${line} L${x(n - 1).toFixed(1)},${height} L${x(0).toFixed(1)},${height} Z`;
+
+  // Approximate path length so the draw-in animation completes exactly.
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) {
+    len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  }
 
   return (
     <svg width={width} height={height} className="sparkline" aria-hidden>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+          <stop offset="0%" stopColor={color} stopOpacity={0.4} />
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
+        <filter id={`${id}-glow`} x="-20%" y="-40%" width="140%" height="180%">
+          <feGaussianBlur stdDeviation="1.4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
       <path d={area} fill={`url(#${id})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(n - 1)} cy={y(clean[n - 1])} r={2.4} fill={color} />
+      <path
+        className="spark-draw"
+        style={{ ["--spark-len" as string]: len.toFixed(0) }}
+        d={line}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        filter={`url(#${id}-glow)`}
+      />
+      <circle cx={x(n - 1)} cy={y(clean[n - 1])} r={2.6} fill={color} filter={`url(#${id}-glow)`} />
     </svg>
   );
 }

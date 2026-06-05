@@ -25,6 +25,15 @@ export default function Gauge({ value, label, size = 132 }: Props) {
   return (
     <div className="gauge">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <defs>
+          <filter id="gauge-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="2.4" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
         <g transform={`rotate(135 ${cx} ${cy})`}>
           <circle
             cx={cx}
@@ -46,6 +55,7 @@ export default function Gauge({ value, label, size = 132 }: Props) {
             strokeLinecap="round"
             strokeDasharray={`${dash} ${circumference}`}
             strokeDashoffset={offset}
+            filter="url(#gauge-glow)"
             style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.6s ease" }}
           />
         </g>

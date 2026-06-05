@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-05T22:09:19.864347+00:00",
+  "generated_at": "2026-06-05T22:39:50.641552+00:00",
   "summary": {
-    "total": 15,
-    "verified": 15,
+    "total": 22,
+    "verified": 22,
     "failing": 0,
     "unverified": 0,
-    "must_pass_total": 13,
-    "must_pass_verified": 13,
+    "must_pass_total": 19,
+    "must_pass_verified": 19,
     "must_pass_green": true
   },
   "claims": [
@@ -26,7 +26,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_beats_greedy",
       "status": "verified",
-      "duration_s": 0.0008
+      "duration_s": 0.0006
     },
     {
       "id": "eta-sane",
@@ -44,7 +44,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_solve_budget",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0
     },
     {
       "id": "no-regression",
@@ -53,7 +53,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0009
     },
     {
       "id": "plan-schema",
@@ -62,7 +62,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0466
+      "duration_s": 0.0331
     },
     {
       "id": "job-schema",
@@ -71,7 +71,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 0.0453
+      "duration_s": 0.0313
     },
     {
       "id": "optimize-contract",
@@ -80,7 +80,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.0479
+      "duration_s": 0.0346
     },
     {
       "id": "data-facilities-bbox",
@@ -98,7 +98,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0133
+      "duration_s": 0.0105
     },
     {
       "id": "data-demand-valid",
@@ -107,7 +107,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.009
+      "duration_s": 0.0064
     },
     {
       "id": "data-manifest-gate",
@@ -116,7 +116,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0223
+      "duration_s": 0.0423
     },
     {
       "id": "data-roadgraph",
@@ -125,7 +125,70 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0447
+      "duration_s": 0.0062
+    },
+    {
+      "id": "research-anticipation-beats-reaction",
+      "statement": "Schedule-anticipation significantly beats live-only reactive routing (paired Wilcoxon p<0.05)",
+      "category": "research",
+      "must_pass": true,
+      "test": "tests/backtests/test_policy_value.py::test_anticipation_beats_reaction",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "research-anticipation-beats-blind",
+      "statement": "Schedule-anticipation significantly beats disruption-blind routing",
+      "category": "research",
+      "must_pass": true,
+      "test": "tests/backtests/test_policy_value.py::test_anticipation_beats_blind",
+      "status": "verified",
+      "duration_s": 0.0
+    },
+    {
+      "id": "research-beats-greedy",
+      "statement": "Anticipatory method significantly beats naive greedy dispatch",
+      "category": "research",
+      "must_pass": true,
+      "test": "tests/backtests/test_policy_value.py::test_beats_greedy_significantly",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "research-beats-ortools",
+      "statement": "Anticipatory method beats Google OR-Tools operating reactively (information advantage)",
+      "category": "research",
+      "must_pass": true,
+      "test": "tests/backtests/test_policy_value.py::test_beats_or_tools_reactive",
+      "status": "verified",
+      "duration_s": 0.0
+    },
+    {
+      "id": "research-generalises",
+      "statement": "Anticipation also helps OR-Tools (effect is the information, not our solver)",
+      "category": "research",
+      "must_pass": false,
+      "test": "tests/backtests/test_policy_value.py::test_anticipation_generalises_to_ortools",
+      "status": "verified",
+      "duration_s": 0.0
+    },
+    {
+      "id": "data-signals-valid",
+      "statement": "Tower Bridge + event timed-disruption feeds are schema-valid within London",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_signals.py::test_timed_events_valid",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-signals-anticipation",
+      "statement": "Horizon disruptions are a superset of active (schedule sees imminent closures reaction can't)",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_signals.py::test_active_and_horizon_consistency",
+      "status": "verified",
+      "duration_s": 0.0004
     },
     {
       "id": "reroute-on-closure",
@@ -134,7 +197,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 0.4821
+      "duration_s": 0.3417
     },
     {
       "id": "voice-loop",
@@ -143,7 +206,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.0941
+      "duration_s": 0.0733
     }
   ]
 }
