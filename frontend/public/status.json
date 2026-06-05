@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-06-05T23:26:07.453715+00:00",
+  "generated_at": "2026-06-05T23:32:23.572098+00:00",
   "summary": {
-    "total": 40,
-    "verified": 40,
+    "total": 47,
+    "verified": 47,
     "failing": 0,
     "unverified": 0,
-    "must_pass_total": 35,
-    "must_pass_verified": 35,
+    "must_pass_total": 42,
+    "must_pass_verified": 42,
     "must_pass_green": true,
-    "tests_passed": 80,
+    "tests_passed": 81,
     "tests_failed": 0
   },
   "claims": [
@@ -55,7 +55,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0004
     },
     {
       "id": "plan-schema",
@@ -64,7 +64,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 1.0358
+      "duration_s": 0.0341
     },
     {
       "id": "job-schema",
@@ -73,7 +73,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 1.036
+      "duration_s": 0.0331
     },
     {
       "id": "optimize-contract",
@@ -82,7 +82,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 1.0364
+      "duration_s": 0.0352
     },
     {
       "id": "data-facilities-bbox",
@@ -91,7 +91,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0058
+      "duration_s": 0.0046
     },
     {
       "id": "data-facilities-complete",
@@ -100,7 +100,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0147
+      "duration_s": 0.014
     },
     {
       "id": "data-demand-valid",
@@ -109,7 +109,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0064
+      "duration_s": 0.0065
     },
     {
       "id": "data-manifest-gate",
@@ -118,7 +118,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0261
+      "duration_s": 0.0279
     },
     {
       "id": "data-roadgraph",
@@ -127,7 +127,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.007
+      "duration_s": 0.0081
     },
     {
       "id": "research-anticipation-beats-reaction",
@@ -136,7 +136,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_anticipation_beats_reaction",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "research-anticipation-beats-blind",
@@ -154,7 +154,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_beats_greedy_significantly",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0
     },
     {
       "id": "research-beats-ortools",
@@ -193,13 +193,76 @@
       "duration_s": 0.0004
     },
     {
+      "id": "bench-latency-p50",
+      "statement": "Real-time replan p50 < 400ms on CPU (GB10 target <50ms)",
+      "category": "benchmark",
+      "must_pass": true,
+      "test": "tests/benchmarks/test_benchmarks.py::test_routing_latency_p50_fastpath",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "bench-latency-p95",
+      "statement": "Replan p95 < 2000ms on CPU",
+      "category": "benchmark",
+      "must_pass": true,
+      "test": "tests/benchmarks/test_benchmarks.py::test_routing_latency_p95_cpu",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "bench-scale-100",
+      "statement": "100-job instance solved < 18s with >=90% served",
+      "category": "benchmark",
+      "must_pass": true,
+      "test": "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput",
+      "status": "verified",
+      "duration_s": 5.0093
+    },
+    {
+      "id": "bench-anticipation",
+      "statement": "Anticipation lift >= 0.15 STAT on-time and significant (judge benchmark)",
+      "category": "benchmark",
+      "must_pass": true,
+      "test": "tests/benchmarks/test_benchmarks.py::test_anticipation_lift_and_significance",
+      "status": "verified",
+      "duration_s": 0.0006
+    },
+    {
+      "id": "bench-flywheel",
+      "statement": "Flywheel lift >= 0.15 STAT on-time and significant (judge benchmark)",
+      "category": "benchmark",
+      "must_pass": true,
+      "test": "tests/benchmarks/test_benchmarks.py::test_flywheel_lift_and_significance",
+      "status": "verified",
+      "duration_s": 0.0005
+    },
+    {
+      "id": "bench-telemetry-throughput",
+      "statement": "Congestion estimation over 10k pings < 2s",
+      "category": "benchmark",
+      "must_pass": true,
+      "test": "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s",
+      "status": "verified",
+      "duration_s": 0.0393
+    },
+    {
+      "id": "bench-data-integrity",
+      "statement": "Every dataset is dq_passed and loadable; tampered data is refused",
+      "category": "benchmark",
+      "must_pass": true,
+      "test": "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable",
+      "status": "verified",
+      "duration_s": 0.0062
+    },
+    {
       "id": "autonomy-loop",
       "statement": "Autonomy controller detects crowdsourced congestion, re-plans around it, and dispatches",
       "category": "autonomy",
       "must_pass": true,
       "test": "tests/unit/test_autonomy.py::test_autonomy_loop_reacts_to_congestion",
       "status": "verified",
-      "duration_s": 1.0175
+      "duration_s": 0.0145
     },
     {
       "id": "solver-optimality-gap",
@@ -208,7 +271,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
       "status": "verified",
-      "duration_s": 15.5152
+      "duration_s": 10.4355
     },
     {
       "id": "solver-scales",
@@ -217,7 +280,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
       "status": "verified",
-      "duration_s": 2.0036
+      "duration_s": 2.0034
     },
     {
       "id": "flywheel-value",
@@ -226,7 +289,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
       "status": "verified",
-      "duration_s": 0.0011
+      "duration_s": 0.0009
     },
     {
       "id": "flywheel-monotone",
@@ -280,7 +343,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist",
       "status": "verified",
-      "duration_s": 0.0069
+      "duration_s": 0.0089
     },
     {
       "id": "completeness-no-unwired-buttons",
@@ -289,7 +352,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_unwired_buttons",
       "status": "verified",
-      "duration_s": 0.0018
+      "duration_s": 0.0017
     },
     {
       "id": "completeness-endpoints",
@@ -298,7 +361,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_orchestrator_rest_endpoints_implemented",
       "status": "verified",
-      "duration_s": 0.0085
+      "duration_s": 0.0071
     },
     {
       "id": "completeness-ws-emitted",
@@ -316,7 +379,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 6.3633
+      "duration_s": 0.3882
     },
     {
       "id": "voice-loop",
@@ -325,7 +388,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 1.1629
+      "duration_s": 0.0766
     },
     {
       "id": "e2e-flywheel-loop",
@@ -334,7 +397,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop",
       "status": "verified",
-      "duration_s": 2.1668
+      "duration_s": 0.103
     },
     {
       "id": "unhappy-cold-safety",
@@ -343,7 +406,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash",
       "status": "verified",
-      "duration_s": 0.1271
+      "duration_s": 0.057
     },
     {
       "id": "unhappy-routing-fallback",
@@ -352,7 +415,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback",
       "status": "verified",
-      "duration_s": 0.0675
+      "duration_s": 0.0637
     },
     {
       "id": "unhappy-malformed-422",
@@ -361,7 +424,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy",
       "status": "verified",
-      "duration_s": 0.0407
+      "duration_s": 0.0436
     },
     {
       "id": "unhappy-bad-telemetry",
@@ -370,7 +433,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted",
       "status": "verified",
-      "duration_s": 0.0219
+      "duration_s": 0.0211
     }
   ]
 }

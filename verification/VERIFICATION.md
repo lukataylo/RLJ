@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-05T23:26:07.453715+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-05T23:32:23.572098+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (35/35) · verified 40/40 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (42/42) · verified 47/47 · failing 0 · unverified 0
 
 ## impact
 
@@ -55,6 +55,18 @@ _Generated 2026-06-05T23:26:07.453715+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Zero optimality gap vs Google OR-Tools on the clinical objective (static) | `test_optimality_gap_vs_ortools` | verified |
 | ✅ ⭐ | More contributing drivers significantly improve clinical STAT on-time (network effect) | `test_more_drivers_help` | verified |
 | ✅ | Flywheel benefit is monotone in driver participation | `test_benefit_is_monotone` | verified |
+
+## benchmark
+
+| | claim | test | status |
+|--|--|--|--|
+| ✅ ⭐ | Real-time replan p50 < 400ms on CPU (GB10 target <50ms) | `test_routing_latency_p50_fastpath` | verified |
+| ✅ ⭐ | Replan p95 < 2000ms on CPU | `test_routing_latency_p95_cpu` | verified |
+| ✅ ⭐ | 100-job instance solved < 18s with >=90% served | `test_scale_100_jobs_throughput` | verified |
+| ✅ ⭐ | Anticipation lift >= 0.15 STAT on-time and significant (judge benchmark) | `test_anticipation_lift_and_significance` | verified |
+| ✅ ⭐ | Flywheel lift >= 0.15 STAT on-time and significant (judge benchmark) | `test_flywheel_lift_and_significance` | verified |
+| ✅ ⭐ | Congestion estimation over 10k pings < 2s | `test_telemetry_ingest_10k_under_2s` | verified |
+| ✅ ⭐ | Every dataset is dq_passed and loadable; tampered data is refused | `test_every_dataset_dq_passed_and_loadable` | verified |
 
 ## autonomy
 
