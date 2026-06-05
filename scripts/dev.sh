@@ -9,7 +9,10 @@ echo "▶ orchestrator on :8000 (greedy fallback until routing/ is up)"
 echo "▶ routing service on :8100 (if implemented)"
 ( cd "$ROOT/routing" && [ -f app.py ] && uvicorn app:app --port 8100 || echo "  routing/app.py not present yet — orchestrator will use greedy fallback" ) &
 
-echo "▶ frontend on :5173 (if implemented)"
+echo "▶ frontend (command-center) on :5173"
 ( cd "$ROOT/frontend" && [ -f package.json ] && npm run dev || echo "  frontend not present yet" ) &
+
+echo "▶ driver-app (PWA) on :5174"
+( cd "$ROOT/driver-app" && [ -f package.json ] && npm run dev || echo "  driver-app not present yet" ) &
 
 wait

@@ -44,11 +44,12 @@ Demo runbook: [`DEMO.md`](DEMO.md). Architecture + fallback ladder: [`ARCHITECTU
 | Dir | What |
 |-----|------|
 | [`contracts/`](contracts/) | shared data model + orchestrator/routing API (the integration contract) |
-| [`orchestrator/`](orchestrator/) | hub: state, WebSocket, dispatch notifications, greedy safety net |
-| [`routing/`](routing/) | **GPU ACO + insertion + local-search** portfolio solver; `/optimize` service |
-| [`voice/`](voice/) | ElevenLabs intake (LLM NLU + keyword fallback) + WS outbound caller |
-| [`frontend/`](frontend/) | deck.gl/MapLibre command-center; verified badges from `status.json` |
-| [`data/`](data/) | facilities + now-anchored demand + road/building geojson; manifest gating |
+| [`orchestrator/`](orchestrator/) | hub: state, WebSocket, dispatch, **flywheel** (drivers/telemetry/congestion), **autonomy loop**, greedy net |
+| [`routing/`](routing/) | world-class portfolio: greedy + insertion + GPU ACO + **OR-Tools/cuOpt**, LS-refined; `/optimize` |
+| [`voice/`](voice/) | ElevenLabs intake + outbound caller + **driver voice assistant** (FAQ→tools) |
+| [`frontend/`](frontend/) | deck.gl/MapLibre command-center; verified badges; live data layers |
+| [`driver-app/`](driver-app/) | mobile Tron **PWA** for drivers: signup, share-GPS, green-wave, contribution stats |
+| [`data/`](data/) | facilities, demand, roads/buildings, **Tower Bridge lifts, events, junctions, weather, probes**; manifest gating |
 | [`verification/`](verification/) | **claims ledger + gate** (`run.py` → `STATUS.json`/`VERIFICATION.md`) |
 | [`tests/`](tests/) | external suites: data-quality, contracts, backtests, e2e |
 | [`nemoclaw/`](nemoclaw/) | local-first sandbox policies (voice=ElevenLabs-only; routing=zero egress) |
@@ -83,3 +84,27 @@ an unanticipated bridge closure forces a backtracking detour.
 | Ours — reactive (live feed) | 0.68 |
 | OR-Tools — reactive | 0.90 |
 | **Ours — anticipatory (schedule)** | **1.00** |
+
+## The live system: autonomous + self-improving
+
+Beyond the single optimiser, RLJ is a **multi-agent, self-improving** city system:
+
+- **World-class routing.** The production solver is a portfolio — greedy + insertion +
+  GPU-parallel ACO + **Google OR-Tools** (and **NVIDIA cuOpt** on the GB10), every candidate
+  local-search-refined. It has **zero optimality gap vs OR-Tools** on the clinical objective
+  and **scales to 80+ jobs** within budget (gated tests).
+- **Autonomy loop** (`orchestrator/autonomy.py`): Curator validates crowdsourced probes →
+  congestion field → Dispatcher re-plans medical routes around it → Driver/Voice agents
+  communicate. Deterministic, unit-tested.
+- **The data flywheel** (`driver-app/`): delivery drivers (Deliveroo-style) sign up, share
+  GPS, and get **green-wave / signal-aware routing** in return. More drivers → denser
+  congestion field → better routing for everyone. Proven by backtest: **more participation ⇒
+  significantly higher STAT on-time** (network effect), and it's monotone.
+- **Driver voice assistant** (`voice/`): an ElevenLabs agent answering driver questions
+  ("where's my pickup?", "is Tower Bridge open?", "catch the next green?") via tool-calls.
+- **New datasets**: Tower Bridge lifts, public events, traffic-signal junctions, weather,
+  crowdsourced probes — all DQ-gated and manifest-verified.
+
+Two front-ends: the **command-center** (`frontend/`, dispatchers) and the **driver PWA**
+(`driver-app/`). The GB10 is justified by continuous city-scale re-optimisation over live
+probe streams plus local LLM agents — not a laptop workload.
