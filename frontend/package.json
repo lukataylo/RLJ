@@ -13,12 +13,14 @@
     "@deck.gl/core": "^9.0.36",
     "@deck.gl/layers": "^9.0.36",
     "@deck.gl/mapbox": "^9.0.36",
+    "mapbox-gl": "^3.24.0",
     "maplibre-gl": "^4.7.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@types/mapbox-gl": "^3.4.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

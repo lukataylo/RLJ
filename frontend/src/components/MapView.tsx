@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
+import mapboxgl from "mapbox-gl";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import { ScatterplotLayer, PathLayer, ArcLayer, PolygonLayer } from "@deck.gl/layers";
@@ -26,6 +27,13 @@ const INITIAL_VIEW = {
   pitch: 50,
   bearing: -14,
 };
+
+// Premium basemap path: a Mapbox PUBLIC token enables the Mapbox dark style for the
+// high-end command-center look. Empty/absent => token-less MapLibre fallback below.
+const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN ?? "").trim();
+const USE_MAPBOX = MAPBOX_TOKEN.length > 0;
+// dark-v11 is the safer choice to keep the dark UI readable (vs satellite-streets).
+const MAPBOX_STYLE = "mapbox://styles/mapbox/dark-v11";
 
 // Free, token-less dark raster basemap (CARTO dark_matter). Works without an account.
 const MAP_STYLE: maplibregl.StyleSpecification = {
@@ -351,20 +359,45 @@ export default function MapView() {
   // Init map + overlay once.
   useEffect(() => {
     if (!containerRef.current) return;
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: MAP_STYLE,
-      center: INITIAL_VIEW.center,
-      zoom: INITIAL_VIEW.zoom,
-      pitch: INITIAL_VIEW.pitch,
-      bearing: INITIAL_VIEW.bearing,
-      attributionControl: { compact: true },
-    });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-left");
 
-    map.on("load", () => {
+    // Premium Mapbox basemap when a token is present; otherwise the token-less
+    // MapLibre CARTO dark fallback (kept exactly as-is). Both expose the same
+    // imperative surface (addControl / on / easeTo / remove) and both work with
+    // deck.gl's MapboxOverlay.
+    let map: maplibregl.Map | mapboxgl.Map;
+    if (USE_MAPBOX) {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+      map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: MAPBOX_STYLE,
+        center: INITIAL_VIEW.center,
+        zoom: INITIAL_VIEW.zoom,
+        pitch: INITIAL_VIEW.pitch,
+        bearing: INITIAL_VIEW.bearing,
+        attributionControl: true,
+        antialias: true,
+      });
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "bottom-left");
+    } else {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: MAP_STYLE,
+        center: INITIAL_VIEW.center,
+        zoom: INITIAL_VIEW.zoom,
+        pitch: INITIAL_VIEW.pitch,
+        bearing: INITIAL_VIEW.bearing,
+        attributionControl: { compact: true },
+      });
+      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-left");
+    }
+
+    // Shared imperative handle: both libraries expose the same surface at runtime,
+    // so we narrow the union to one type for the calls below (incl. the deck.gl overlay).
+    const m = map as maplibregl.Map;
+
+    m.on("load", () => {
       // Gentle settle for a "command-center" entrance.
-      map.easeTo({ zoom: INITIAL_VIEW.zoom + 0.3, duration: 2200, pitch: INITIAL_VIEW.pitch });
+      m.easeTo({ zoom: INITIAL_VIEW.zoom + 0.3, duration: 2200, pitch: INITIAL_VIEW.pitch });
     });
 
     const overlay = new MapboxOverlay({
@@ -400,7 +433,7 @@ export default function MapView() {
         return null;
       },
     });
-    map.addControl(overlay);
+    m.addControl(overlay);
     overlayRef.current = overlay;
 
     let last = performance.now();
@@ -418,7 +451,7 @@ export default function MapView() {
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      map.remove();
+      m.remove();
       overlayRef.current = null;
     };
   }, [selectCourier]);
