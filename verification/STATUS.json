@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-05T22:39:50.641552+00:00",
+  "generated_at": "2026-06-05T23:07:00.893221+00:00",
   "summary": {
-    "total": 22,
-    "verified": 22,
+    "total": 30,
+    "verified": 30,
     "failing": 0,
     "unverified": 0,
-    "must_pass_total": 19,
-    "must_pass_verified": 19,
+    "must_pass_total": 25,
+    "must_pass_verified": 25,
     "must_pass_green": true
   },
   "claims": [
@@ -17,7 +17,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_stat_window_compliance",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0002
     },
     {
       "id": "beats-baseline",
@@ -26,7 +26,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_beats_greedy",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0008
     },
     {
       "id": "eta-sane",
@@ -44,7 +44,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_solve_budget",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "no-regression",
@@ -53,7 +53,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0009
+      "duration_s": 0.0012
     },
     {
       "id": "plan-schema",
@@ -62,7 +62,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0331
+      "duration_s": 1.0529
     },
     {
       "id": "job-schema",
@@ -71,7 +71,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 0.0313
+      "duration_s": 1.0514
     },
     {
       "id": "optimize-contract",
@@ -80,7 +80,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.0346
+      "duration_s": 1.055
     },
     {
       "id": "data-facilities-bbox",
@@ -89,7 +89,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0009
+      "duration_s": 0.0011
     },
     {
       "id": "data-facilities-complete",
@@ -98,7 +98,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0105
+      "duration_s": 0.0141
     },
     {
       "id": "data-demand-valid",
@@ -107,7 +107,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0064
+      "duration_s": 0.0092
     },
     {
       "id": "data-manifest-gate",
@@ -116,7 +116,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0423
+      "duration_s": 0.0363
     },
     {
       "id": "data-roadgraph",
@@ -125,7 +125,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0062
+      "duration_s": 0.009
     },
     {
       "id": "research-anticipation-beats-reaction",
@@ -143,7 +143,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_anticipation_beats_blind",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "research-beats-greedy",
@@ -161,7 +161,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_beats_or_tools_reactive",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "research-generalises",
@@ -170,7 +170,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_policy_value.py::test_anticipation_generalises_to_ortools",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "data-signals-valid",
@@ -179,7 +179,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_signals.py::test_timed_events_valid",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0002
     },
     {
       "id": "data-signals-anticipation",
@@ -188,7 +188,79 @@
       "must_pass": true,
       "test": "tests/data_quality/test_signals.py::test_active_and_horizon_consistency",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0005
+    },
+    {
+      "id": "solver-optimality-gap",
+      "statement": "Zero optimality gap vs Google OR-Tools on the clinical objective (static)",
+      "category": "research",
+      "must_pass": true,
+      "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
+      "status": "verified",
+      "duration_s": 15.6877
+    },
+    {
+      "id": "solver-scales",
+      "statement": "Solver stays feasible and within time budget at fleet scale (40-80 jobs)",
+      "category": "performance",
+      "must_pass": true,
+      "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
+      "status": "verified",
+      "duration_s": 2.005
+    },
+    {
+      "id": "flywheel-value",
+      "statement": "More contributing drivers significantly improve clinical STAT on-time (network effect)",
+      "category": "research",
+      "must_pass": true,
+      "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
+      "status": "verified",
+      "duration_s": 0.0016
+    },
+    {
+      "id": "flywheel-monotone",
+      "statement": "Flywheel benefit is monotone in driver participation",
+      "category": "research",
+      "must_pass": false,
+      "test": "tests/backtests/test_flywheel.py::test_benefit_is_monotone",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-junctions",
+      "statement": "Traffic-signal junctions + green-wave advice are schema-valid within London",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_junctions.py::test_junctions_valid",
+      "status": "verified",
+      "duration_s": 0.0007
+    },
+    {
+      "id": "data-probes",
+      "statement": "Crowdsourced driver pings are schema-valid, in-bbox, and deterministic",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_probes.py::test_probe_pings_valid",
+      "status": "verified",
+      "duration_s": 0.0263
+    },
+    {
+      "id": "data-weather",
+      "statement": "Weather congestion multiplier is sane and deterministic",
+      "category": "data",
+      "must_pass": false,
+      "test": "tests/data_quality/test_weather.py::test_weather_multiplier_sane",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "voice-driver-assistant",
+      "statement": "Driver voice assistant routes the FAQ questions to the correct tools",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/voice/test_driver_assistant.py::test_driver_assistant_answers",
+      "status": "verified",
+      "duration_s": 0.0001
     },
     {
       "id": "reroute-on-closure",
@@ -197,7 +269,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 0.3417
+      "duration_s": 6.5191
     },
     {
       "id": "voice-loop",
@@ -206,7 +278,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.0733
+      "duration_s": 1.2097
     }
   ]
 }

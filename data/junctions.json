@@ -1,0 +1,272 @@
+[
+  {
+    "id": "jct-hyde-park-corner",
+    "name": "Hyde Park Corner",
+    "lat": 51.5027,
+    "lng": -0.1527,
+    "cycle_s": 101,
+    "green_s": 31,
+    "offset_s": 94
+  },
+  {
+    "id": "jct-marble-arch",
+    "name": "Marble Arch",
+    "lat": 51.5131,
+    "lng": -0.1589,
+    "cycle_s": 101,
+    "green_s": 54,
+    "offset_s": 29
+  },
+  {
+    "id": "jct-oxford-circus",
+    "name": "Oxford Circus",
+    "lat": 51.5152,
+    "lng": -0.1418,
+    "cycle_s": 75,
+    "green_s": 30,
+    "offset_s": 15
+  },
+  {
+    "id": "jct-piccadilly-circus",
+    "name": "Piccadilly Circus",
+    "lat": 51.5101,
+    "lng": -0.134,
+    "cycle_s": 112,
+    "green_s": 41,
+    "offset_s": 106
+  },
+  {
+    "id": "jct-trafalgar-square",
+    "name": "Trafalgar Square",
+    "lat": 51.508,
+    "lng": -0.1281,
+    "cycle_s": 70,
+    "green_s": 27,
+    "offset_s": 33
+  },
+  {
+    "id": "jct-parliament-square",
+    "name": "Parliament Square",
+    "lat": 51.5007,
+    "lng": -0.1262,
+    "cycle_s": 118,
+    "green_s": 59,
+    "offset_s": 91
+  },
+  {
+    "id": "jct-elephant-castle",
+    "name": "Elephant and Castle",
+    "lat": 51.4946,
+    "lng": -0.1,
+    "cycle_s": 111,
+    "green_s": 48,
+    "offset_s": 71
+  },
+  {
+    "id": "jct-vauxhall-cross",
+    "name": "Vauxhall Cross",
+    "lat": 51.4861,
+    "lng": -0.1253,
+    "cycle_s": 108,
+    "green_s": 59,
+    "offset_s": 11
+  },
+  {
+    "id": "jct-aldgate",
+    "name": "Aldgate",
+    "lat": 51.5143,
+    "lng": -0.0755,
+    "cycle_s": 62,
+    "green_s": 24,
+    "offset_s": 24
+  },
+  {
+    "id": "jct-bank",
+    "name": "Bank Junction",
+    "lat": 51.5134,
+    "lng": -0.0886,
+    "cycle_s": 103,
+    "green_s": 31,
+    "offset_s": 8
+  },
+  {
+    "id": "jct-holborn-circus",
+    "name": "Holborn Circus",
+    "lat": 51.518,
+    "lng": -0.109,
+    "cycle_s": 78,
+    "green_s": 30,
+    "offset_s": 43
+  },
+  {
+    "id": "jct-ludgate-circus",
+    "name": "Ludgate Circus",
+    "lat": 51.5141,
+    "lng": -0.1045,
+    "cycle_s": 71,
+    "green_s": 24,
+    "offset_s": 70
+  },
+  {
+    "id": "jct-cambridge-circus",
+    "name": "Cambridge Circus",
+    "lat": 51.5128,
+    "lng": -0.1287,
+    "cycle_s": 90,
+    "green_s": 34,
+    "offset_s": 40
+  },
+  {
+    "id": "jct-st-giles-circus",
+    "name": "St Giles Circus (Tottenham Court Rd)",
+    "lat": 51.5165,
+    "lng": -0.1308,
+    "cycle_s": 94,
+    "green_s": 52,
+    "offset_s": 9
+  },
+  {
+    "id": "jct-warren-street",
+    "name": "Warren Street (Euston Rd / TCR)",
+    "lat": 51.5256,
+    "lng": -0.1378,
+    "cycle_s": 117,
+    "green_s": 60,
+    "offset_s": 94
+  },
+  {
+    "id": "jct-kings-cross",
+    "name": "King's Cross",
+    "lat": 51.5301,
+    "lng": -0.123,
+    "cycle_s": 113,
+    "green_s": 55,
+    "offset_s": 37
+  },
+  {
+    "id": "jct-angel",
+    "name": "Angel",
+    "lat": 51.5322,
+    "lng": -0.1058,
+    "cycle_s": 67,
+    "green_s": 27,
+    "offset_s": 43
+  },
+  {
+    "id": "jct-old-street",
+    "name": "Old Street Roundabout",
+    "lat": 51.5256,
+    "lng": -0.0876,
+    "cycle_s": 79,
+    "green_s": 28,
+    "offset_s": 47
+  },
+  {
+    "id": "jct-shoreditch",
+    "name": "Shoreditch High Street",
+    "lat": 51.524,
+    "lng": -0.0775,
+    "cycle_s": 112,
+    "green_s": 47,
+    "offset_s": 4
+  },
+  {
+    "id": "jct-liverpool-street",
+    "name": "Liverpool Street",
+    "lat": 51.5175,
+    "lng": -0.082,
+    "cycle_s": 101,
+    "green_s": 37,
+    "offset_s": 56
+  },
+  {
+    "id": "jct-tower-hill",
+    "name": "Tower Hill",
+    "lat": 51.5095,
+    "lng": -0.0759,
+    "cycle_s": 95,
+    "green_s": 47,
+    "offset_s": 67
+  },
+  {
+    "id": "jct-london-bridge",
+    "name": "London Bridge",
+    "lat": 51.5074,
+    "lng": -0.0877,
+    "cycle_s": 93,
+    "green_s": 30,
+    "offset_s": 85
+  },
+  {
+    "id": "jct-borough",
+    "name": "Borough High Street / Marshalsea",
+    "lat": 51.501,
+    "lng": -0.0935,
+    "cycle_s": 87,
+    "green_s": 35,
+    "offset_s": 18
+  },
+  {
+    "id": "jct-waterloo-imax",
+    "name": "Waterloo IMAX Roundabout",
+    "lat": 51.5031,
+    "lng": -0.1135,
+    "cycle_s": 88,
+    "green_s": 30,
+    "offset_s": 5
+  },
+  {
+    "id": "jct-lambeth-bridge",
+    "name": "Lambeth Bridge (north)",
+    "lat": 51.4944,
+    "lng": -0.124,
+    "cycle_s": 107,
+    "green_s": 47,
+    "offset_s": 50
+  },
+  {
+    "id": "jct-victoria",
+    "name": "Victoria",
+    "lat": 51.4952,
+    "lng": -0.1441,
+    "cycle_s": 68,
+    "green_s": 22,
+    "offset_s": 53
+  },
+  {
+    "id": "jct-sloane-square",
+    "name": "Sloane Square",
+    "lat": 51.4924,
+    "lng": -0.1565,
+    "cycle_s": 102,
+    "green_s": 56,
+    "offset_s": 76
+  },
+  {
+    "id": "jct-knightsbridge",
+    "name": "Knightsbridge",
+    "lat": 51.5015,
+    "lng": -0.1606,
+    "cycle_s": 82,
+    "green_s": 43,
+    "offset_s": 21
+  },
+  {
+    "id": "jct-notting-hill-gate",
+    "name": "Notting Hill Gate",
+    "lat": 51.509,
+    "lng": -0.196,
+    "cycle_s": 74,
+    "green_s": 22,
+    "offset_s": 16
+  },
+  {
+    "id": "jct-shepherds-bush",
+    "name": "Shepherd's Bush Green",
+    "lat": 51.5046,
+    "lng": -0.2187,
+    "cycle_s": 102,
+    "green_s": 35,
+    "offset_s": 89
+  }
+]

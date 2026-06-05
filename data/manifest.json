@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-05T22:39:48.895713+00:00",
+  "generated_at": "2026-06-05T23:06:51.295151+00:00",
   "scenario_now": "2026-06-05T08:00:00+00:00",
   "datasets": {
     "facilities": {
@@ -7,7 +7,7 @@
       "path": "data/facilities.json",
       "rows": 26,
       "sha256": "d6b868efe1bea1dfe9f3172fabd4980bb0d1dc120883080020d6317e73f6f3ea",
-      "fetched_at": "2026-06-05T22:39:48.886064+00:00",
+      "fetched_at": "2026-06-05T23:06:51.274079+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_facilities.py"
     },
@@ -16,7 +16,7 @@
       "path": "data/demand.json",
       "rows": 30,
       "sha256": "09297cd1f8cf39f57c271c48630cca2712a27a416d4c5b5cbc0f0dd7e0376ed7",
-      "fetched_at": "2026-06-05T22:39:48.891081+00:00",
+      "fetched_at": "2026-06-05T23:06:51.281148+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_demand.py"
     },
@@ -25,7 +25,7 @@
       "path": "frontend/public/data/roads.geojson",
       "rows": 586,
       "sha256": "564c9538bb832d3365971ce86104476639f06ebc7994e11a7dcab5c92644f17a",
-      "fetched_at": "2026-06-05T22:39:48.895197+00:00",
+      "fetched_at": "2026-06-05T23:06:51.287165+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_road_graph.py"
     },
@@ -46,6 +46,33 @@
       "fetched_at": "2026-06-01T00:00:00+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_signals.py"
+    },
+    "junctions": {
+      "source": "bundled-central-london-signals",
+      "path": "data/junctions.json",
+      "rows": 30,
+      "sha256": "601473a3ce9f3f3ad640eb23c515e4ae8c0b3c8b9fe70640de8d91e5e972081c",
+      "fetched_at": "2026-06-05T23:06:51.288231+00:00",
+      "dq_passed": true,
+      "dq_suite": "tests/data_quality/test_junctions.py"
+    },
+    "weather": {
+      "source": "bundled-representative",
+      "path": "data/weather.json",
+      "rows": 8,
+      "sha256": "7960a2fe383417775452ac4d4a8c74f27aa3b2396867e112794873c4afa0e5d6",
+      "fetched_at": "2026-06-01T00:00:00+00:00",
+      "dq_passed": true,
+      "dq_suite": "tests/data_quality/test_weather.py"
+    },
+    "probes": {
+      "source": "simulated(seed=0, drivers=40, now=2026-06-05T08:00:00+00:00)",
+      "path": "data/probes_snapshot.json",
+      "rows": 800,
+      "sha256": "8017a6c6611cd9cc3c17edd05211d04dfd539b39dec337530874fbd04ea851de",
+      "fetched_at": "2026-06-05T23:06:51.295149+00:00",
+      "dq_passed": true,
+      "dq_suite": "tests/data_quality/test_probes.py"
     }
   }
 }

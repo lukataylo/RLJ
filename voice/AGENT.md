@@ -13,9 +13,15 @@ and do not call the routing service.
 - [x] `outbound.py` — subscribe `WS /ws`; on `notification` with `channel=="voice_call"`
       call `place_call(to, message)`; mirror `agent_log` narration. Auto-reconnect.
 - [x] `elevenlabs_client.py` — guarded TTS + outbound-call wrapper; missing key ⇒ no-op.
+- [x] `driver_tools.py` — typed tools on the orchestrator per `../contracts/driver-api.md`
+      (`get_guidance`, `get_signal_advice`, `get_congestion`, `bridge_status`,
+      `next_pickup`, `reroute_reason`). Orchestrator down ⇒ `{"error": ...}`.
+- [x] `driver_assistant.py` — driver-copilot agent: free-text question → tool router
+      (LLM if `LLM_BASE_URL` set, else keyword `route_question`) → tool call(s) → short
+      spoken answer (ElevenLabs guarded → console). `--demo` = 6 canned questions.
 - [x] `.env.example`, `requirements.txt`, `README.md` (incl. demo paragraph).
 - [x] Runs standalone vs. the mock orchestrator with **no** ElevenLabs key and **no**
-      model (keyword NLU + console output).
+      model (keyword NLU/routing + console output).
 
 ### Definition of done (shared, from AGENTS.md)
 1. Runs standalone against the mock orchestrator. ✔
@@ -29,6 +35,8 @@ and do not call the routing service.
 | Local Nemotron NLU | constrained JSON prompt → keyword/regex parser (`nlu.py`) |
 | Live telephony | text/stdin intake + 3 canned demo requests (`intake.py --demo`) |
 | ElevenLabs voice | local TTS file → plain console "call" print (`outbound.py`) |
+| LLM tool-router (driver) | strict JSON prompt → keyword `route_question` (`driver_assistant.py`) |
+| Orchestrator down (driver) | tools return `{"error":...}` → "can't reach dispatch"; `--demo` uses mocked tools |
 
 ## NemoClaw notes
 
@@ -54,3 +62,6 @@ openshell policy get $SANDBOX --full | grep -E "host:|port:"
 - `POST /jobs` (inbound) — body is a `DeliveryJob`; id/status/created_at omitted.
 - `WS /ws` (outbound) — react to `{type:"notification", payload:Notification}` where
   `payload.channel == "voice_call"`. `agent_log` is mirrored for narration.
+- Driver-assistant (read-only, `../contracts/driver-api.md`): `GET /driver/{id}/guidance`,
+  `GET /signals/advice`, `GET /congestion`, and `GET /state` (for `bridge_status` /
+  `reroute_reason`, derived from `disruptions`).

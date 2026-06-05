@@ -135,6 +135,57 @@ claims:
     must_pass: true
     test: "tests/data_quality/test_signals.py::test_active_and_horizon_consistency"
 
+  # ---- world-class solver quality + scale ---------------------------------
+  - id: solver-optimality-gap
+    statement: "Zero optimality gap vs Google OR-Tools on the clinical objective (static)"
+    category: research
+    must_pass: true
+    test: "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools"
+
+  - id: solver-scales
+    statement: "Solver stays feasible and within time budget at fleet scale (40-80 jobs)"
+    category: performance
+    must_pass: true
+    test: "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets"
+
+  # ---- data flywheel (crowdsourced congestion) ----------------------------
+  - id: flywheel-value
+    statement: "More contributing drivers significantly improve clinical STAT on-time (network effect)"
+    category: research
+    must_pass: true
+    test: "tests/backtests/test_flywheel.py::test_more_drivers_help"
+
+  - id: flywheel-monotone
+    statement: "Flywheel benefit is monotone in driver participation"
+    category: research
+    must_pass: false
+    test: "tests/backtests/test_flywheel.py::test_benefit_is_monotone"
+
+  # ---- flywheel data feeds + voice ----------------------------------------
+  - id: data-junctions
+    statement: "Traffic-signal junctions + green-wave advice are schema-valid within London"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_junctions.py::test_junctions_valid"
+
+  - id: data-probes
+    statement: "Crowdsourced driver pings are schema-valid, in-bbox, and deterministic"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_probes.py::test_probe_pings_valid"
+
+  - id: data-weather
+    statement: "Weather congestion multiplier is sane and deterministic"
+    category: data
+    must_pass: false
+    test: "tests/data_quality/test_weather.py::test_weather_multiplier_sane"
+
+  - id: voice-driver-assistant
+    statement: "Driver voice assistant routes the FAQ questions to the correct tools"
+    category: e2e
+    must_pass: true
+    test: "tests/voice/test_driver_assistant.py::test_driver_assistant_answers"
+
   # ---- end-to-end demo (the thing we actually show) -----------------------
   - id: reroute-on-closure
     statement: "Closing a road triggers a live re-route and scoreboard update"

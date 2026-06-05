@@ -1,0 +1,30 @@
+{
+  "name": "rlj-driver-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "RLJ Driver — mobile-first PWA for crowdsourced delivery drivers. Share GPS, get green-wave routing (the consumer side of the congestion flywheel).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 5174"
+  },
+  "dependencies": {
+    "@fontsource/orbitron": "^5.2.8",
+    "@fontsource/rajdhani": "^5.2.7",
+    "mapbox-gl": "^3.24.0",
+    "maplibre-gl": "^4.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.14",
+    "@types/mapbox-gl": "^3.4.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

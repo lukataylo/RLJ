@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-05T22:39:50.641552+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-05T23:07:00.893221+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (19/19) · verified 22/22 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (25/25) · verified 30/30 · failing 0 · unverified 0
 
 ## impact
 
@@ -18,6 +18,7 @@ _Generated 2026-06-05T22:39:50.641552+00:00 — machine output of `make verify`.
 |--|--|--|--|
 | ✅ ⭐ | Re-optimises within the real-time budget | `test_solve_budget` | verified |
 | ✅ | Solver objective does not regress vs the golden baseline | `test_golden_no_regression` | verified |
+| ✅ ⭐ | Solver stays feasible and within time budget at fleet scale (40-80 jobs) | `test_scales_to_large_fleets` | verified |
 
 ## contract
 
@@ -38,6 +39,9 @@ _Generated 2026-06-05T22:39:50.641552+00:00 — machine output of `make verify`.
 | ✅ | Road graph is connected and covers the London bbox | `test_graph_connected_and_bbox` | verified |
 | ✅ ⭐ | Tower Bridge + event timed-disruption feeds are schema-valid within London | `test_timed_events_valid` | verified |
 | ✅ ⭐ | Horizon disruptions are a superset of active (schedule sees imminent closures reaction can't) | `test_active_and_horizon_consistency` | verified |
+| ✅ ⭐ | Traffic-signal junctions + green-wave advice are schema-valid within London | `test_junctions_valid` | verified |
+| ✅ ⭐ | Crowdsourced driver pings are schema-valid, in-bbox, and deterministic | `test_probe_pings_valid` | verified |
+| ✅ | Weather congestion multiplier is sane and deterministic | `test_weather_multiplier_sane` | verified |
 
 ## research
 
@@ -48,10 +52,14 @@ _Generated 2026-06-05T22:39:50.641552+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Anticipatory method significantly beats naive greedy dispatch | `test_beats_greedy_significantly` | verified |
 | ✅ ⭐ | Anticipatory method beats Google OR-Tools operating reactively (information advantage) | `test_beats_or_tools_reactive` | verified |
 | ✅ | Anticipation also helps OR-Tools (effect is the information, not our solver) | `test_anticipation_generalises_to_ortools` | verified |
+| ✅ ⭐ | Zero optimality gap vs Google OR-Tools on the clinical objective (static) | `test_optimality_gap_vs_ortools` | verified |
+| ✅ ⭐ | More contributing drivers significantly improve clinical STAT on-time (network effect) | `test_more_drivers_help` | verified |
+| ✅ | Flywheel benefit is monotone in driver participation | `test_benefit_is_monotone` | verified |
 
 ## e2e
 
 | | claim | test | status |
 |--|--|--|--|
+| ✅ ⭐ | Driver voice assistant routes the FAQ questions to the correct tools | `test_driver_assistant_answers` | verified |
 | ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
 | ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |

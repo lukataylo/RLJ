@@ -18,10 +18,13 @@ from pathlib import Path
 import demand as demand_mod
 import events as events_mod
 import facilities as facilities_mod
+import junctions as junctions_mod
+import probes as probes_mod
 import quality
 import roadgraph as roadgraph_mod
 import signals as signals_mod
 import towerbridge as towerbridge_mod
+import weather as weather_mod
 from loader import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -147,6 +150,74 @@ def build(now: str = demand_mod.SNAPSHOT_NOW, demand_n: int = 30, seed: int = 7)
         "fetched_at": events_mod.BUNDLE_FETCHED_AT,
         "dq_passed": ev_passed,
         "dq_suite": "tests/data_quality/test_signals.py",
+    }
+
+    # ---- junctions: signalised junctions + green-wave signal model -------- #
+    jct_path = junctions_mod.JUNCTIONS_PATH
+    jct_passed, jct_rows = True, 0
+    try:
+        js = junctions_mod.write_junctions(jct_path)
+        jct_rows = len(js)
+        quality.validate_junctions(js)
+        # green_wave_advice must produce a usable SignalAdvice for a sample call.
+        advice = junctions_mod.green_wave_advice(js[0], distance_m=200.0, now_s=1000.0, current_speed_mps=8.0)
+        if not advice.get("message"):
+            raise AssertionError("green_wave_advice produced no message")
+    except Exception as e:  # noqa: BLE001
+        jct_passed = False
+        print(f"[junctions] DQ FAILED: {e}")
+    datasets["junctions"] = {
+        "source": "bundled-central-london-signals",
+        "path": _rel(jct_path),
+        "rows": jct_rows,
+        "sha256": sha256_file(jct_path) if jct_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": jct_passed,
+        "dq_suite": "tests/data_quality/test_junctions.py",
+    }
+
+    # ---- weather: representative states + congestion multiplier ----------- #
+    wx_path = weather_mod.WEATHER_PATH
+    wx_passed, wx_rows = True, 0
+    try:
+        payload = weather_mod.write_weather(wx_path)
+        wx_rows = len(payload.get("days", {}))
+        mult = weather_mod.congestion_multiplier(sample_date)
+        if not (1.0 <= mult <= 1.8):
+            raise AssertionError(f"congestion_multiplier {mult} outside [1.0, 1.8]")
+        if weather_mod.weather_for(sample_date)["condition"] not in weather_mod.CONDITIONS:
+            raise AssertionError("weather_for returned an unknown condition")
+    except Exception as e:  # noqa: BLE001
+        wx_passed = False
+        print(f"[weather] DQ FAILED: {e}")
+    datasets["weather"] = {
+        "source": weather_mod.SOURCE,
+        "path": _rel(wx_path),
+        "rows": wx_rows,
+        "sha256": sha256_file(wx_path) if wx_path.exists() else "",
+        "fetched_at": weather_mod.BUNDLE_FETCHED_AT,
+        "dq_passed": wx_passed,
+        "dq_suite": "tests/data_quality/test_weather.py",
+    }
+
+    # ---- probes: crowdsourced driver GPS snapshot ------------------------- #
+    pr_path = probes_mod.PROBES_SNAPSHOT_PATH
+    pr_passed, pr_rows = True, 0
+    try:
+        pings = probes_mod.write_snapshot(pr_path, now=now)
+        pr_rows = len(pings)
+        quality.validate_pings(pings)
+    except Exception as e:  # noqa: BLE001
+        pr_passed = False
+        print(f"[probes] DQ FAILED: {e}")
+    datasets["probes"] = {
+        "source": f"simulated(seed={probes_mod.SNAPSHOT_SEED}, drivers={probes_mod.SNAPSHOT_DRIVERS}, now={now})",
+        "path": _rel(pr_path),
+        "rows": pr_rows,
+        "sha256": sha256_file(pr_path) if pr_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": pr_passed,
+        "dq_suite": "tests/data_quality/test_probes.py",
     }
 
     manifest = {"generated_at": _now_iso(), "scenario_now": now, "datasets": datasets}

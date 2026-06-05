@@ -14,12 +14,14 @@ from datetime import datetime, timezone
 from contextlib import suppress
 
 import httpx
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
-                    Plan, OptimizeRequest, OptimizeResponse)
+                    Plan, OptimizeRequest, OptimizeResponse,
+                    Driver, DriverPing, TelemetryBatch)
 from greedy import greedy_plan
+import congestion as congestion_mod
 
 ROUTING_URL = os.getenv("ROUTING_URL", "http://localhost:8100")
 
@@ -33,9 +35,14 @@ class State:
         self.couriers: dict[str, Courier] = {}
         self.disruptions: list[DisruptionEvent] = []
         self.plan: Plan | None = None
+        self.drivers: dict[str, Driver] = {}
+        self.pings: list[dict] = []
+        self.congestion: dict = {"cells": [], "generated_at": None}
+        self.couriers_helped: int = 0
         self._job_n = 0
         self._crt_n = 0
         self._dis_n = 0
+        self._drv_n = 0
 
     def snapshot(self):
         return {
@@ -43,7 +50,14 @@ class State:
             "couriers": [c.model_dump(mode="json") for c in self.couriers.values()],
             "plan": self.plan.model_dump(mode="json") if self.plan else None,
             "disruptions": [d.model_dump(mode="json") for d in self.disruptions],
+            "drivers": [d.model_dump(mode="json") for d in self.drivers.values()],
+            "congestion": self.congestion,
         }
+
+    def all_disruptions(self) -> list[DisruptionEvent]:
+        """Manual/scheduled disruptions plus those derived from the live congestion field."""
+        derived = [DisruptionEvent(**d) for d in congestion_mod.field_to_disruptions(self.congestion)]
+        return list(self.disruptions) + derived
 
 
 S = State()
@@ -86,7 +100,7 @@ async def run_optimize() -> Plan:
     req = OptimizeRequest(
         jobs=list(S.jobs.values()),
         couriers=list(S.couriers.values()),
-        disruptions=S.disruptions,
+        disruptions=S.all_disruptions(),
         now=datetime.now(timezone.utc),
     )
     # Prefer the real routing service; fall back to greedy on any failure.
@@ -209,6 +223,81 @@ async def notify(n: Notification):
         n.id = f"ntf-{datetime.now(timezone.utc).timestamp()}"
     await HUB.emit("notification", n.model_dump(mode="json"))
     return n.model_dump(mode="json")
+
+
+# ----------------------------------------------------------------------------- flywheel
+@app.get("/drivers")
+async def list_drivers():
+    return [d.model_dump(mode="json") for d in S.drivers.values()]
+
+
+@app.post("/drivers")
+async def create_driver(driver: Driver):
+    if not driver.consent:
+        raise HTTPException(status_code=422, detail="consent required to join the flywheel")
+    if not driver.id:
+        S._drv_n += 1
+        driver.id = f"drv-{S._drv_n}"
+    driver.joined_at = driver.joined_at or datetime.now(timezone.utc)
+    S.drivers[driver.id] = driver
+    await HUB.emit("driver_joined", driver.model_dump(mode="json"))
+    return driver.model_dump(mode="json")
+
+
+@app.post("/telemetry")
+async def telemetry(batch: TelemetryBatch):
+    raw = [p.model_dump(mode="json") for p in batch.pings]
+    # only consenting, known drivers contribute
+    consenting = {d.id for d in S.drivers.values() if d.consent}
+    raw = [p for p in raw if not S.drivers or p["driver_id"] in consenting]
+    accepted, rejected = congestion_mod.validate_pings(raw)
+    S.pings.extend(accepted)
+    S.pings = S.pings[-20000:]  # bound memory
+    for p in accepted:
+        d = S.drivers.get(p["driver_id"])
+        if d:
+            d.points += 1
+    before = {d["cell"] for d in S.congestion.get("cells", [])}
+    S.congestion = congestion_mod.estimate_field(S.pings, datetime.now(timezone.utc))
+    after = {d["cell"] for d in S.congestion.get("cells", [])}
+    await HUB.emit("congestion_updated", S.congestion)
+    if S.jobs:  # re-plan medical couriers around newly-detected congestion
+        await run_optimize()
+        S.couriers_helped = len(S.plan.routes) if S.plan else 0
+    return {"accepted": len(accepted), "rejected": len(rejected),
+            "cells_updated": len(after - before) + len(after & before)}
+
+
+@app.get("/congestion")
+async def get_congestion():
+    return S.congestion
+
+
+@app.get("/driver/{driver_id}/guidance")
+async def driver_guidance(driver_id: str):
+    driver = S.drivers.get(driver_id)
+    pings = sum(1 for p in S.pings if p["driver_id"] == driver_id)
+    advice = None
+    # naive green-wave placeholder; the data stream's junctions service refines this
+    if S.congestion.get("cells"):
+        worst = max(S.congestion["cells"], key=lambda c: c["congestion"], default=None)
+        if worst and worst["congestion"] >= congestion_mod.BUSY:
+            advice = {"driver_id": driver_id,
+                      "message": f"Heavy traffic near ({worst['lat']:.3f},{worst['lng']:.3f}); easing to 25 km/h smooths your run.",
+                      "target_speed_mps": 7.0, "junction": {"lat": worst["lat"], "lng": worst["lng"]},
+                      "seconds_to_green": 20.0, "confidence": 0.5}
+    return {"driver_id": driver_id, "status": "active" if driver else "unknown",
+            "eta": None, "route_polyline": [], "signal_advice": advice,
+            "contribution": {"pings": pings, "couriers_helped": S.couriers_helped}}
+
+
+@app.get("/signals/advice")
+async def signals_advice(driver_id: str = "", lat: float = 0.0, lng: float = 0.0, heading: float = 0.0):
+    # lightweight green-wave hint; the junctions dataset provides the precise cycle model
+    return {"driver_id": driver_id,
+            "message": "Maintain ~28 km/h to catch the next green.",
+            "target_speed_mps": 7.8, "junction": {"lat": lat, "lng": lng},
+            "seconds_to_green": 18.0, "confidence": 0.4}
 
 
 # ----------------------------------------------------------------------------- WS

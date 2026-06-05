@@ -71,3 +71,37 @@ def test_signal_datasets_gated(tmp_path):
         load_dataset("towerbridge", manifest_path=tmp_manifest)  # dq_passed False
     with pytest.raises(DataNotVerifiedError):
         load_dataset("events", manifest_path=tmp_manifest)  # hash mismatch
+
+
+def test_flywheel_datasets_gated(tmp_path):
+    """The congestion-flywheel / green-wave datasets are manifest-gated too."""
+    manifest = build_mod.build()
+    datasets = manifest["datasets"]
+
+    expected_suite = {
+        "junctions": "tests/data_quality/test_junctions.py",
+        "weather": "tests/data_quality/test_weather.py",
+        "probes": "tests/data_quality/test_probes.py",
+    }
+
+    # all three new datasets exist, passed DQ, bind their suite, and load
+    for name, suite in expected_suite.items():
+        assert name in datasets, f"{name} missing from manifest"
+        assert datasets[name]["dq_passed"], f"{name} did not pass DQ"
+        assert datasets[name]["dq_suite"] == suite
+        data = load_dataset(name)
+        assert data, f"{name} loaded empty"
+
+    assert set(expected_suite) <= set(verified_datasets())
+
+    # an unverified flywheel dataset must NOT load
+    tampered = json.loads(json.dumps(manifest))
+    tampered["datasets"]["junctions"]["dq_passed"] = False
+    tampered["datasets"]["probes"]["sha256"] = "0" * 64
+    tmp_manifest = tmp_path / "manifest.json"
+    tmp_manifest.write_text(json.dumps(tampered))
+
+    with pytest.raises(DataNotVerifiedError):
+        load_dataset("junctions", manifest_path=tmp_manifest)  # dq_passed False
+    with pytest.raises(DataNotVerifiedError):
+        load_dataset("probes", manifest_path=tmp_manifest)  # hash mismatch

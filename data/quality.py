@@ -298,6 +298,106 @@ def validate_timed_events(events: Iterable[Mapping]) -> list[dict]:
     return records
 
 
+# --------------------------------------------------------------------------- #
+# junctions (signalised junctions + green-wave signal model)
+# --------------------------------------------------------------------------- #
+# Signalised-junction signal-model bounds.
+JUNCTION_CYCLE_MIN_S = 60
+JUNCTION_CYCLE_MAX_S = 120
+
+
+def validate_junctions(junctions: Iterable[Mapping]) -> list[dict]:
+    """Validate signalised-junction records (data/junctions.py).
+
+    Each record must have ``id, name, lat, lng, cycle_s, green_s, offset_s``;
+    coordinates inside :data:`LONDON_BBOX`; ``cycle_s`` in [60, 120];
+    ``0 < green_s < cycle_s``; ``0 <= offset_s < cycle_s``; ids unique.
+
+    Returns the records (list) on success; raises ``AssertionError`` otherwise.
+    """
+    records = [dict(j) for j in junctions]
+    if not records:
+        raise AssertionError("no junctions provided")
+    errors: list[str] = []
+    required = ("id", "name", "lat", "lng", "cycle_s", "green_s", "offset_s")
+    seen: set[str] = set()
+    for i, j in enumerate(records):
+        for k in required:
+            if j.get(k) is None or (k in ("id", "name") and j.get(k) == ""):
+                errors.append(f"[{i}] missing required key {k!r}")
+        jid = j.get("id")
+        if jid in seen:
+            errors.append(f"[{i}] duplicate junction id {jid!r}")
+        seen.add(jid)
+        lat, lng = j.get("lat"), j.get("lng")
+        if lat is None or lng is None or not point_in_bbox(lat, lng):
+            errors.append(f"[{i}] coordinate {(lat, lng)} outside London bbox")
+        cycle = j.get("cycle_s")
+        green = j.get("green_s")
+        offset = j.get("offset_s")
+        if cycle is None or not (JUNCTION_CYCLE_MIN_S <= cycle <= JUNCTION_CYCLE_MAX_S):
+            errors.append(
+                f"[{i}] cycle_s {cycle!r} outside "
+                f"[{JUNCTION_CYCLE_MIN_S}, {JUNCTION_CYCLE_MAX_S}]"
+            )
+        elif green is None or not (0 < green < cycle):
+            errors.append(f"[{i}] green_s {green!r} not in (0, cycle_s={cycle})")
+        if cycle is not None and (offset is None or not (0 <= offset < cycle)):
+            errors.append(f"[{i}] offset_s {offset!r} not in [0, cycle_s={cycle})")
+    if errors:
+        raise AssertionError("Junction failures:\n" + "\n".join(errors[:15]))
+    return records
+
+
+# --------------------------------------------------------------------------- #
+# driver GPS probes (DriverPing[])
+# --------------------------------------------------------------------------- #
+# Plausible upper bound for a road-vehicle GPS speed (m/s). ~144 km/h; anything
+# above this is treated as a bad fix and rejected.
+PING_SPEED_MAX_MPS = 40.0
+
+
+def validate_pings(pings: Iterable[Mapping]) -> list[dict]:
+    """Validate crowdsourced ``DriverPing`` records (data/probes.py).
+
+    Checks each record:
+      * has required keys ``driver_id, lat, lng, ts``;
+      * coordinate inside :data:`LONDON_BBOX`;
+      * ``speed_mps`` (if present) in [0, :data:`PING_SPEED_MAX_MPS`];
+      * ``heading_deg`` (if present) in [0, 360];
+      * ``ts`` is a parseable ISO-8601 timestamp.
+
+    Returns the records (list) on success; raises ``AssertionError`` otherwise.
+    """
+    records = [dict(p) for p in pings]
+    if not records:
+        raise AssertionError("no pings provided")
+    errors: list[str] = []
+    required = ("driver_id", "lat", "lng", "ts")
+    for i, p in enumerate(records):
+        for k in required:
+            if p.get(k) is None or (k == "driver_id" and p.get(k) == ""):
+                errors.append(f"[{i}] missing required key {k!r}")
+        lat, lng = p.get("lat"), p.get("lng")
+        if lat is None or lng is None or not point_in_bbox(lat, lng):
+            errors.append(f"[{i}] coordinate {(lat, lng)} outside London bbox")
+        spd = p.get("speed_mps")
+        if spd is not None and not (0.0 <= spd <= PING_SPEED_MAX_MPS):
+            errors.append(f"[{i}] speed_mps {spd!r} outside [0, {PING_SPEED_MAX_MPS}]")
+        hdg = p.get("heading_deg")
+        if hdg is not None and not (0.0 <= hdg <= 360.0):
+            errors.append(f"[{i}] heading_deg {hdg!r} outside [0, 360]")
+        ts = p.get("ts")
+        if ts:
+            try:
+                _parse_iso(ts)
+            except (ValueError, TypeError):
+                errors.append(f"[{i}] unparseable ts {ts!r}")
+    if errors:
+        raise AssertionError("DriverPing failures:\n" + "\n".join(errors[:15]))
+    return records
+
+
 def is_fresh(fetched_at: str, max_age_days: float = 400.0, now: str | datetime | None = None) -> bool:
     """Freshness helper: True iff ``fetched_at`` is within ``max_age_days`` of now.
 

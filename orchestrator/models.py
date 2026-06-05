@@ -108,3 +108,26 @@ class OptimizeRequest(BaseModel):
 
 class OptimizeResponse(BaseModel):
     plan: Plan
+
+
+# ---- driver flywheel (contracts/driver-api.md) ------------------------------------
+class Driver(BaseModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
+    vehicle_type: Literal["bike", "scooter", "car", "van"]
+    consent: bool
+    joined_at: Optional[datetime] = None
+    points: int = 0
+
+
+class DriverPing(BaseModel):
+    driver_id: str
+    lat: float
+    lng: float
+    speed_mps: float = 0.0
+    heading_deg: Optional[float] = None
+    ts: Optional[datetime] = None
+
+
+class TelemetryBatch(BaseModel):
+    pings: list[DriverPing]
