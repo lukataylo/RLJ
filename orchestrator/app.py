@@ -10,6 +10,7 @@ Env:  ROUTING_URL=http://localhost:8100   (optional; greedy fallback if unreacha
 """
 from __future__ import annotations
 import os
+import asyncio
 from datetime import datetime, timezone
 from contextlib import suppress
 
@@ -39,6 +40,7 @@ class State:
         self.pings: list[dict] = []
         self.congestion: dict = {"cells": [], "generated_at": None}
         self.couriers_helped: int = 0
+        self.progress: dict[str, float] = {}   # courier_id -> fraction along current route
         self._job_n = 0
         self._crt_n = 0
         self._dis_n = 0
@@ -114,6 +116,7 @@ async def run_optimize() -> Plan:
         await HUB.emit("agent_log", {"level": "warn",
                                      "message": f"Routing service unavailable ({type(e).__name__}); used greedy fallback."})
     S.plan = plan
+    S.progress = {}   # restart courier animation along the new routes
     obj = plan.objective
     await HUB.emit("plan_updated", plan.model_dump(mode="json"))
     await HUB.emit("agent_log", {"level": "info",
@@ -298,6 +301,51 @@ async def signals_advice(driver_id: str = "", lat: float = 0.0, lng: float = 0.0
             "message": "Maintain ~28 km/h to catch the next green.",
             "target_speed_mps": 7.8, "junction": {"lat": lat, "lng": lng},
             "seconds_to_green": 18.0, "confidence": 0.4}
+
+
+# ----------------------------------------------------------------------------- movement
+MOVE_INTERVAL_S = 2.0
+MOVE_STEP = 0.12   # fraction of route advanced per tick
+
+
+def _interp(poly, frac: float):
+    if not poly:
+        return None
+    if len(poly) == 1:
+        return {"lat": poly[0].lat, "lng": poly[0].lng}
+    n = len(poly) - 1
+    x = max(0.0, min(1.0, frac)) * n
+    i = min(int(x), n - 1)
+    f = x - i
+    a, b = poly[i], poly[i + 1]
+    return {"lat": a.lat + (b.lat - a.lat) * f, "lng": a.lng + (b.lng - a.lng) * f}
+
+
+async def courier_mover():
+    """Advance each courier along its assigned route and broadcast courier_moved — the
+    real-time fleet-motion channel the frontend animates."""
+    while True:
+        await asyncio.sleep(MOVE_INTERVAL_S)
+        if not S.plan:
+            continue
+        for route in S.plan.routes:
+            if not route.polyline:
+                continue
+            frac = min(1.0, S.progress.get(route.courier_id, 0.0) + MOVE_STEP)
+            S.progress[route.courier_id] = frac
+            pos = _interp(route.polyline, frac)
+            courier = S.couriers.get(route.courier_id)
+            if courier and pos:
+                courier.location.lat = pos["lat"]
+                courier.location.lng = pos["lng"]
+                if courier.status == "idle":
+                    courier.status = "enroute"
+                await HUB.emit("courier_moved", {"courier_id": route.courier_id, "location": pos})
+
+
+@app.on_event("startup")
+async def _start_background():
+    asyncio.create_task(courier_mover())
 
 
 # ----------------------------------------------------------------------------- WS

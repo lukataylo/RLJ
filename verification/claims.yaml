@@ -193,6 +193,31 @@ claims:
     must_pass: true
     test: "tests/voice/test_driver_assistant.py::test_driver_assistant_answers"
 
+  # ---- completeness (no stubs / unwired buttons / dead endpoints) ---------
+  - id: completeness-no-stubs
+    statement: "No unimplemented stubs in source outside the documented GB10 seams"
+    category: completeness
+    must_pass: true
+    test: "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist"
+
+  - id: completeness-no-unwired-buttons
+    statement: "Every UI button is wired to a real handler (no dead buttons)"
+    category: completeness
+    must_pass: true
+    test: "tests/completeness/test_no_stubs.py::test_no_unwired_buttons"
+
+  - id: completeness-endpoints
+    statement: "Every contract REST endpoint is implemented and reachable"
+    category: completeness
+    must_pass: true
+    test: "tests/completeness/test_endpoints_implemented.py::test_orchestrator_rest_endpoints_implemented"
+
+  - id: completeness-ws-emitted
+    statement: "Every declared WebSocket event is actually emitted (no dead channels)"
+    category: completeness
+    must_pass: true
+    test: "tests/completeness/test_endpoints_implemented.py::test_ws_events_declared_are_emitted"
+
   # ---- end-to-end demo (the thing we actually show) -----------------------
   - id: reroute-on-closure
     statement: "Closing a road triggers a live re-route and scoreboard update"
