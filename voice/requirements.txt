@@ -1,0 +1,4 @@
+# RLJ voice stream — kept deliberately small.
+httpx>=0.27          # REST calls to the orchestrator + OpenAI-compatible LLM endpoint
+websockets>=12.0     # subscribe to ws://localhost:8000/ws for notification events
+python-dotenv>=1.0   # load .env (ELEVENLABS_API_KEY, LLM_BASE_URL, ...)

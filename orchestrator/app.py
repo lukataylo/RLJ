@@ -107,6 +107,27 @@ async def run_optimize() -> Plan:
     return plan
 
 
+async def emit_dispatch_notification(job_id: str):
+    """After a (re)plan, tell the voice stream to call the assigned courier with the ETA.
+    This is the producer of channel=='voice_call' events the voice agent listens for."""
+    if not S.plan:
+        return
+    for route in S.plan.routes:
+        for stop in route.stops:
+            if stop.job_id == job_id and stop.kind == "dropoff":
+                courier = S.couriers.get(route.courier_id)
+                job = S.jobs.get(job_id)
+                eta = stop.eta.strftime("%H:%M") if stop.eta else "soon"
+                msg = (f"{job.priority.upper()} job {job_id}: collect from "
+                       f"{job.origin.name or 'origin'}, deliver to {job.destination.name or 'destination'}. "
+                       f"ETA {eta}." if job else f"New job {job_id}, ETA {eta}.")
+                n = Notification(channel="voice_call",
+                                 to=(courier.phone if courier else None),
+                                 job_id=job_id, message=msg)
+                await HUB.emit("notification", n.model_dump(mode="json"))
+                return
+
+
 # ----------------------------------------------------------------------------- REST
 @app.get("/healthz")
 async def healthz():
@@ -138,6 +159,7 @@ async def create_job(job: DeliveryJob):
     await HUB.emit("agent_log", {"level": "info",
                                  "message": f"New {job.priority.upper()} job {job.id}: {job.origin.name or '?'} → {job.destination.name or '?'}."})
     await run_optimize()
+    await emit_dispatch_notification(job.id)
     return job.model_dump(mode="json")
 
 

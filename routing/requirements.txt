@@ -1,0 +1,26 @@
+# RLJ routing service — dependencies.
+#
+# CORE (required). Runs the full /optimize contract on this dev Mac with NO GPU.
+fastapi>=0.110
+uvicorn>=0.27
+pydantic>=2.6
+numpy>=1.26
+
+# ----------------------------------------------------------------------------------
+# OPTIONAL — accelerators / higher-fidelity tiers. All are IMPORT-GUARDED in code:
+# the service runs fine when none are present, and lights them up automatically when
+# they are. Do NOT install these on the numpy-only dev box.
+#
+#   GPU array backend for the ACO hot loop (turns aco-numpy -> gpu-aco on the GB10).
+#   Pick the wheel matching the box's CUDA, e.g.:
+# cupy-cuda12x>=13.0
+#
+#   NVIDIA cuOpt — managed GPU PDPTW solver (fallback rung 2). Conda/NGC on the Spark:
+# cuopt
+#
+#   Google OR-Tools — CPU PDPTW solver (fallback rung 3):
+# ortools>=9.8
+#
+#   Real road-graph travel times (traveltime.osmnx_matrix tier):
+# osmnx>=1.9
+# networkx>=3.2
