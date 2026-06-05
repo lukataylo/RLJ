@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-05T21:50:59.194738+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-05T22:09:19.864347+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ❌ NOT GREEN** (11/13) · verified 13/15 · failing 0 · unverified 2
+**Must-pass gate: ✅ GREEN** (13/13) · verified 15/15 · failing 0 · unverified 0
 
 ## impact
 
@@ -41,5 +41,5 @@ _Generated 2026-06-05T21:50:59.194738+00:00 — machine output of `make verify`.
 
 | | claim | test | status |
 |--|--|--|--|
-| ⏳ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | unverified |
-| ⏳ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | unverified |
+| ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
+| ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |

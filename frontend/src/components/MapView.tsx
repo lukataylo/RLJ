@@ -116,14 +116,15 @@ function buildLayers(
       }),
     );
     // Animated flow "dashes" — dots easing along each road segment.
-    const flow = data.roads.map((r) => ({
-      pos: pointAlongPath(r.path, (phase * 1.7) % 1),
-      congestion: r.congestion,
-    }));
+    const flow: { pos: [number, number]; congestion: number }[] = [];
+    for (const r of data.roads) {
+      const pos = pointAlongPath(r.path, (phase * 1.7) % 1);
+      if (pos) flow.push({ pos, congestion: r.congestion });
+    }
     layers.push(
-      new ScatterplotLayer<(typeof flow)[number]>({
+      new ScatterplotLayer<{ pos: [number, number]; congestion: number }>({
         id: "traffic-flow",
-        data: flow.filter((f) => f.pos) as { pos: [number, number]; congestion: number }[],
+        data: flow,
         getPosition: (d) => d.pos,
         getRadius: 2,
         radiusUnits: "pixels",
@@ -372,7 +373,7 @@ export default function MapView() {
       onClick: (info: PickingInfo) => {
         const o = info.object as Record<string, unknown> | null;
         if (o && "status" in o && "location" in o) {
-          selectCourier((o as Courier).id);
+          selectCourier((o as unknown as Courier).id);
         }
       },
       getTooltip: ({ object }: PickingInfo) => {

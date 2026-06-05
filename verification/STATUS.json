@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-06-05T21:50:59.194738+00:00",
+  "generated_at": "2026-06-05T22:09:19.864347+00:00",
   "summary": {
     "total": 15,
-    "verified": 13,
+    "verified": 15,
     "failing": 0,
-    "unverified": 2,
+    "unverified": 0,
     "must_pass_total": 13,
-    "must_pass_verified": 11,
-    "must_pass_green": false
+    "must_pass_verified": 13,
+    "must_pass_green": true
   },
   "claims": [
     {
@@ -17,7 +17,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_stat_window_compliance",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "beats-baseline",
@@ -53,7 +53,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0006
     },
     {
       "id": "plan-schema",
@@ -62,7 +62,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0473
+      "duration_s": 0.0466
     },
     {
       "id": "job-schema",
@@ -80,7 +80,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.049
+      "duration_s": 0.0479
     },
     {
       "id": "data-facilities-bbox",
@@ -89,7 +89,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0054
+      "duration_s": 0.0009
     },
     {
       "id": "data-facilities-complete",
@@ -98,7 +98,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0161
+      "duration_s": 0.0133
     },
     {
       "id": "data-demand-valid",
@@ -107,7 +107,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0091
+      "duration_s": 0.009
     },
     {
       "id": "data-manifest-gate",
@@ -116,7 +116,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0231
+      "duration_s": 0.0223
     },
     {
       "id": "data-roadgraph",
@@ -125,7 +125,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0462
+      "duration_s": 0.0447
     },
     {
       "id": "reroute-on-closure",
@@ -133,8 +133,8 @@
       "category": "e2e",
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.4821
     },
     {
       "id": "voice-loop",
@@ -142,8 +142,8 @@
       "category": "e2e",
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
-      "status": "unverified",
-      "duration_s": null
+      "status": "verified",
+      "duration_s": 0.0941
     }
   ]
 }

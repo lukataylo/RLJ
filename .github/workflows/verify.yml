@@ -1,0 +1,33 @@
+name: verify
+# The gate. A change is only "verified" if these external tests pass. Merges to main
+# are blocked unless every must_pass claim is green (verification/run.py exits non-zero).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m venv .venv
+          ./.venv/bin/pip install -U pip
+          ./.venv/bin/pip install -r requirements-test.txt -r orchestrator/requirements.txt -r routing/requirements.txt
+      - name: Build + verify datasets
+        run: ./.venv/bin/python data/build.py
+      - name: Run the gate (15 claims, 13 must-pass)
+        run: ./.venv/bin/python verification/run.py
+      - name: Upload verification status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification
+          path: |
+            verification/STATUS.json
+            verification/VERIFICATION.md
