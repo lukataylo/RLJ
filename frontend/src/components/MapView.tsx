@@ -42,7 +42,6 @@ import {
   congestionRGB,
   facilityRGB,
 } from "../lib/palette";
-import { pointAlong } from "../lib/geo";
 import {
   fetchOptionalJson,
   parseRoads,
@@ -362,39 +361,9 @@ function buildLayers(
         updateTriggers: { getColor: selectedCourierId, getWidth: selectedCourierId },
       }),
     );
-    // Animated heads riding each road-following path (dimmed when not selected).
-    const heads = routeLines
-      .map((r) => ({
-        courier_id: r.courier_id,
-        selected: r.selected,
-        pos: pointAlong(r.path.map(([lng, lat]) => ({ lat, lng })), phase),
-      }))
-      .filter((h): h is { courier_id: string; selected: boolean; pos: [number, number] } => h.pos !== null);
-    layers.push(
-      new ScatterplotLayer<(typeof heads)[number]>({
-        id: "trip-heads-glow",
-        data: heads,
-        getPosition: (d) => d.pos,
-        getRadius: 22,
-        radiusUnits: "pixels",
-        getFillColor: (d) => [232, 237, 230, !selActive ? 55 : d.selected ? 80 : 12] as [number, number, number, number],
-        updateTriggers: { getPosition: phase, getFillColor: selectedCourierId },
-      }),
-    );
-    layers.push(
-      new ScatterplotLayer<(typeof heads)[number]>({
-        id: "trip-heads",
-        data: heads,
-        getPosition: (d) => d.pos,
-        getRadius: 6,
-        radiusUnits: "pixels",
-        stroked: true,
-        lineWidthMinPixels: 1.5,
-        getLineColor: (d) => [232, 237, 230, !selActive ? 230 : d.selected ? 255 : 50] as [number, number, number, number],
-        getFillColor: (d) => [232, 237, 230, !selActive ? 235 : d.selected ? 255 : 45] as [number, number, number, number],
-        updateTriggers: { getPosition: phase, getLineColor: selectedCourierId, getFillColor: selectedCourierId },
-      }),
-    );
+    // (Removed the animated "trip-head" dots that raced along every route — they read as
+    // noise / made it look like nothing was settling. Routes are static lines; the courier
+    // markers below show real position.)
   }
 
   // 3. Dashed connectors from each courier to its next stop (neutral; dimmed off-selection).
