@@ -1,0 +1,19 @@
+[Unit]
+Description=RLJ traffic-signal Nemotron agent (GB10)
+After=network-online.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=nvidia
+WorkingDirectory=/home/nvidia
+ExecStart=/usr/bin/python3 /home/nvidia/signal_agent.py
+Environment=ORCH=http://10.18.216.110:8000
+Environment=OLLAMA=http://localhost:11434
+Environment=MODEL=nemotron
+Environment=INTERVAL_S=90
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
