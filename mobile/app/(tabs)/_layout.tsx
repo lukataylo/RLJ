@@ -4,12 +4,14 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFlywheel } from "../../src/lib/flywheel";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { FONT } from "../../src/theme/tokens";
 
 export default function TabsLayout() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  useFlywheel(); // keep congestion + green-wave fresh across all tabs
   return (
     <Tabs
       screenOptions={{
@@ -51,6 +53,15 @@ export default function TabsLayout() {
           title: "History",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="history" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="impact"
+        options={{
+          title: "Impact",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="chart-line-variant" size={size} color={color} />
           ),
         }}
       />

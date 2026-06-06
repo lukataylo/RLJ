@@ -4,7 +4,19 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
-import type { Courier, DeliveryJob, Plan, Route } from "./types";
+import type {
+  CongestionCell,
+  Courier,
+  DeliveryJob,
+  DriverGuidance,
+  GpsFix,
+  Plan,
+  Route,
+  SignalAdvice,
+} from "./types";
+
+/** Liveness of each optional data source — drives graceful-degradation UI. */
+export type Source = "live" | "demo" | "off";
 
 const COURIER_KEY = "pulsego.courierId";
 const DRIVER_KEY = "pulsego.driverId";
@@ -21,8 +33,19 @@ interface AppState {
   jobs: DeliveryJob[];
   plan: Plan | null;
   couriers: Courier[];
-  connected: boolean;
+  connected: boolean; // WebSocket connected
+  online: boolean; // orchestrator REST reachable
   lastEventAt: number | null;
+
+  // flywheel (green-wave + congestion + contribution)
+  sessionPings: number; // pings sent this session (local truth)
+  lastFix: GpsFix | null;
+  congestion: CongestionCell[];
+  congestionSource: Source;
+  guidance: DriverGuidance | null;
+  advice: SignalAdvice | null;
+  guidanceSource: Source;
+  guidanceAvailable: boolean;
 
   // actions
   setAuthed: (authed: boolean, email?: string | null) => void;
@@ -30,11 +53,18 @@ interface AppState {
   setDriverId: (id: string | null) => void;
   setConsent: (v: boolean) => void;
   setConnected: (v: boolean) => void;
+  setOnline: (v: boolean) => void;
   setJobs: (jobs: DeliveryJob[]) => void;
   setCouriers: (couriers: Courier[]) => void;
   setPlan: (plan: Plan | null) => void;
   hydrateSnapshot: (payload: any) => void;
   upsertJob: (job: DeliveryJob) => void;
+  recordFix: (fix: GpsFix) => void;
+  addPings: (n: number) => void;
+  setCongestion: (cells: CongestionCell[], source: Source) => void;
+  setGuidance: (g: DriverGuidance | null, source: Source) => void;
+  setAdvice: (a: SignalAdvice | null) => void;
+  setGuidanceAvailable: (v: boolean) => void;
   bootIdentity: () => Promise<void>;
   signOut: () => void;
 }
@@ -49,7 +79,17 @@ export const useStore = create<AppState>((set, get) => ({
   plan: null,
   couriers: [],
   connected: false,
+  online: false,
   lastEventAt: null,
+
+  sessionPings: 0,
+  lastFix: null,
+  congestion: [],
+  congestionSource: "off",
+  guidance: null,
+  advice: null,
+  guidanceSource: "off",
+  guidanceAvailable: true,
 
   setAuthed: (authed, email = null) => set({ authed, email }),
   setCourierId: (id) => {
@@ -66,9 +106,19 @@ export const useStore = create<AppState>((set, get) => ({
     AsyncStorage.setItem(CONSENT_KEY, v ? "1" : "0").catch(() => {});
   },
   setConnected: (v) => set({ connected: v }),
+  setOnline: (v) => set({ online: v }),
   setJobs: (jobs) => set({ jobs }),
   setCouriers: (couriers) => set({ couriers }),
   setPlan: (plan) => set({ plan }),
+
+  recordFix: (fix) => set({ lastFix: fix }),
+  addPings: (n) => set((s) => ({ sessionPings: s.sessionPings + n })),
+  setCongestion: (cells, source) =>
+    set({ congestion: cells, congestionSource: source }),
+  setGuidance: (g, source) =>
+    set({ guidance: g, guidanceSource: source, advice: g?.signal_advice ?? null }),
+  setAdvice: (a) => set({ advice: a }),
+  setGuidanceAvailable: (v) => set({ guidanceAvailable: v }),
 
   hydrateSnapshot: (payload) =>
     set({
@@ -109,6 +159,11 @@ export const useStore = create<AppState>((set, get) => ({
       jobs: [],
       plan: null,
       couriers: [],
+      sessionPings: 0,
+      lastFix: null,
+      guidance: null,
+      advice: null,
+      congestion: [],
     });
   },
 }));

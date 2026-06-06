@@ -13,6 +13,12 @@ Native driver companion app for the PulseGo medical-logistics stack. Runs in
   announces "Route updated". Going off-route auto-requests a new route.
 - **Jobs & History.** Upcoming jobs (`new｜assigned｜in_transit`) ordered by your
   route's stop sequence, and past jobs (`delivered｜failed`), from `GET /jobs`.
+- **Green wave + flywheel (parity with the `driver-app` PWA).** Green-wave card
+  with a speedometer (current vs target speed), seconds-to-green and confidence
+  (`/driver/{id}/guidance` → `/signals/advice`); a live congestion heat layer on
+  the map (`/congestion`); and an **Impact** tab (pings sent, couriers helped,
+  points, "minutes faster"). All degrade gracefully to demo data when the
+  orchestrator or these optional endpoints are unavailable.
 - **Calm Command design language.** Pulse-Red accent on a charcoal/cream base,
   Poppins + Inter, glass panels — tokens ported from `frontend/src/index.css`.
 

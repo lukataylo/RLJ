@@ -209,7 +209,7 @@ type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "ai
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
-  congestion: true, // "Traffic"
+  congestion: false, // "Traffic" grid — default OFF (keep the map clean)
   routes: true,
   incidents: true,
   signals: true, // GB10 Nemotron signal recs — default ON

@@ -393,6 +393,19 @@ async def demo_seed(_user: CurrentUser = Depends(require_user)):
             "routes": len(plan.routes) if plan else 0}
 
 
+@app.post("/demo/clear")
+async def demo_clear(_user: CurrentUser = Depends(require_user)):
+    """Empty the demo scenario (couriers + jobs + plan) and broadcast — lets the
+    Demo-mode toggle turn off."""
+    S.couriers.clear()
+    S.jobs.clear()
+    S.plan = None
+    await HUB.emit("state", S.snapshot())
+    await HUB.emit("agent_log", {"level": "info", "source": "system",
+                                 "message": "Demo mode off — scenario cleared."})
+    return {"couriers": 0, "jobs": 0, "routes": 0}
+
+
 @app.get("/plan")
 async def get_plan():
     return S.plan.model_dump(mode="json") if S.plan else None

@@ -14,6 +14,84 @@ export interface Location {
   facility_id?: string;
 }
 
+// ---- Jobs / routing entities (schemas.json $defs) --------------------------
+
+export type Priority = "stat" | "urgent" | "routine";
+export type JobType = "sample_pickup" | "med_delivery";
+export type JobStatus = "new" | "assigned" | "in_transit" | "delivered" | "failed";
+
+export interface TimeWindow {
+  ready_at?: string;
+  due_by?: string;
+}
+
+export interface DeliveryJob {
+  id: string;
+  type: JobType;
+  origin: Location;
+  destination: Location;
+  priority: Priority;
+  time_window?: TimeWindow;
+  cold_chain?: boolean;
+  capacity_units?: number;
+  status: JobStatus;
+  raw_text?: string;
+  created_at?: string;
+}
+
+export type CourierStatus = "idle" | "enroute" | "offline";
+
+export interface Courier {
+  id: string;
+  name?: string;
+  location: Location;
+  capacity?: number;
+  cold_capable?: boolean;
+  vehicle_type?: "van" | "scooter" | "bike";
+  status: CourierStatus;
+  assigned_route_id?: string | null;
+  phone?: string;
+}
+
+export interface Stop {
+  job_id: string;
+  kind: "pickup" | "dropoff";
+  location: Location;
+  sequence: number;
+  eta?: string;
+  window_met?: boolean | null;
+}
+
+export interface Route {
+  courier_id: string;
+  stops: Stop[];
+  polyline?: LatLng[];
+  total_time_s?: number;
+  total_distance_m?: number;
+  feasible?: boolean;
+}
+
+export interface Plan {
+  routes: Route[];
+  unassigned?: string[];
+  generated_at?: string;
+}
+
+/** A turn-by-turn maneuver (Mapbox Directions or derived from the polyline). */
+export interface Maneuver {
+  instruction: string;
+  type: string;
+  modifier?: string;
+  location: LatLng;
+  distanceM: number;
+}
+
+export interface DirectionsResult {
+  geometry: LatLng[];
+  maneuvers: Maneuver[];
+  source: "mapbox" | "polyline";
+}
+
 // ---- Driver flywheel entities (schemas.json $defs) -------------------------
 
 export type VehicleType = "bike" | "scooter" | "car" | "van";

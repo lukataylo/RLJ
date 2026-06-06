@@ -6,13 +6,16 @@
 import { getToken } from "./auth";
 import { getApiUrl } from "./config";
 import type {
+  CongestionField,
   Courier,
   DeliveryJob,
   DisruptionEvent,
   Driver,
+  DriverGuidance,
   LoginResponse,
   Me,
   Plan,
+  SignalAdvice,
   TelemetryAck,
   TelemetryBatch,
 } from "./types";
@@ -129,4 +132,30 @@ export function postTelemetry(
     { method: "POST", body: JSON.stringify(batch) },
     true,
   );
+}
+
+/** GET /congestion — current congestion field for the heat layer. */
+export function getCongestion(): Promise<ApiResult<CongestionField>> {
+  return call<CongestionField>("/congestion");
+}
+
+/** GET /driver/{id}/guidance — route + green-wave + contribution. */
+export function getGuidance(id: string): Promise<ApiResult<DriverGuidance>> {
+  return call<DriverGuidance>(`/driver/${encodeURIComponent(id)}/guidance`);
+}
+
+/** GET /signals/advice — green-wave speed-to-next-green hint. */
+export function getSignalAdvice(q: {
+  driver_id: string;
+  lat: number;
+  lng: number;
+  heading: number;
+}): Promise<ApiResult<SignalAdvice>> {
+  const p = new URLSearchParams({
+    driver_id: q.driver_id,
+    lat: String(q.lat),
+    lng: String(q.lng),
+    heading: String(q.heading),
+  });
+  return call<SignalAdvice>(`/signals/advice?${p.toString()}`);
 }

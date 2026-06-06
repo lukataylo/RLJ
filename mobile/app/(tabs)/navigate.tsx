@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassCard } from "../../src/components/GlassCard";
+import { GreenWaveCard } from "../../src/components/GreenWaveCard";
 import { ManeuverBanner } from "../../src/components/ManeuverBanner";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { RouteMap } from "../../src/components/RouteMap";
@@ -36,6 +37,7 @@ export default function Navigate() {
   const courier = useStore(selectMyCourier);
   const route = useStore(selectMyRoute);
   const plan = useStore((s) => s.plan);
+  const congestion = useStore((s) => s.congestion);
 
   const [navigating, setNavigating] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -123,6 +125,7 @@ export default function Navigate() {
         stops={stops}
         fix={nav.fix}
         follow={navigating}
+        congestion={congestion}
       />
 
       {/* top maneuver banner while navigating */}
@@ -166,8 +169,9 @@ export default function Navigate() {
         </View>
       </View>
 
-      {/* bottom control sheet */}
-      <View style={{ position: "absolute", left: 12, right: 12, bottom: 12 }}>
+      {/* bottom: green-wave + control sheet */}
+      <View style={{ position: "absolute", left: 12, right: 12, bottom: 12, gap: 10 }}>
+        {navigating && <GreenWaveCard />}
         <GlassCard solid style={{ padding: 14 }}>
           {!route ? (
             <Text style={{ color: theme.muted, fontFamily: FONT.bodyMed, fontSize: 14, textAlign: "center", paddingVertical: 8 }}>

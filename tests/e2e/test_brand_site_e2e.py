@@ -70,8 +70,8 @@ def test_landing_is_on_brand(page):
     marks = page.locator('img[src="/pulsego.svg"]')
     assert marks.count() >= 2, "expected mascot mark in nav and hero"
 
-    # Brand tagline from the inspiration ("Every time.").
-    expect(page.locator(".hero-accent")).to_have_text("Every time.", timeout=WAIT)
+    # Hero accent line (the "why-local" tagline).
+    expect(page.locator(".hero-accent")).to_have_text("delays hit.", timeout=WAIT)
 
     # Poppins display face on the hero headline + wordmark.
     assert "Poppins" in _font(page, ".hero-title"), "hero title is not Poppins"

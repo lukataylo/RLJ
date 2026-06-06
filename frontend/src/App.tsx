@@ -20,6 +20,7 @@ export default function App() {
   const status = useStatus();
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [view, setView] = useState<"map" | "lidar">("map");  // map by default; LiDAR is opt-in
+  const [showEfficiency, setShowEfficiency] = useState(false);  // hidden by default; toggle in user menu
 
   // If a token is present, validate it via /auth/me and surface the user. A 401
   // (or absence) clears it — dev runs auth-off so this never blocks the console.
@@ -95,7 +96,12 @@ export default function App() {
     <div className="cc">
       {view === "lidar" ? <CityScene /> : <MapView />}
 
-      <TopBar status={status} onOpenVerification={() => setVerifyOpen(true)} />
+      <TopBar
+        status={status}
+        onOpenVerification={() => setVerifyOpen(true)}
+        showEfficiency={showEfficiency}
+        onToggleEfficiency={() => setShowEfficiency((v) => !v)}
+      />
 
       {/* View toggle: operations map ⇄ 3D LiDAR city twin */}
       <div className="view-toggle glass" role="group" aria-label="View">
@@ -106,7 +112,7 @@ export default function App() {
       </div>
 
       <div className="right-stack">
-        <EfficiencyPanel />
+        {showEfficiency && <EfficiencyPanel />}
         <DeliveryList />
         <Inspector />
       </div>

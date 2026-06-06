@@ -187,6 +187,13 @@ export async function seedDemo(): Promise<{ couriers: number; jobs: number; rout
   );
 }
 
+/** POST /demo/clear — empty the demo scenario so the toggle can turn off. */
+export async function clearDemo(): Promise<{ couriers: number; jobs: number; routes: number }> {
+  return json(
+    await fetch(`${BASE}/demo/clear`, { method: "POST", headers: authHeaders() }),
+  );
+}
+
 /** POST /notifications — dispatch a courier/clinic notification (voice_call etc.).
  * The orchestrator broadcasts it on the WS (voice agent + agent log pick it up). */
 export async function postNotification(n: {
