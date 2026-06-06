@@ -91,6 +91,38 @@ def test_parse_delivery_heuristic_fallback(monkeypatch):
     assert dest and dest["name"] == "Moorfields Eye Hospital"
 
 
+def test_parse_delivery_extracts_freetext_phrases(monkeypatch):
+    # Arbitrary facility names (NOT in the curated seed) — the LLM extracts the
+    # literal phrases and the gazetteer (facilities.json) resolves them. Ollama
+    # is forced down so the deterministic regex heuristic runs offline.
+    geocode = _load("geocode")
+    intake = _load("intake")
+    monkeypatch.setattr(intake, "_ask_ollama",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+
+    parsed = intake.parse_delivery(
+        "urgent sample from Spitalfields Practice to Victoria Medical Centre")
+    assert parsed["priority"] == "urgent"
+    assert parsed["type"] == "sample_pickup"
+    assert parsed["origin"]
+    assert parsed["destination"]
+
+    origin = geocode.resolve(parsed["origin"])
+    dest = geocode.resolve(parsed["destination"])
+    assert origin and origin["name"] == "Spitalfields Practice"
+    assert dest and dest["name"] == "Victoria Medical Centre"
+
+
+def test_parse_delivery_ignores_place_names_arg(monkeypatch):
+    # place_names is accepted for compat but ignored; passing junk must not break.
+    intake = _load("intake")
+    monkeypatch.setattr(intake, "_ask_ollama",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+    parsed = intake.parse_delivery("routine meds from Bank to Angel",
+                                   ["totally", "irrelevant", "list"])
+    assert parsed["origin"] and parsed["destination"]
+
+
 def test_parse_delivery_sample_and_cold(monkeypatch):
     intake = _load("intake")
     monkeypatch.setattr(intake, "_ask_ollama",

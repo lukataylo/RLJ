@@ -1,13 +1,24 @@
 """Fully-offline London gazetteer + place resolver.
 
-No network, no new dependencies. The gazetteer is the real NHS facilities in
-``data/facilities.json`` PLUS an embedded curated seed of well-known London
-places (areas, landmarks, bridges, stations, major hospitals) — every entry is a
-plausible WGS84 point inside the London bbox (lat 51.28–51.69, lng −0.51–0.33).
+No network, no new dependencies. The gazetteer is, in priority order:
+
+  1. a large optional gazetteer file ``data/gazetteer.json`` (an array of
+     ``{name,lat,lng,type,source}`` — typically 10k+ arbitrary London places),
+     loaded only when present, and
+  2. the real NHS facilities in ``data/facilities.json``, plus
+  3. an embedded curated seed of well-known London places (areas, landmarks,
+     bridges, stations, major hospitals).
+
+Facilities + the seed are always loaded so resolution works even when the big
+gazetteer file is absent on a dev box. Every entry is a plausible WGS84 point
+inside the London bbox (lat 51.28–51.69, lng −0.51–0.33); entries are de-duped by
+normalized name (facilities/seed win, so their curated coords are preserved).
 
 ``resolve()`` is deliberately liberal: exact (punctuation/case-insensitive,
 incl. aliases) → substring → difflib fuzzy. It returns ``{"name","lat","lng"}``
-or ``None``. ``place_names()`` returns the canonical names (for the LLM prompt).
+or ``None``, and stays O(1) on the common exact path even at 10k+ entries.
+``place_names()`` returns the canonical names (now potentially huge — do NOT
+feed it to the LLM; intake extracts free-text phrases instead).
 """
 from __future__ import annotations
 
@@ -20,6 +31,7 @@ from typing import Optional
 # repo root = parent of orchestrator/
 _ROOT = Path(__file__).resolve().parent.parent
 _FACILITIES = _ROOT / "data" / "facilities.json"
+_GAZETTEER_FILE = _ROOT / "data" / "gazetteer.json"
 
 # London bounding box (matches the rest of the project).
 _BBOX = (51.28, 51.69, -0.51, 0.33)  # lat_min, lat_max, lng_min, lng_max
@@ -92,32 +104,56 @@ def _in_bbox(lat: float, lng: float) -> bool:
     return a <= lat <= b and c <= lng <= d
 
 
+def _load_json(path: Path) -> list:
+    """Read a JSON array from ``path``; [] on missing/corrupt (stays offline-safe)."""
+    try:
+        data = json.loads(path.read_text())
+    except Exception:  # noqa: BLE001 - missing/corrupt file: other sources still work
+        return []
+    return data if isinstance(data, list) else []
+
+
 def _load_gazetteer() -> list[dict]:
-    """Build the gazetteer once: facilities.json (primary) + curated seed."""
+    """Build the gazetteer once.
+
+    Sources, all optional but loaded in a fixed dedup-priority order (first to
+    claim a normalized name wins, so curated coords are preserved):
+      1. facilities.json — real NHS facilities (curated, win),
+      2. the embedded curated _SEED (win),
+      3. gazetteer.json — the big arbitrary-London file (10k+; fills the rest).
+    """
     entries: list[dict] = []
     seen: set[str] = set()
 
-    def _add(name: str, lat: float, lng: float, aliases: list[str]):
+    def _add(name: str, lat, lng, aliases: list[str]):
         if not name or lat is None or lng is None:
+            return
+        try:
+            lat, lng = float(lat), float(lng)
+        except (TypeError, ValueError):
             return
         if not _in_bbox(lat, lng):
             return
         key = _norm(name)
-        if key in seen:
+        if not key or key in seen:
             return
         seen.add(key)
-        entries.append({"name": name, "lat": float(lat), "lng": float(lng),
+        entries.append({"name": name, "lat": lat, "lng": lng,
                         "norm": key, "aliases": [_norm(a) for a in aliases if a]})
 
-    try:
-        facilities = json.loads(_FACILITIES.read_text())
-    except Exception:  # noqa: BLE001 - missing/corrupt file: seed still works offline
-        facilities = []
-    for f in facilities if isinstance(facilities, list) else []:
-        _add(f.get("name", ""), f.get("lat"), f.get("lng"), [])
+    # 1) facilities.json (primary, curated)
+    for f in _load_json(_FACILITIES):
+        if isinstance(f, dict):
+            _add(f.get("name", ""), f.get("lat"), f.get("lng"), [])
 
+    # 2) curated seed (well-known landmarks/areas/stations)
     for name, lat, lng, aliases in _SEED:
         _add(name, lat, lng, aliases)
+
+    # 3) big optional gazetteer file: {name,lat,lng,type,source}
+    for g in _load_json(_GAZETTEER_FILE):
+        if isinstance(g, dict):
+            _add(g.get("name", ""), g.get("lat"), g.get("lng"), [])
 
     return entries
 
@@ -129,6 +165,8 @@ for _e in _GAZETTEER:
     _EXACT.setdefault(_e["norm"], _e)
     for _a in _e["aliases"]:
         _EXACT.setdefault(_a, _e)
+# Precomputed once so the fuzzy fallback doesn't rebuild a 10k+ index per call.
+_FUZZY_KEYS: list[str] = list(_EXACT.keys())
 
 
 def gazetteer_size() -> int:
@@ -182,13 +220,8 @@ def resolve(query: str) -> Optional[dict]:
         cands.sort(key=lambda t: t[0], reverse=True)
         return _result(cands[0][1])
 
-    # 3) fuzzy over names + aliases
-    lookup: dict[str, dict] = {}
-    for e in _GAZETTEER:
-        lookup[e["norm"]] = e
-        for a in e["aliases"]:
-            lookup[a] = e
-    hits = get_close_matches(q, list(lookup.keys()), n=1, cutoff=0.6)
+    # 3) fuzzy over the precomputed norm/alias keys
+    hits = get_close_matches(q, _FUZZY_KEYS, n=1, cutoff=0.6)
     if hits:
-        return _result(lookup[hits[0]])
+        return _result(_EXACT[hits[0]])
     return None

@@ -1,11 +1,13 @@
 """Natural-language delivery intake — parse free text into a structured job spec.
 
 Primary path: a LOCAL Ollama/Nemotron model on the GB10 box (``$OLLAMA``,
-``$MODEL``) with ``format:"json"`` and a strict prompt that pins origin/
-destination to the known gazetteer names. Fallback (Ollama down / bad JSON): a
-pure-regex heuristic. Either way the result is ``{origin,destination,priority,
+``$MODEL``) with ``format:"json"`` and a strict prompt that EXTRACTS the literal
+origin and destination place phrases from the text (free-form — NOT constrained
+to any list). The big offline gazetteer + ``geocode.resolve`` then do the
+matching, so arbitrary London places resolve. Fallback (Ollama down / bad JSON):
+a pure-regex heuristic. Either way the result is ``{origin,destination,priority,
 type,cold_chain}`` and origin/destination are later passed to ``geocode.resolve``
-(so leaving them as raw phrases in the fallback is fine).
+(so leaving them as raw phrases is fine).
 
 ``parse_delivery`` NEVER raises.
 """
@@ -70,7 +72,7 @@ def _heuristic(text: str) -> dict:
             "type": type_, "cold_chain": cold_chain}
 
 
-def _coerce(raw: dict, place_names: list[str]) -> dict:
+def _coerce(raw: dict) -> dict:
     """Validate/normalise an LLM dict into the canonical shape."""
     out = {
         "origin": str(raw.get("origin") or "").strip(),
@@ -88,18 +90,24 @@ def _coerce(raw: dict, place_names: list[str]) -> dict:
     return out
 
 
-def _ask_ollama(text: str, place_names: list[str], timeout: float = 20.0) -> dict:
-    """Call the local model. Raises on any failure (caller falls back to heuristic)."""
-    names_block = "\n".join(f"- {n}" for n in place_names)
+def _ask_ollama(text: str, timeout: float = 20.0) -> dict:
+    """Call the local model. Raises on any failure (caller falls back to heuristic).
+
+    The model EXTRACTS the literal origin/destination phrases as they appear in
+    the request — it is NOT given a list to pick from. The downstream gazetteer
+    + ``geocode.resolve`` handle matching those phrases to real London places.
+    """
     prompt = (
         "You convert a dispatcher's free-text courier request into JSON.\n"
-        "Known places (origin and destination MUST each be copied EXACTLY from this "
-        "list — pick the closest one):\n"
-        f"{names_block}\n\n"
+        "Extract the origin and destination EXACTLY as written in the request "
+        "(copy the literal place phrase — a name, area, landmark, postcode or "
+        "address — do NOT normalise, invent, or pick from any list). The origin "
+        "is where the courier collects; the destination is where it is dropped "
+        "off.\n\n"
         f'Request: "{text}"\n\n'
         "Return ONLY a JSON object with keys:\n"
-        '  origin (string, one of the known places),\n'
-        '  destination (string, one of the known places),\n'
+        '  origin (string, the pickup place phrase copied from the request),\n'
+        '  destination (string, the drop-off place phrase copied from the request),\n'
         '  priority (one of "stat","urgent","routine"),\n'
         '  type (one of "sample_pickup","med_delivery"; samples/pathology = sample_pickup),\n'
         '  cold_chain (boolean; true for blood/plasma/cold-chain/vaccine).'
@@ -110,13 +118,18 @@ def _ask_ollama(text: str, place_names: list[str], timeout: float = 20.0) -> dic
         r.raise_for_status()
         body = r.json()
     raw = json.loads(body["response"])
-    return _coerce(raw, place_names)
+    return _coerce(raw)
 
 
 def parse_delivery(text: str, place_names: Optional[list[str]] = None) -> dict:
-    """Parse free text -> {origin,destination,priority,type,cold_chain}. Never raises."""
-    place_names = place_names or []
+    """Parse free text -> {origin,destination,priority,type,cold_chain}. Never raises.
+
+    ``place_names`` is accepted for backwards compatibility (app.py still passes
+    it) but ignored: the LLM now extracts free-text phrases and the big gazetteer
+    does the matching, so we no longer pin to a constrained list.
+    """
+    del place_names  # accepted for compat; no longer used
     try:
-        return _ask_ollama(text, place_names)
+        return _ask_ollama(text)
     except Exception:  # noqa: BLE001 - Ollama down / bad JSON -> deterministic heuristic
         return _heuristic(text)

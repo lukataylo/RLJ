@@ -32,10 +32,13 @@ CLI: ``python data/nhs_facilities.py`` prints the count and a sample record.
 """
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass, field
+import csv
+import io
+import re
+import zipfile
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Iterable, Sequence
+from typing import Callable, Iterable, Sequence
 
 import requests
 
@@ -43,6 +46,26 @@ import quality
 
 DEFAULT_TIMEOUT_S = 10.0
 _USER_AGENT = "RLJ medical-logistics-demo/1.0"
+
+# --------------------------------------------------------------------------- #
+# NHS ODS "Hospital" sites export (``ets``). The Organisation Data Service
+# publishes it as a zip containing a single, *headerless* ``ets.csv``. Mirror:
+#   https://files.digital.nhs.uk/assets/ods/current/ets.zip
+# (also surfaced via data.gov.uk, see module docstring). The CSV column layout
+# is fixed by the ODS "epraccur-style" spec; the columns we need are:
+#   col 0  -> Organisation Code      (used as the facility id)
+#   col 1  -> Organisation Name
+#   col 9  -> Postcode               (0-indexed; ODS rows have no coordinates)
+# Everything else (national grouping, address lines, dates, status) is ignored.
+# --------------------------------------------------------------------------- #
+ODS_HOSPITAL_CSV_URL = "https://files.digital.nhs.uk/assets/ods/current/ets.zip"
+_ODS_CODE_COL = 0
+_ODS_NAME_COL = 1
+_ODS_POSTCODE_COL = 9
+
+# Permissive UK postcode shape (outward + inward). Used to drop rows whose
+# postcode field is blank, truncated, or junk before we ever hit the geocoder.
+_UK_POSTCODE_RE = re.compile(r"^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$")
 
 
 def _now_iso() -> str:
@@ -138,6 +161,93 @@ class PostcodesIoClient:
 
 
 # --------------------------------------------------------------------------- #
+# NHS ODS hospital-sites ingest (the live list source)
+# --------------------------------------------------------------------------- #
+def _is_valid_postcode(pc: str) -> bool:
+    return bool(_UK_POSTCODE_RE.match((pc or "").strip().upper()))
+
+
+def fetch_ods_hospital_csv(
+    *,
+    url: str = ODS_HOSPITAL_CSV_URL,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+    session: requests.Session | None = None,
+) -> str:
+    """Download the NHS ODS Hospital export and return the raw ``ets.csv`` text.
+
+    The ODS endpoint serves a zip archive containing a single headerless
+    ``ets.csv``; if the URL ever serves the CSV directly we pass it through. May
+    raise on network/parse errors — callers (``fetch_nhs_london``) treat that as
+    an offline signal and fall back to the seed.
+    """
+    session = session or requests.Session()
+    response = session.get(
+        url, timeout=timeout_s, headers={"user-agent": _USER_AGENT}
+    )
+    response.raise_for_status()
+    content = response.content
+    if content[:2] == b"PK":  # zip magic -> extract the ets csv member
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            name = next(
+                (n for n in zf.namelist() if n.lower().endswith(".csv")),
+                None,
+            )
+            if name is None:
+                raise ValueError("ODS zip contained no CSV member")
+            return zf.read(name).decode("latin-1")
+    return content.decode("latin-1")
+
+
+def parse_ods_hospitals(csv_text: str) -> list[dict]:
+    """Parse headerless ODS ``ets.csv`` text into facility rows.
+
+    Maps each row to ``{id, name, postcode, type:"hospital"}`` using the fixed
+    column positions. Rows with a missing name or a missing/odd postcode are
+    dropped. Never raises on individual malformed rows.
+    """
+    rows: list[dict] = []
+    reader = csv.reader(io.StringIO(csv_text))
+    for fields in reader:
+        if len(fields) <= _ODS_POSTCODE_COL:
+            continue
+        code = (fields[_ODS_CODE_COL] or "").strip()
+        name = (fields[_ODS_NAME_COL] or "").strip()
+        postcode = (fields[_ODS_POSTCODE_COL] or "").strip()
+        if not code or len(name) < 2:
+            continue
+        if not _is_valid_postcode(postcode):
+            continue
+        rows.append(
+            {
+                "id": code,
+                "name": name,
+                "type": "hospital",
+                "postcode": postcode.upper(),
+            }
+        )
+    return rows
+
+
+def _merge_rows(seed: list[dict], extra: Iterable[dict]) -> list[dict]:
+    """Union seed ∪ extra facility rows, deduped by id and (case-folded) name.
+
+    The seed wins ties (it carries the offline ``bundled_lat/lng`` fallback).
+    """
+    merged = [dict(r) for r in seed]
+    seen_ids = {r.get("id") for r in merged}
+    seen_names = {str(r.get("name", "")).strip().lower() for r in merged}
+    for row in extra:
+        rid = row.get("id")
+        rname = str(row.get("name", "")).strip().lower()
+        if not rid or rid in seen_ids or rname in seen_names:
+            continue
+        seen_ids.add(rid)
+        seen_names.add(rname)
+        merged.append(dict(row))
+    return merged
+
+
+# --------------------------------------------------------------------------- #
 # pipeline: list -> geocode -> bbox filter -> normalize
 # --------------------------------------------------------------------------- #
 def _seed_list(limit: int | None = None) -> list[dict]:
@@ -204,17 +314,32 @@ def fetch_nhs_london(
     allow_network: bool = True,
     limit: int | None = None,
     client: PostcodesIoClient | None = None,
+    ods_fetcher: Callable[[], str] | None = None,
 ) -> list[dict]:
     """Return real London NHS facility records, geocoded and bbox-filtered.
 
-    Pipeline: facility list (embedded seed; replace source with the ODS CSV pull
-    documented in the module docstring) -> postcodes.io bulk geocode -> filter to
+    Pipeline: facility list -> postcodes.io bulk geocode -> filter to
     :data:`quality.LONDON_BBOX` -> normalize to the facilities schema.
+
+    The list is the embedded seed UNION the live NHS ODS hospital-sites export
+    (``ets.csv``, see :func:`fetch_ods_hospital_csv`) when ``allow_network`` is
+    set; deduped by id/name. With ``allow_network=False`` (or any ODS
+    fetch/parse failure) only the seed is used.
 
     Offline-safe: with ``allow_network=False`` or on any geocoder failure, falls
     back to the embedded seed coordinates. Never raises.
     """
     rows = _seed_list(limit)
+
+    if allow_network:
+        try:
+            fetcher = ods_fetcher or fetch_ods_hospital_csv
+            csv_text = fetcher()
+            ods_rows = parse_ods_hospitals(csv_text)
+            rows = _merge_rows(rows, ods_rows)
+        except Exception:
+            pass  # any ODS failure -> seed-only (offline-safe)
+
     postcodes = [r["postcode"] for r in rows if r.get("postcode")]
 
     coords: dict[str, tuple[float, float]] = {}
