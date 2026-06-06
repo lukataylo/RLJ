@@ -1,7 +1,7 @@
 PY  := ./.venv/bin/python
 PIP := ./.venv/bin/pip
 
-.PHONY: install verify verify-core data demo e2e-install clean
+.PHONY: install verify verify-core quality-gate data demo e2e-install clean
 
 install:
 	$(PIP) install -r requirements-test.txt -r orchestrator/requirements.txt -r routing/requirements.txt
@@ -15,6 +15,12 @@ verify:
 # Core gate without the browser e2e (fast inner loop).
 verify-core:
 	$(PY) verification/run.py --core
+
+# Objective local release gate: Python claim verification + frontend type/build.
+# This is intentionally machine-judged; no manual/self grading is part of the gate.
+quality-gate:
+	$(PY) verification/run.py
+	cd frontend && npm run build
 
 # Build + verify all datasets, writing data/manifest.json (dq_passed flags).
 data:

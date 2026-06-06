@@ -120,10 +120,13 @@ function buildLayers(
       pos: pointAlongPath(r.path, (phase * 1.7) % 1),
       congestion: r.congestion,
     }));
+    const visibleFlow = flow.filter(
+      (f): f is { pos: [number, number]; congestion: number } => f.pos !== null,
+    );
     layers.push(
-      new ScatterplotLayer<(typeof flow)[number]>({
+      new ScatterplotLayer<(typeof visibleFlow)[number]>({
         id: "traffic-flow",
-        data: flow.filter((f) => f.pos) as { pos: [number, number]; congestion: number }[],
+        data: visibleFlow,
         getPosition: (d) => d.pos,
         getRadius: 2,
         radiusUnits: "pixels",
@@ -372,14 +375,14 @@ export default function MapView() {
       onClick: (info: PickingInfo) => {
         const o = info.object as Record<string, unknown> | null;
         if (o && "status" in o && "location" in o) {
-          selectCourier((o as Courier).id);
+          selectCourier((o as unknown as Courier).id);
         }
       },
       getTooltip: ({ object }: PickingInfo) => {
         if (!object) return null;
         const o = object as Record<string, unknown>;
         if ("status" in o && "location" in o) {
-          const c = object as Courier;
+          const c = object as unknown as Courier;
           return { text: `${c.name ?? c.id} — ${c.status}` };
         }
         if ("priority" in o && "origin" in o) {

@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-05T21:50:59.194738+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T04:52:36.875411+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ❌ NOT GREEN** (11/13) · verified 13/15 · failing 0 · unverified 2
+**Must-pass gate: ✅ GREEN** (14/14) · verified 16/16 · failing 0 · unverified 0
 
 ## impact
 
@@ -36,10 +36,11 @@ _Generated 2026-06-05T21:50:59.194738+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Synthetic demand is schema-valid with sane time windows | `test_demand_schema_and_windows` | verified |
 | ✅ ⭐ | App only loads datasets whose data-quality suite passed (dq_passed=true) | `test_only_verified_data_loadable` | verified |
 | ✅ | Road graph is connected and covers the London bbox | `test_graph_connected_and_bbox` | verified |
+| ✅ ⭐ | London open-data integrations normalize public API payloads into safe local records | `tests/data_quality/test_integrations.py` | verified |
 
 ## e2e
 
 | | claim | test | status |
 |--|--|--|--|
-| ⏳ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | unverified |
-| ⏳ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | unverified |
+| ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
+| ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |

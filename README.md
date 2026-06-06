@@ -43,3 +43,17 @@ See **[AGENTS.md](AGENTS.md)** for the working agreement and **[ARCHITECTURE.md]
 Voice and the dispatch reasoning run as **NemoClaw** sandboxed agents on the DGX Spark
 with local Nemotron inference. Policies live in **[`nemoclaw/`](nemoclaw/)** (voice gets
 egress to ElevenLabs only; routing gets none). See [`nemoclaw/README.md`](nemoclaw/README.md).
+
+## Quality gates
+
+Claims are credited only by external tests in [`verification/run.py`](verification/run.py);
+manual review or agent self-assessment does not mark work as verified.
+
+```bash
+python3 -m venv .venv
+make install
+make quality-gate
+```
+
+`make quality-gate` runs the Python verification ledger and the frontend TypeScript/Vite
+build. The same checks run in GitHub Actions via `.github/workflows/quality-gates.yml`.

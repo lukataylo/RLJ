@@ -19,6 +19,7 @@ in [`schemas.json`](schemas.json).
 | POST | `/couriers` | `Courier` | `Courier` | seed script, frontend |
 | GET  | `/couriers` | — | `Courier[]` | any |
 | POST | `/disruptions` | `DisruptionEvent` | `DisruptionEvent` (triggers re-optimize) | **frontend** ("close road"), TfL poller |
+| POST | `/integrations/tfl/disruptions/sync?limit=25` | — | `{source, seen, ingested}` (fetches TfL road disruptions, ingests new ones, triggers one re-optimize) | demo operator / live-data poller |
 | POST | `/optimize` | — | `Plan` | anyone forcing a re-plan |
 | GET  | `/plan` | — | `Plan` | any |
 | POST | `/notifications` | `Notification` | `Notification` (also broadcast on WS) | orchestrator/internal |

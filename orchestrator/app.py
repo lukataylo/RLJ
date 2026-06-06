@@ -10,8 +10,10 @@ Env:  ROUTING_URL=http://localhost:8100   (optional; greedy fallback if unreacha
 """
 from __future__ import annotations
 import os
+import sys
 from datetime import datetime, timezone
 from contextlib import suppress
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -22,6 +24,10 @@ from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
 from greedy import greedy_plan
 
 ROUTING_URL = os.getenv("ROUTING_URL", "http://localhost:8100")
+ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT / "data"
+if str(DATA_DIR) not in sys.path:
+    sys.path.insert(0, str(DATA_DIR))
 
 app = FastAPI(title="RLJ orchestrator")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -190,6 +196,31 @@ async def add_disruption(d: DisruptionEvent):
     await HUB.emit("agent_log", {"level": "warn", "message": f"Disruption: {d.kind}. Re-planning to protect at-risk windows."})
     await run_optimize()
     return d.model_dump(mode="json")
+
+
+@app.post("/integrations/tfl/disruptions/sync")
+async def sync_tfl_disruptions(limit: int = 25):
+    """Fetch live TfL road disruptions, ingest them, and re-plan once.
+
+    Keeps the main demo resilient: if TfL is unavailable this endpoint fails
+    without disturbing the last known local state.
+    """
+    import integrations
+
+    raw = integrations.TflClient().road_disruptions()
+    events = integrations.normalize_tfl_road_disruptions(raw, limit=limit)
+    ingested = 0
+    for event in events:
+        if event["id"] in {d.id for d in S.disruptions}:
+            continue
+        S.disruptions.append(DisruptionEvent(**event))
+        ingested += 1
+    await HUB.emit("agent_log", {"level": "info",
+                                 "message": f"Synced {ingested} live TfL road disruptions."})
+    if ingested:
+        await HUB.emit("disruption", {"source": "tfl", "count": ingested})
+        await run_optimize()
+    return {"source": "tfl", "seen": len(events), "ingested": ingested}
 
 
 @app.post("/optimize")
