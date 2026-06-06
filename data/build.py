@@ -32,6 +32,7 @@ import cycleinfra as cycleinfra_mod
 import floodwarnings as floodwarnings_mod
 import kerbside as kerbside_mod
 import roadsigns as roadsigns_mod
+import hazards as hazards_mod
 from loader import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -389,6 +390,28 @@ def build(
         "fetched_at": _now_iso(),
         "dq_passed": rs_passed,
         "dq_suite": "tests/data_quality/test_roadsigns.py",
+    }
+
+    # ---- hazards: TfL live road disruptions / hazards --------------------- #
+    haz_path = hazards_mod.HAZARDS_PATH
+    haz_passed, haz_rows, haz_live = True, 0, False
+    try:
+        payload = hazards_mod.write_hazards(haz_path)
+        haz_rows = len(payload.get("hazards", []))
+        haz_live = bool(payload.get("live", False))
+        quality.validate_hazards(payload)
+    except Exception as e:  # noqa: BLE001
+        haz_passed = False
+        print(f"[hazards] DQ FAILED: {e}")
+    datasets["hazards"] = {
+        "source": "live-with-fallback",
+        "live": haz_live,
+        "path": _rel(haz_path),
+        "rows": haz_rows,
+        "sha256": sha256_file(haz_path) if haz_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": haz_passed,
+        "dq_suite": "tests/data_quality/test_hazards.py",
     }
 
     manifest = {"generated_at": _now_iso(), "scenario_now": now, "datasets": datasets}

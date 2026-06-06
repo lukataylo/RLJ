@@ -145,6 +145,8 @@ import {
   mdiTrafficCone,
   mdiWaves,
   mdiBike,
+  mdiWeatherPouring,
+  mdiCarBrakeAlert,
 } from "@mdi/js";
 
 // Civic real-data feeds (published to /data/*.json by data/build.py).
@@ -217,6 +219,26 @@ const mapStyle = (theme: Theme): maplibregl.StyleSpecification => ({
   ],
 });
 
+// RainViewer precipitation radar (open, NO API key). The index lists past radar
+// frames; we render the most recent as a semi-transparent raster overlay. Returns
+// a ready-to-use tile URL template, or null on any failure (degrades to no radar).
+const RAINVIEWER_INDEX = "https://api.rainviewer.com/public/weather-maps.json";
+async function fetchLatestRadarTileUrl(): Promise<string | null> {
+  try {
+    const res = await fetch(RAINVIEWER_INDEX);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { host?: string; radar?: { past?: { path?: string }[] } };
+    const host = data.host;
+    const past = data.radar?.past ?? [];
+    const path = past.length ? past[past.length - 1]?.path : undefined;
+    if (!host || !path) return null;
+    // {host}{path}/256/{z}/{x}/{y}/2/1_1.png — 256px tiles, scheme 2 (colour), smoothed+snow.
+    return `${host}${path}/256/{z}/{x}/{y}/2/1_1.png`;
+  } catch {
+    return null;
+  }
+}
+
 // Static London district labels — atmosphere, drawn muted/uppercase.
 const DISTRICTS: { name: string; lng: number; lat: number }[] = [
   { name: "ISLINGTON", lng: -0.103, lat: 51.538 },
@@ -229,7 +251,7 @@ const DISTRICTS: { name: string; lng: number; lat: number }[] = [
 ];
 
 // Toggleable layers shown in the left control stack.
-type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "kerb" | "roadsigns" | "flood" | "cycle";
+type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "kerb" | "roadsigns" | "flood" | "cycle" | "weather" | "hazards";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
@@ -244,6 +266,8 @@ const DEFAULT_VIS: LayerVis = {
   roadsigns: true, // TfL variable-message signs — default ON
   flood: false, // EA flood warnings — default OFF
   cycle: false, // TfL cycle infra + hire — default OFF
+  weather: false, // RainViewer precipitation radar — default OFF
+  hazards: false, // TfL live road disruptions/hazards — default OFF
 };
 
 // Cap on simultaneously rendered camera icons so a dense viewport never clutters.
@@ -278,11 +302,13 @@ interface OptionalData {
   floods: PointFeature[];
   cycleStations: CycleStation[];
   cycleHighways: CycleHighway[];
+  hazards: PointFeature[];
 }
 
 const EMPTY_OPTIONAL: OptionalData = {
   roads: [], facilities: [], venues: [],
   air: [], roadworks: [], kerb: [], roadsigns: [], floods: [], cycleStations: [], cycleHighways: [],
+  hazards: [],
 };
 
 const EMPTY_SNAP: Snapshot = {
@@ -1054,6 +1080,48 @@ function buildLayers(
     );
   }
 
+  // Road hazards — TfL live road disruptions the driver should avoid
+  // (accidents, closures, obstructions), coloured by severity with a ✕ glyph
+  // for severe ones so a closure reads at a glance.
+  if (vis.hazards && data.hazards.length) {
+    const hazards = data.hazards.map((h) => ({ ...h, _t: "hazard" as const }));
+    const hazardRGB = (s?: string): [number, number, number] =>
+      s === "severe" ? [232, 60, 50] : s === "moderate" ? [230, 140, 40] : [242, 194, 26];
+    layers.push(
+      new ScatterplotLayer<(typeof hazards)[number]>({
+        id: "hazards",
+        data: hazards,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: (d) => (d.severity === "severe" ? 11 : 8),
+        radiusUnits: "pixels",
+        getFillColor: (d) => [...hazardRGB(d.severity), 235] as [number, number, number, number],
+        getLineColor: [20, 8, 4, 255],
+        lineWidthMinPixels: 2,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+    const severe = hazards.filter((h) => h.severity === "severe");
+    if (severe.length) {
+      layers.push(
+        new TextLayer<(typeof severe)[number]>({
+          id: "hazards-severe-glyph",
+          data: severe,
+          getPosition: (d) => [d.lng, d.lat],
+          getText: () => "✕",
+          getSize: 16,
+          getColor: [255, 240, 235, 255],
+          fontWeight: 700,
+          getTextAnchor: "middle",
+          getAlignmentBaseline: "center",
+          characterSet: "auto",
+          fontSettings: { sdf: true },
+          pickable: true,
+        }),
+      );
+    }
+  }
+
   // Cycle infrastructure — superhighways (cyan paths) + hire docks (small dots).
   if (vis.cycle) {
     if (data.cycleHighways.length) {
@@ -1113,6 +1181,13 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
     const c = object as CctvCamera;
     return { className: "deck-tip", html: `<b>${c.name}</b><br/><span class="tip-dim">live CCTV · click to view</span>` };
   }
+  if (o._t === "hazard") {
+    const h = object as PointFeature & { category?: string };
+    return {
+      className: "deck-tip",
+      html: `<b>${h.description}</b><br/><span class="tip-dim">TfL road hazard · ${h.category ?? "disruption"} · ${h.severity ?? "moderate"}</span>`,
+    };
+  }
   if ("restriction" in o && "max_stay_min" in o) {
     const k = object as LoadingZone;
     return {
@@ -1168,6 +1243,8 @@ const LEFT_LAYERS: { key: LayerKey; label: string; icon: string; testid: string 
   { key: "roadsigns", label: "Signs", icon: mdiAlertOutline, testid: "layer-toggle-roadsigns" },
   { key: "flood", label: "Flood", icon: mdiWaves, testid: "layer-toggle-flood" },
   { key: "cycle", label: "Cycle", icon: mdiBike, testid: "layer-toggle-cycle" },
+  { key: "weather", label: "Weather", icon: mdiWeatherPouring, testid: "layer-toggle-weather" },
+  { key: "hazards", label: "Hazards", icon: mdiCarBrakeAlert, testid: "layer-toggle-hazards" },
 ];
 
 export default function MapView() {
@@ -1366,7 +1443,7 @@ export default function MapView() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, kerbRaw, signsRaw, fldRaw, cycRaw] = await Promise.all([
+      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, kerbRaw, signsRaw, fldRaw, cycRaw, hazRaw] = await Promise.all([
         fetchOptionalJson("/data/roads.geojson"),
         fetchOptional<unknown>("/data/facilities.json"),
         fetchOptional<unknown>("/data/events.json"),
@@ -1376,6 +1453,7 @@ export default function MapView() {
         fetchOptional<{ signs?: RoadSign[] }>("/data/roadsigns.json"),
         fetchOptional<{ floods?: PointFeature[] }>("/data/floodwarnings.json"),
         fetchOptional<{ stations?: CycleStation[]; highways?: CycleHighway[] }>("/data/cycleinfra.json"),
+        fetchOptional<{ hazards?: PointFeature[] }>("/data/hazards.json"),
       ]);
       if (cancelled) return;
       const roads = parseRoads(roadsGj);
@@ -1388,7 +1466,8 @@ export default function MapView() {
       const floods = fldRaw?.floods ?? [];
       const cycleStations = cycRaw?.stations ?? [];
       const cycleHighways = cycRaw?.highways ?? [];
-      setOptional({ roads, facilities, venues, air, roadworks, kerb, roadsigns, floods, cycleStations, cycleHighways });
+      const hazards = hazRaw?.hazards ?? [];
+      setOptional({ roads, facilities, venues, air, roadworks, kerb, roadsigns, floods, cycleStations, cycleHighways, hazards });
       const loaded: string[] = [];
       if (roads.length) loaded.push(`${roads.length} roads`);
       if (facilities.length) loaded.push(`${facilities.length} facilities`);
@@ -1399,6 +1478,7 @@ export default function MapView() {
       if (roadsigns.length) loaded.push(`${roadsigns.length} roadside signs`);
       if (floods.length) loaded.push(`${floods.length} flood warnings`);
       if (cycleHighways.length) loaded.push(`${cycleHighways.length} cycle routes`);
+      if (hazards.length) loaded.push(`${hazards.length} road hazards`);
       if (loaded.length) {
         useStore.getState().pushLog({
           level: "info",
@@ -1411,6 +1491,62 @@ export default function MapView() {
       cancelled = true;
     };
   }, []);
+
+  // Weather radar (RainViewer) — add/remove a semi-transparent precipitation
+  // raster overlay on the basemap when the "Weather" layer is toggled. It sits
+  // above the basemap but BELOW the deck.gl courier/route overlay (a separate
+  // canvas control), and degrades to nothing if the RainViewer fetch fails.
+  useEffect(() => {
+    const SRC = "rainviewer-src";
+    const LYR = "rainviewer-layer";
+    const m = mapRef.current as maplibregl.Map | null;
+    if (!m) return;
+    let cancelled = false;
+
+    const removeRadar = () => {
+      try {
+        if (m.getLayer(LYR)) m.removeLayer(LYR);
+        if (m.getSource(SRC)) m.removeSource(SRC);
+      } catch {
+        /* layer/source absent — non-fatal */
+      }
+    };
+
+    if (!vis.weather) {
+      removeRadar();
+      return;
+    }
+
+    const addRadar = async () => {
+      const tile = await fetchLatestRadarTileUrl();
+      if (cancelled || !tile) return; // fetch failed → simply no radar
+      const apply = () => {
+        try {
+          removeRadar();
+          m.addSource(SRC, {
+            type: "raster",
+            tiles: [tile],
+            tileSize: 256,
+            attribution: "© RainViewer",
+          });
+          m.addLayer({ id: LYR, type: "raster", source: SRC, paint: { "raster-opacity": 0.6 } });
+        } catch {
+          /* style not ready / add failed — non-fatal */
+        }
+      };
+      if (m.isStyleLoaded()) apply();
+      else m.once("load", apply);
+    };
+
+    void addRadar();
+    // Optional refresh: pull a fresh radar frame every 5 minutes while enabled.
+    const t = window.setInterval(() => void addRadar(), 5 * 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+      removeRadar();
+    };
+  }, [vis.weather]);
 
   // Swap the basemap live when the dark/light theme toggles. CARTO raster tiles
   // (tokenless path) swap in place; Mapbox falls back to a full setStyle.

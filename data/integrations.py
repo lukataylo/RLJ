@@ -164,6 +164,63 @@ def _extract_tfl_geometry(item: dict) -> list[dict]:
     return []
 
 
+def normalize_tfl_road_hazards(payload: Iterable[dict], limit: int | None = None) -> list[dict]:
+    """Convert TfL road disruptions into driver-facing hazard point records.
+
+    Output shape matches the bundled ``data/hazards.py`` snapshot:
+    ``{id, description, lat, lng, severity, category}`` with the coordinate taken
+    from the first in-bbox geometry vertex.
+    """
+    import hazards as hazards_mod
+
+    out: list[dict] = []
+    for item in payload:
+        coords = _extract_tfl_geometry(item)
+        if not coords:
+            continue
+        first = coords[0]
+        lat, lng = first.get("lat"), first.get("lng")
+        if not _point_in_london(lat, lng):
+            continue
+        description = (
+            item.get("comments")
+            or item.get("currentUpdate")
+            or item.get("location")
+            or item.get("category")
+            or "TfL road disruption"
+        )
+        out.append(
+            {
+                "id": str(item.get("id") or f"haz-{len(out) + 1}"),
+                "description": str(description),
+                "lat": float(lat),
+                "lng": float(lng),
+                "severity": hazards_mod.severity_band(item.get("severity")),
+                "category": str(item.get("category") or "disruption").lower(),
+            }
+        )
+        if limit is not None and len(out) >= limit:
+            break
+    return out
+
+
+def fetch_road_hazards(limit: int = 25) -> dict:
+    """Refresh the live road-hazard snapshot from the keyless TfL Road API.
+
+    Returns a payload in the same shape as ``data/hazards.py``'s bundle so it can
+    be written straight to ``data/hazards.json``.
+    """
+    tfl = TflClient()
+    hazards = normalize_tfl_road_hazards(tfl.road_disruptions(), limit=limit)
+    return {
+        "source": "live",
+        "live": True,
+        "fetched_at": _now_iso(),
+        "provider": "TfL Unified API Road/All/Disruption",
+        "hazards": hazards,
+    }
+
+
 def normalize_tfl_bike_points(payload: Iterable[dict], limit: int | None = None) -> list[dict]:
     """Return operational staging points derived from live Santander Cycle docks."""
     out: list[dict] = []

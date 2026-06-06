@@ -695,6 +695,101 @@ async def signals_advice(driver_id: str = "", lat: float = 0.0, lng: float = 0.0
             "seconds_to_green": 18.0, "confidence": 0.4}
 
 
+# ----------------------------------------------------------------------------- in-cab Q&A
+def _driver_route(courier_id: str):
+    """The route a driver is on: their courier's route, else the first active route."""
+    if not S.plan or not S.plan.routes:
+        return None
+    if courier_id:
+        return next((r for r in S.plan.routes if r.courier_id == courier_id), None)
+    return S.plan.routes[0]
+
+
+def _driver_next_stops(courier_id: str, n: int = 4) -> list[str]:
+    route = _driver_route(courier_id)
+    if not route:
+        return []
+    out = []
+    for s in sorted(route.stops, key=lambda s: s.sequence)[:n]:
+        where = s.location.name or f"({s.location.lat:.3f},{s.location.lng:.3f})"
+        eta = f" by {s.eta.strftime('%H:%M')}" if s.eta else ""
+        out.append(f"{s.kind} at {where}{eta}")
+    return out
+
+
+def _driver_context(courier_id: str, lat: float, lng: float) -> str:
+    """System prompt grounding the in-cab assistant in this driver's live run."""
+    parts = [
+        "You are NemoClaw, the in-cab navigation assistant for a London medical courier.",
+        "Answer the driver's question in 1-2 short, practical sentences, like a co-pilot.",
+        "Use ONLY the live facts below; if something isn't given, say you don't have it yet.",
+    ]
+    stops = _driver_next_stops(courier_id)
+    if stops:
+        parts.append("Upcoming stops: " + "; ".join(stops) + ".")
+    cells = S.congestion.get("cells", [])
+    if cells:
+        worst = max(cells, key=lambda c: c["congestion"])
+        if worst["congestion"] >= congestion_mod.BUSY:
+            parts.append(
+                f"Heavy traffic near ({worst['lat']:.3f},{worst['lng']:.3f}) — easing off smooths the run.")
+    if S.disruptions:
+        parts.append(f"{len(S.disruptions)} disruption(s) are active on the network.")
+    if lat or lng:
+        parts.append(f"Driver position: ({lat:.4f},{lng:.4f}).")
+    return " ".join(parts)
+
+
+def _driver_directions_fallback(question: str, courier_id: str) -> str:
+    """Deterministic in-cab answer when no model is available (never silent)."""
+    low = question.lower()
+    if any(w in low for w in ("speed", "green", "light", "signal", "fast", "slow down")):
+        return "Hold around 28 km/h to catch the next green wave."
+    if any(w in low for w in ("traffic", "congestion", "busy", "jam")):
+        cells = S.congestion.get("cells", [])
+        if cells:
+            worst = max(cells, key=lambda c: c["congestion"])
+            return (f"Busiest cell is near ({worst['lat']:.3f},{worst['lng']:.3f}); "
+                    "ease your speed and I'll smooth the green wave.")
+        return "Traffic looks clear on your route right now."
+    if any(w in low for w in ("closed", "closure", "blocked", "bridge")):
+        return (f"There are {len(S.disruptions)} reported closures; "
+                "I'll keep your route clear of them.")
+    stops = _driver_next_stops(courier_id, 1)
+    if stops:
+        return f"Your next stop is {stops[0]}."
+    return "I'm your in-cab guide — ask about your next stop, traffic, or the best speed."
+
+
+class DriverAsk(BaseModel):
+    question: str = Field(min_length=1, max_length=300)
+    courier_id: str = ""
+    driver_id: str = ""
+    lat: float = 0.0
+    lng: float = 0.0
+    heading: float = 0.0
+
+
+@app.post("/driver/ask")
+async def driver_ask(body: DriverAsk):
+    """In-cab directions Q&A. Answers via the local-model LLM seam (Ollama on the
+    GB10, OpenAI in prod) grounded in the driver's live route + congestion, with a
+    deterministic fallback so it always replies. No operator auth — drivers ask
+    straight from the cab; pair with /tts for a spoken answer."""
+    q = body.question.strip()
+    answer = None
+    try:
+        answer = await asyncio.to_thread(
+            llm.chat, q, system=_driver_context(body.courier_id, body.lat, body.lng))
+    except Exception:  # noqa: BLE001 - never let the cab assistant hang
+        answer = None
+    if not answer:
+        answer = _driver_directions_fallback(q, body.courier_id)
+    await HUB.emit("agent_log", {"level": "info", "source": "driver",
+                                 "message": f"Driver asked: {q[:80]}"})
+    return {"answer": answer, "driver_id": body.driver_id, "courier_id": body.courier_id}
+
+
 
 async def _nemo_inject(d: dict):
     """Adapter so the NemoClaw agent can post a disruption (and trigger a re-plan)."""

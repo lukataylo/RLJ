@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-06T20:41:26.177404+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T21:20:56.549997+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (77/77) · verified 87/88 · failing 0 · unverified 1
+**Must-pass gate: ✅ GREEN** (79/79) · verified 89/90 · failing 0 · unverified 1
 
 ## impact
 
@@ -50,6 +50,7 @@ _Generated 2026-06-06T20:41:26.177404+00:00 — machine output of `make verify`.
 | ✅ ⭐ | NHS Hospital A&E live wait times and patient load feeds are schema-valid | `test_nhspressure_sane` | verified |
 | ✅ ⭐ | TfL cycle infrastructure paths and hire capacities are schema-valid | `test_cycleinfra_sane` | verified |
 | ✅ ⭐ | Environment Agency flood warning timed disruptions are schema-valid | `test_floodwarnings_sane` | verified |
+| ✅ ⭐ | TfL live road disruptions/hazards are schema-valid, in London, and driver-actionable | `test_hazards_sane` | verified |
 | ✅ ⭐ | Traffic-signal junctions + green-wave advice are schema-valid within London | `test_junctions_valid` | verified |
 | ✅ ⭐ | Crowdsourced driver pings are schema-valid, in-bbox, and deterministic | `test_probe_pings_valid` | verified |
 | ✅ | Weather congestion multiplier is sane and deterministic | `test_weather_multiplier_sane` | verified |
@@ -108,6 +109,7 @@ _Generated 2026-06-06T20:41:26.177404+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Signal recommendations POST/GET round-trip and appear in /state | `test_signals_post_get_roundtrip` | verified |
 | ✅ ⭐ | Posted signal recommendations broadcast to the map (WS + narration) | `test_signals_broadcast` | verified |
 | ✅ ⭐ | Operator can ask the GB10 agent; question queues, is answered, broadcasts | `test_ask_tasks_answer_flow` | verified |
+| ✅ ⭐ | A driver asks the local model for in-cab directions (POST /driver/ask) and gets a route-grounded answer; never silent (deterministic fallback) | `test_driver_ask_grounded_in_next_stop` | verified |
 | ✅ ⭐ | Per-driver assessments round-trip and broadcast to the map | `test_fleet_assessments_roundtrip_and_broadcast` | verified |
 | ✅ ⭐ | Redirect a courier (200) re-optimises; unknown courier is 404 | `test_redirect_known_and_unknown` | verified |
 | ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |

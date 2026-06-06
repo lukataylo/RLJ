@@ -2,11 +2,14 @@
 // banner while navigating, the destination as the hero, one clear primary
 // action. Maneuver tracking + speech is driven from App.tsx.
 
-import { postDisruption } from "../api";
+import { useState } from "react";
+import { postDisruption, redirectCourier } from "../api";
 import { distancePhrase } from "../lib/geo";
 import { PRIORITY_COLOR, PRIORITY_LABEL, STATUS_COLOR, STATUS_LABEL, etaMinutes } from "../lib/format";
 import { selectActiveJob, selectActiveRoute, useStore } from "../store";
 import { IconAlert, IconNavigate, IconPin, IconSnow, IconStop, ManeuverIcon } from "./icons";
+
+type RerouteState = "idle" | "loading" | "ok" | "err";
 
 export default function ActiveDelivery() {
   const job = useStore(selectActiveJob);
@@ -17,6 +20,8 @@ export default function ActiveDelivery() {
   const lastFix = useStore((s) => s.lastFix);
   const setNavigating = useStore((s) => s.setNavigating);
   const setSharing = useStore((s) => s.setSharing);
+
+  const [reroute, setReroute] = useState<RerouteState>("idle");
 
   if (!job) {
     return (
@@ -43,6 +48,18 @@ export default function ActiveDelivery() {
     await postDisruption({ kind: "road_closure", source: "manual", geometry: [{ lat: here.lat, lng: here.lng }] });
     if ("speechSynthesis" in window)
       window.speechSynthesis.speak(new SpeechSynthesisUtterance("Blockage reported. Re-planning."));
+  };
+  // Re-route: ask the orchestrator to re-optimise this courier's plan
+  // (POST /couriers/{id}/redirect). This is the "change delivery direction" action.
+  const courierId = route?.courier_id ?? null;
+  const changeRoute = async () => {
+    if (!courierId || reroute === "loading") return;
+    setReroute("loading");
+    const res = await redirectCourier(courierId);
+    setReroute(res.ok ? "ok" : "err");
+    if (res.ok && "speechSynthesis" in window)
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance("Route updated."));
+    window.setTimeout(() => setReroute("idle"), 2400);
   };
 
   return (
@@ -84,6 +101,25 @@ export default function ActiveDelivery() {
         ) : (
           <button type="button" className="btn btn-go" onClick={start}>
             <IconNavigate size={20} /> Start navigation
+          </button>
+        )}
+        {courierId && (
+          <button
+            type="button"
+            className={`btn btn-reroute${reroute === "err" ? " is-err" : ""}${reroute === "ok" ? " is-ok" : ""}`}
+            onClick={changeRoute}
+            disabled={reroute === "loading"}
+            data-testid="reroute"
+            aria-label="Re-route delivery"
+          >
+            <IconNavigate size={20} />{" "}
+            {reroute === "loading"
+              ? "Re-routing…"
+              : reroute === "ok"
+                ? "Re-routed"
+                : reroute === "err"
+                  ? "Failed"
+                  : "Re-route"}
           </button>
         )}
         <button type="button" className="btn btn-alert" onClick={report} aria-label="Report blockage">

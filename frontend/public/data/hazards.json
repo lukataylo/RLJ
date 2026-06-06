@@ -1,0 +1,48 @@
+{
+  "source": "live-with-fallback",
+  "live": false,
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "TfL Unified API Road/All/Disruption (bundled)",
+  "hazards": [
+    {
+      "id": "haz-a40-westway",
+      "description": "A40 Westway \u2014 collision, two lanes blocked eastbound",
+      "lat": 51.5176,
+      "lng": -0.2065,
+      "severity": "severe",
+      "category": "accident"
+    },
+    {
+      "id": "haz-elephant-castle",
+      "description": "Elephant & Castle \u2014 broken-down HGV blocking nearside lane",
+      "lat": 51.4946,
+      "lng": -0.0997,
+      "severity": "moderate",
+      "category": "obstruction"
+    },
+    {
+      "id": "haz-blackwall-tunnel",
+      "description": "Blackwall Tunnel southbound \u2014 closed for emergency repairs",
+      "lat": 51.5025,
+      "lng": 0.005,
+      "severity": "severe",
+      "category": "closure"
+    },
+    {
+      "id": "haz-vauxhall-cross",
+      "description": "Vauxhall Cross \u2014 signal fault causing heavy queues",
+      "lat": 51.4861,
+      "lng": -0.123,
+      "severity": "moderate",
+      "category": "congestion"
+    },
+    {
+      "id": "haz-old-street",
+      "description": "Old Street roundabout \u2014 surface water, drive with care",
+      "lat": 51.5256,
+      "lng": -0.0875,
+      "severity": "low",
+      "category": "hazard"
+    }
+  ]
+}

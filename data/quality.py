@@ -534,3 +534,30 @@ def validate_roadsigns(payload: dict) -> dict:
         if s["severity"] not in ("low", "moderate", "severe"):
             raise AssertionError(f"Roadsign severity invalid: {s['severity']}")
     return payload
+
+
+def validate_hazards(payload: dict) -> dict:
+    """Validate TfL live road-disruption / hazard records (data/hazards.py)."""
+    if not payload:
+        raise AssertionError("Hazards payload is empty")
+    for key in ("source", "fetched_at", "provider", "hazards"):
+        if key not in payload:
+            raise AssertionError(f"Hazards missing key: {key}")
+    hazards = payload["hazards"]
+    if not hazards:
+        raise AssertionError("Hazards has no records")
+    seen: set[str] = set()
+    for h in hazards:
+        for k in ("id", "description", "lat", "lng", "severity", "category"):
+            if k not in h:
+                raise AssertionError(f"Hazard missing key: {k}")
+        if h["id"] in seen:
+            raise AssertionError(f"duplicate hazard id: {h['id']}")
+        seen.add(h["id"])
+        if not point_in_bbox(h["lat"], h["lng"]):
+            raise AssertionError(f"Hazard coordinate {(h['lat'], h['lng'])} outside London bbox")
+        if not str(h["description"]).strip():
+            raise AssertionError(f"Hazard {h['id']} has empty description")
+        if h["severity"] not in ("low", "moderate", "severe"):
+            raise AssertionError(f"Hazard severity invalid: {h['severity']}")
+    return payload

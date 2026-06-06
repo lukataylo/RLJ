@@ -1,9 +1,12 @@
-// Browser Web Speech API helpers + ElevenLabs TTS proxy for the NemoClaw voice console.
+// Browser Web Speech API helpers + ElevenLabs TTS proxy for the in-cab voice
+// assistant. Mirrors the operator dashboard's lib/voice.ts.
 // Speech recognition (mic → text): browser Web Speech API.
-// Speech synthesis (text → spoken reply): ElevenLabs via the orchestrator /tts proxy,
-// falling back to the browser's built-in synthesis if the proxy is unavailable.
+// Speech synthesis (text → spoken reply): ElevenLabs via the orchestrator /tts
+// proxy, falling back to the browser's built-in synthesis if the proxy is
+// unavailable. The demo orchestrator runs with AUTH off, so /tts is called
+// without an auth header (the driver-app has no token to send).
 
-import { getToken } from "../api";
+import { BASE } from "../api";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type SRCtor = new () => any;
@@ -88,7 +91,6 @@ export function startListening(opts: {
   };
 }
 
-const _BASE = (import.meta.env.VITE_ORCHESTRATOR_URL || "http://localhost:8000").replace(/\/$/, "");
 let activeAudio: HTMLAudioElement | null = null;
 let activeUrl: string | null = null;
 let activeRequest: AbortController | null = null;
@@ -118,7 +120,7 @@ function cleanupAudio(): void {
   }
 }
 
-/** Prime browser audio during a user gesture so a later WebSocket answer may play. */
+/** Prime browser audio during a user gesture so a later answer may play. */
 export function prepareSpeech(): void {
   try {
     const AudioContextCtor =
@@ -188,13 +190,9 @@ export async function speakElevenLabs(text: string, onEnd?: () => void): Promise
     if (sequence === speechSequence) onEnd?.();
   };
   try {
-    const token = getToken();
-    const res = await fetch(`${_BASE}/tts`, {
+    const res = await fetch(`${BASE}/tts`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ text }),
       signal: controller.signal,
     });

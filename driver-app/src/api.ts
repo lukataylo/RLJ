@@ -128,6 +128,63 @@ export function getSignalAdvice(q: {
   return call<SignalAdvice>(`/signals/advice?${p.toString()}`);
 }
 
+/** Response from POST /driver/ask — the in-cab directions Q&A answer. */
+export interface DriverAskResponse {
+  answer: string;
+  driver_id?: string | null;
+  courier_id?: string | null;
+}
+
+/**
+ * POST /driver/ask — in-cab local-model directions Q&A. The orchestrator grounds
+ * the answer in the route when courier_id/driver_id + the last GPS fix are
+ * supplied, so callers should pass whatever context the store has. NO auth.
+ */
+export function askDriver(
+  question: string,
+  ctx?: {
+    courier_id?: string | null;
+    driver_id?: string | null;
+    lat?: number;
+    lng?: number;
+    heading?: number;
+  },
+): Promise<ApiResult<DriverAskResponse>> {
+  return call<DriverAskResponse>("/driver/ask", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      question,
+      ...(ctx?.courier_id ? { courier_id: ctx.courier_id } : {}),
+      ...(ctx?.driver_id ? { driver_id: ctx.driver_id } : {}),
+      ...(ctx?.lat != null ? { lat: ctx.lat } : {}),
+      ...(ctx?.lng != null ? { lng: ctx.lng } : {}),
+      ...(ctx?.heading != null ? { heading: ctx.heading } : {}),
+    }),
+  });
+}
+
+/** Response from POST /couriers/{id}/redirect — the re-optimised plan summary. */
+export interface RedirectResponse {
+  ok: boolean;
+  courier_id: string;
+  windows_met?: number;
+  solver?: string;
+}
+
+/**
+ * POST /couriers/{courier_id}/redirect — re-optimise (reroute) this courier's
+ * plan. This is the "change delivery direction" action.
+ */
+export function redirectCourier(
+  courierId: string,
+): Promise<ApiResult<RedirectResponse>> {
+  return call<RedirectResponse>(
+    `/couriers/${encodeURIComponent(courierId)}/redirect`,
+    { method: "POST", headers: { "content-type": "application/json" } },
+  );
+}
+
 /** POST /disruptions — report a blockage so the server re-plans around it. */
 export function postDisruption(d: {
   kind: "road_closure" | "traffic" | "courier_down";

@@ -1748,20 +1748,6 @@ button {
   align-items: center;
   gap: 10px;
 }
-.nvo-close {
-  z-index: 2;
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--hair-strong);
-  color: var(--muted);
-  font-size: 12px;
-}
-.nvo-close:hover { color: var(--text); border-color: var(--text); }
 .nvo-status {
   display: inline-flex;
   align-items: center;
