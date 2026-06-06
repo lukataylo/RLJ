@@ -11,7 +11,7 @@ Geocoder (free, no key):
   * postcodes.io bulk: POST https://api.postcodes.io/postcodes
     body {"postcodes": ["SE1 7EH", ...]} -> per-postcode latitude/longitude.
 
-Facility list — full pull (TODO, to replace the embedded seed below):
+Facility list — full pull (planned, to replace the embedded seed below):
   The authoritative facility lists are published by NHS ODS / data.gov.uk as
   CSVs keyed by postcode (no coordinates). Wire these for the complete pull:
     * NHS ODS "Pathology Laboratories" (epraccur-style CSV):
