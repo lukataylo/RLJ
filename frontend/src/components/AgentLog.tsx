@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { askAgent } from "../api";
 import { useStore } from "../store";
 import NemoFace from "./NemoFace";
+import { speechSupported, startListening, speak, type Listener } from "../lib/voice";
 
 const MAX_LINES = 5;
 const LISTEN_SECONDS = 15;
@@ -25,32 +26,63 @@ export default function AgentLog() {
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Voice mock: a listening overlay with the dot-matrix face + a countdown.
+  // Voice console: real browser speech recognition → /agent/ask → spoken reply.
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [secs, setSecs] = useState(LISTEN_SECONDS);
+  const [heard, setHeard] = useState("");
+  const [voicePhase, setVoicePhase] = useState<"listening" | "thinking" | "unsupported">("listening");
   const timerRef = useRef<number | null>(null);
+  const recRef = useRef<Listener | null>(null);
+  const voiceAskAtRef = useRef<number>(0); // ts of last voice ask → speak the reply
+  const spokenRef = useRef<Set<string>>(new Set());
 
-  const closeVoice = () => {
-    setVoiceOpen(false);
+  const stopRecognition = () => {
+    recRef.current?.stop();
+    recRef.current = null;
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
   };
 
-  const openVoice = () => {
-    setSecs(LISTEN_SECONDS);
-    setVoiceOpen(true);
+  const closeVoice = () => {
+    stopRecognition();
+    setVoiceOpen(false);
   };
 
-  // Run the listening countdown while the overlay is open; auto-close at 0.
+  const openVoice = () => {
+    setSecs(LISTEN_SECONDS);
+    setHeard("");
+    setVoiceOpen(true);
+    if (!speechSupported()) {
+      setVoicePhase("unsupported");
+      return;
+    }
+    setVoicePhase("listening");
+    recRef.current = startListening({
+      onPartial: (t) => setHeard(t),
+      onFinal: (t) => {
+        setHeard(t);
+        setVoicePhase("thinking");
+        voiceAskAtRef.current = Date.now();
+        void send(t);
+        // brief "thinking" beat, then close — the reply lands in the feed + is spoken
+        window.setTimeout(() => setVoiceOpen(false), 1400);
+      },
+      onError: (e) => {
+        if (e === "unsupported") setVoicePhase("unsupported");
+      },
+    });
+  };
+
+  // Listening countdown (visual + safety stop if the speaker goes quiet too long).
   useEffect(() => {
-    if (!voiceOpen) return;
+    if (!voiceOpen || voicePhase !== "listening") return;
+    setSecs(LISTEN_SECONDS);
     timerRef.current = window.setInterval(() => {
       setSecs((s) => {
         if (s <= 1) {
-          window.clearInterval(timerRef.current!);
-          timerRef.current = null;
+          stopRecognition();
           setVoiceOpen(false);
           return LISTEN_SECONDS;
         }
@@ -60,7 +92,25 @@ export default function AgentLog() {
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
     };
-  }, [voiceOpen]);
+  }, [voiceOpen, voicePhase]);
+
+  // Speak NemoClaw's reply aloud after a VOICE question (first agent line that lands).
+  useEffect(() => {
+    if (!voiceAskAtRef.current) return;
+    for (const l of logs) {
+      const t = new Date(l.ts).getTime();
+      const key = `${l.ts}|${l.message}`;
+      const isAnswer =
+        (l.source === "agent_log" || l.source === "notification") &&
+        !l.message.startsWith("You →");
+      if (t >= voiceAskAtRef.current && isAnswer && !spokenRef.current.has(key)) {
+        spokenRef.current.add(key);
+        speak(l.message);
+        voiceAskAtRef.current = 0; // speak only the first reply
+        break;
+      }
+    }
+  }, [logs]);
 
   // Prefer the real agent narration (agent_log + notifications); fall back to all
   // lines so the feed is never empty before the first agent event arrives.
@@ -127,12 +177,25 @@ export default function AgentLog() {
           <div className="nvo-content">
             <div className="nvo-top">
               <div className="nvo-status">
-                <span className="nvo-rec" /> LISTENING · {secs}s
+                <span className="nvo-rec" />{" "}
+                {voicePhase === "thinking"
+                  ? "THINKING…"
+                  : voicePhase === "unsupported"
+                    ? "VOICE UNAVAILABLE"
+                    : `LISTENING · ${secs}s`}
               </div>
-              <div className="nvo-prompt">How can I help with the fleet?</div>
+              <div className="nvo-prompt" data-testid="nemo-voice-transcript">
+                {voicePhase === "unsupported"
+                  ? "Voice isn't supported here — type your question below."
+                  : heard
+                    ? `“${heard}”`
+                    : "How can I help with the fleet?"}
+              </div>
             </div>
             <div className="nvo-bottom">
-              <div className="nvo-hint">speak naturally</div>
+              <div className="nvo-hint">
+                {voicePhase === "thinking" ? "asking NemoClaw…" : "speak naturally"}
+              </div>
               <button
                 type="button"
                 className="nvo-cancel"
