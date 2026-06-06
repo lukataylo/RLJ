@@ -1,10 +1,12 @@
 PY  := ./.venv/bin/python
-PIP := ./.venv/bin/pip
 
 .PHONY: install verify verify-core data demo e2e-install clean
 
+# uv-managed environment (https://astral.sh/uv). Creates ./.venv and installs all
+# service + test deps into it; the rest of the targets use ./.venv/bin/python.
 install:
-	$(PIP) install -r requirements-test.txt -r orchestrator/requirements.txt -r routing/requirements.txt
+	uv venv .venv --python 3.12
+	uv pip install --python $(PY) -r requirements-test.txt -r orchestrator/requirements.txt -r routing/requirements.txt
 
 # Full gate: runs every external test suite, maps to the claims ledger, writes
 # verification/STATUS.json + VERIFICATION.md. Exits non-zero unless every

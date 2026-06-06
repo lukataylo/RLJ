@@ -213,8 +213,10 @@ def _answer_for(tool: str, r: dict[str, Any]) -> str:
 
     if tool == "next_pickup":
         eta = _eta_phrase(r.get("eta"))
-        status = r.get("status") or "on your way"
-        return f"Your next pickup: you're {status}{eta}."
+        dest = _stop_name(r)
+        if dest:
+            return f"Your next pickup: {dest}{eta}."
+        return f"Your next pickup: you're {_status_phrase(r.get('status'))}{eta}."
 
     if tool == "reroute_reason":
         return f"Heads up — {r.get('reason', 'no reroute in effect')}."
@@ -246,11 +248,37 @@ def _answer_for(tool: str, r: dict[str, Any]) -> str:
 
     if tool == "get_guidance":
         eta = _eta_phrase(r.get("eta"))
-        status = r.get("status") or "en route"
+        dest = _stop_name(r)
         sig = f" {r['signal_message']}" if r.get("signal_message") else ""
-        return f"You're {status}{eta}. Park at the next drop.{sig}"
+        where = f" to {dest}" if dest else ""
+        return f"You're {_status_phrase(r.get('status'))}{where}{eta}. Park at the next drop.{sig}"
 
     return ""
+
+
+def _status_phrase(status: Any) -> str:
+    """Turn the machine guidance status enum into a natural spoken fragment.
+
+    The orchestrator's ``/driver/{id}/guidance`` reports a *machine* status
+    ("active" when the driver is known, "unknown" when it isn't). Those tokens
+    must never leak verbatim into a sentence — "you're unknown" is the malformed
+    label dispatchers reported — so map them to a sensible, neutral phrase.
+    """
+    s = str(status or "").strip().lower()
+    return {
+        "active": "en route",
+        "enroute": "en route",
+        "en route": "en route",
+        "on your way": "on your way",
+        "idle": "between jobs",
+    }.get(s, "en route")
+
+
+def _stop_name(r: dict[str, Any]) -> str:
+    """The next stop's real place name, if dispatch supplied one (preferred over
+    any status fragment). Empty string when no usable name is present."""
+    name = r.get("next_stop") or r.get("destination")
+    return str(name).strip() if name else ""
 
 
 def _eta_phrase(eta: Any) -> str:

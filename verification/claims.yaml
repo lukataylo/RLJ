@@ -91,6 +91,24 @@ claims:
     must_pass: false
     test: "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox"
 
+  - id: live-data-integrations
+    statement: "London open-data integrations normalize public API payloads into safe local records"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_integrations.py"
+
+  - id: nhs-facilities-real
+    statement: "Real NHS London facilities geocode to valid in-bbox pickup/dropoff nodes"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_nhs_facilities.py"
+
+  - id: maps-offline-real
+    statement: "Router plans over the real offline London road graph (Valhalla matrix), not straight-line"
+    category: data
+    must_pass: false
+    test: "tests/integration/test_valhalla_live.py"
+
   # ---- research: anticipatory routing significantly beats baselines -------
   - id: research-anticipation-beats-reaction
     statement: "Schedule-anticipation significantly beats live-only reactive routing (paired Wilcoxon p<0.05)"

@@ -5,6 +5,7 @@ fastapi>=0.110
 uvicorn>=0.27
 pydantic>=2.6
 numpy>=1.26
+requests>=2.31   # HTTP client for the Valhalla travel-time tier (traveltime.valhalla_matrix)
 
 # ----------------------------------------------------------------------------------
 # OPTIONAL — accelerators / higher-fidelity tiers. All are IMPORT-GUARDED in code:

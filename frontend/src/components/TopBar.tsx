@@ -9,6 +9,7 @@ import type { UseStatus } from "../hooks/useStatus";
 import { seedDemo, clearDemo } from "../api";
 import DemoControls from "./DemoControls";
 import ThemeToggle from "./ThemeToggle";
+import RouteSourceToggle from "./RouteSourceToggle";
 
 interface Props {
   status: UseStatus;
@@ -102,6 +103,7 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
         {status.loaded ? `${mpVerified}/${mpTotal}` : "—/—"}
       </button>
 
+      <RouteSourceToggle />
       <ThemeToggle />
 
       {token && (
