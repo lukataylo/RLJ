@@ -231,6 +231,58 @@ def _best_key_sim(q: str, e: dict) -> float:
     return best
 
 
+# Generic tokens stripped before matching hospital names, so the DISTINCTIVE part
+# drives the match (otherwise the shared "hospital" suffix inflates similarity across
+# every hospital and "X hospital" matches an arbitrary one).
+_GENERIC_TOKENS = {"hospital", "hospitals", "the", "nhs", "trust", "university",
+                   "centre", "center", "general", "royal", "st", "saint"}
+
+
+def _distinct(norm: str) -> str:
+    return " ".join(t for t in norm.split() if t not in _GENERIC_TOKENS)
+
+
+def _is_hospital(e: dict) -> bool:
+    """A hospital by type tag OR by name — OSM tags many hospitals as generic
+    'health', so trust the name too."""
+    return e.get("type") == "hospital" or "hospital" in e["norm"]
+
+
+def _resolve_hospital(q: str) -> Optional[dict]:
+    """Best hospital match for ``q`` (norm), or None — "hospital wins on conflict".
+
+    A query that plausibly names a hospital resolves to the hospital even when a
+    same-named area/estate/station or non-hospital health POI also matches
+    (e.g. "homerton" → *Homerton University Hospital*; "old street hospital" →
+    *Moorfields* via its alias). Matching is on the DISTINCTIVE tokens (generic
+    words like "hospital"/"university" stripped). Unrelated queries (e.g. "Dalston")
+    match no hospital and fall through to normal resolution.
+    """
+    qd = _distinct(q)
+    best: Optional[tuple[float, dict]] = None
+    for e in _GAZETTEER:
+        if not _is_hospital(e):
+            continue
+        if q == e["norm"] or q in e["aliases"]:
+            return e
+        substring = False
+        sim = 0.0
+        for key in (e["norm"], *e["aliases"]):
+            if not key:
+                continue
+            kd = _distinct(key)
+            if qd and kd and (qd in kd or kd in qd):
+                substring = True
+            r = SequenceMatcher(None, qd or q, kd or key).ratio()
+            if r > sim:
+                sim = r
+        if substring or sim >= 0.8:
+            score = sim + (0.6 if substring else 0.0)
+            if best is None or score > best[0]:
+                best = (score, e)
+    return best[1] if best else None
+
+
 def suggest(query: str, n: int = 3) -> list[str]:
     """Closest canonical names to a (possibly unresolvable) query — for error hints."""
     q = _norm(query)
@@ -259,6 +311,14 @@ def resolve(query: str, *, prefer_types: Optional[set] = None) -> Optional[dict]
     q = _norm(query)
     if not q:
         return None
+
+    # 0) hospital-first: in a medical context, a plausible hospital match wins over
+    #    a same-named area/estate/station or sub-clinic — even over an exact non-
+    #    hospital match. Only fires when "hospital" is a preferred type.
+    if prefer_types and "hospital" in prefer_types:
+        h = _resolve_hospital(q)
+        if h is not None:
+            return _result(h)
 
     # 1) exact (incl. aliases) — the strongest possible signal; the user named
     #    this exact place, so honor it regardless of any type preference.
