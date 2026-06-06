@@ -29,6 +29,7 @@ import congestion as congestion_mod
 import nemo_agent
 import geocode
 from intake import parse_delivery
+import route_preview
 import db
 import auth
 from auth import require_user, current_user, CurrentUser
@@ -304,8 +305,13 @@ async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
     # then dispatch notification.
     created = await create_job(job, _user)
     job_id = created.get("id")
+    # This delivery's own clean pickup->dropoff road route (for the UI to draw/highlight
+    # in blue), instead of the courier's full multi-stop tour. [] if Valhalla is down.
+    route = route_preview.valhalla_route_shape(
+        [origin["lat"], destination["lat"]], [origin["lng"], destination["lng"]])
     return {"ok": True, "job": created,
             "resolved": {"origin": origin, "destination": destination},
+            "route": route,
             "message": f"Created {job_id}: {origin['name']} → {destination['name']}"}
 
 

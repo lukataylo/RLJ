@@ -119,7 +119,9 @@ export interface ResolvedPlace {
 }
 
 /** Result of POST /intake — discriminated union on `ok`.
- * success: the created job + resolved endpoints + a human-readable message.
+ * success: the created job + resolved endpoints + a human-readable message +
+ *   `route`: the delivery's own pickup→dropoff road geometry (real London streets
+ *   from Valhalla; `[]` when Valhalla is down) so the UI can draw its clean A→B line.
  * failure: an error string + suggestions the dispatcher can pick from. */
 export type IntakeResult =
   | {
@@ -127,6 +129,7 @@ export type IntakeResult =
       job: DeliveryJob;
       resolved: { origin: ResolvedPlace; destination: ResolvedPlace };
       message: string;
+      route: { lat: number; lng: number }[];
     }
   | { ok: false; error: string; suggestions: string[] };
 
@@ -142,7 +145,12 @@ export async function postIntake(text: string): Promise<IntakeResult> {
   });
   // The contract returns a JSON body (with `ok`) on both success and failure.
   const body = (await res.json().catch(() => null)) as IntakeResult | null;
-  if (body && typeof body.ok === "boolean") return body;
+  if (body && typeof body.ok === "boolean") {
+    // Default `route` to [] so callers can always read the delivery's geometry
+    // (the field may be absent if the backend / Valhalla didn't supply it).
+    if (body.ok && !Array.isArray(body.route)) body.route = [];
+    return body;
+  }
   // No usable body (e.g. 500/HTML) — surface as a graceful failure.
   return {
     ok: false,

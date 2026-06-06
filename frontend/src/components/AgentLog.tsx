@@ -31,6 +31,7 @@ export default function AgentLog() {
   const logs = useStore((s) => s.logs);
   const pushLog = useStore((s) => s.pushLog);
   const setFocusJob = useStore((s) => s.setFocusJob);
+  const setFocusRoute = useStore((s) => s.setFocusRoute);
 
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
@@ -101,7 +102,10 @@ export default function AgentLog() {
             message: `✓ Created ${res.job.id}: ${o} → ${d}`,
             source: "agent_log",
           });
-          setFocusJob(res.job.id); // highlight the new route in blue on the map
+          setFocusJob(res.job.id); // highlight the new job on the map
+          // Draw the delivery's OWN clean A→B blue road route (pickup→dropoff),
+          // not the courier's tangled multi-stop tour. [] if Valhalla was down.
+          setFocusRoute(res.route ?? []);
           setQuestion("");
         } else {
           const suffix = res.suggestions?.length
