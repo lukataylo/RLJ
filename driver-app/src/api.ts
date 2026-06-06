@@ -128,6 +128,20 @@ export function getSignalAdvice(q: {
   return call<SignalAdvice>(`/signals/advice?${p.toString()}`);
 }
 
+/** POST /disruptions — report a blockage so the server re-plans around it. */
+export function postDisruption(d: {
+  kind: "road_closure" | "traffic" | "courier_down";
+  geometry?: LatLng[];
+  source?: "tfl" | "manual";
+  courier_id?: string | null;
+}): Promise<ApiResult<unknown>> {
+  return call("/disruptions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(d),
+  });
+}
+
 // --------------------------------------------------------------- GPS sources
 
 /**
