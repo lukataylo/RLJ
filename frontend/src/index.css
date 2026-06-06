@@ -2261,6 +2261,27 @@ button {
 }
 .nav-demo:disabled { opacity: 0.55; cursor: progress; transform: none; }
 
+/* subtle demo toggle tucked beside the clock */
+.nav-demo-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  padding: 4px 10px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.nav-demo-sub:hover {
+  color: var(--yellow);
+  border-color: rgba(242, 194, 26, 0.4);
+  background: rgba(242, 194, 26, 0.07);
+}
+.nav-demo-sub:disabled { opacity: 0.55; cursor: progress; }
+
 /* ---- topbar account avatar + dropdown ---- */
 .nav-user {
   position: relative;

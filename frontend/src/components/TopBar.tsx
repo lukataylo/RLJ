@@ -110,20 +110,6 @@ export default function TopBar({ status, onOpenVerification }: Props) {
 
         <span className="nav-mark">Pulse<b>Go</b></span>
 
-        {/* Single live view (the others weren't built yet, so they're removed). */}
-        <span className="nav-tab active" aria-current="page">Live Map</span>
-
-        <button
-          type="button"
-          className="nav-demo"
-          data-testid="demo-mode"
-          onClick={runDemo}
-          disabled={seeding}
-          title="Load a live demo scenario (couriers, jobs, routes)"
-        >
-          {seeding ? "Loading…" : "Demo mode"}
-        </button>
-
         <button
           type="button"
           className={`nav-verify ${status.loaded ? (mustPassGreen ? "ok" : "fail") : "unknown"}`}
@@ -137,6 +123,18 @@ export default function TopBar({ status, onOpenVerification }: Props) {
         </button>
 
         <span className="nav-clock">{clock}</span>
+
+        {/* Demo toggle — subtle, tucked beside the clock (loads a live scenario). */}
+        <button
+          type="button"
+          className="nav-demo-sub"
+          data-testid="demo-mode"
+          onClick={runDemo}
+          disabled={seeding}
+          title="Load a live demo scenario (couriers, jobs, routes)"
+        >
+          {seeding ? "loading…" : "demo"}
+        </button>
 
         <ThemeToggle />
 

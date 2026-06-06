@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-06T14:22:49.161202+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T15:26:34.160485+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (60/60) · verified 70/70 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (65/65) · verified 75/75 · failing 0 · unverified 0
 
 ## impact
 
@@ -40,6 +40,11 @@ _Generated 2026-06-06T14:22:49.161202+00:00 — machine output of `make verify`.
 | ✅ | Road graph is connected and covers the London bbox | `test_graph_connected_and_bbox` | verified |
 | ✅ ⭐ | Tower Bridge + event timed-disruption feeds are schema-valid within London | `test_timed_events_valid` | verified |
 | ✅ ⭐ | Horizon disruptions are a superset of active (schedule sees imminent closures reaction can't) | `test_active_and_horizon_consistency` | verified |
+| ✅ ⭐ | London Air Quality (LAQN) feed is schema-valid and maps borough centroids | `test_airquality_sane` | verified |
+| ✅ ⭐ | TfL Streetworks timed road closure disruptions are schema-valid | `test_streetworks_sane` | verified |
+| ✅ ⭐ | NHS Hospital A&E live wait times and patient load feeds are schema-valid | `test_nhspressure_sane` | verified |
+| ✅ ⭐ | TfL cycle infrastructure paths and hire capacities are schema-valid | `test_cycleinfra_sane` | verified |
+| ✅ ⭐ | Environment Agency flood warning timed disruptions are schema-valid | `test_floodwarnings_sane` | verified |
 | ✅ ⭐ | Traffic-signal junctions + green-wave advice are schema-valid within London | `test_junctions_valid` | verified |
 | ✅ ⭐ | Crowdsourced driver pings are schema-valid, in-bbox, and deterministic | `test_probe_pings_valid` | verified |
 | ✅ | Weather congestion multiplier is sane and deterministic | `test_weather_multiplier_sane` | verified |

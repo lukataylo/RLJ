@@ -46,6 +46,12 @@ export function cachedRoute(sig: string): RoadGeom | null | undefined {
   return cache.get(sig);
 }
 
+/** Drop cached geometries so the next resolve re-fetches LIVE traffic (Waze-style
+ * realtime). In-flight requests are left to settle. */
+export function clearRouteCache(): void {
+  cache.clear();
+}
+
 async function fetchChunk(coords: LngLat[]): Promise<RoadGeom | null> {
   const path = coords.map(([lng, lat]) => `${lng},${lat}`).join(";");
   const url =

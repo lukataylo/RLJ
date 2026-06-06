@@ -135,6 +135,36 @@ claims:
     must_pass: true
     test: "tests/data_quality/test_signals.py::test_active_and_horizon_consistency"
 
+  - id: data-airquality
+    statement: "London Air Quality (LAQN) feed is schema-valid and maps borough centroids"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_airquality.py::test_airquality_sane"
+
+  - id: data-streetworks
+    statement: "TfL Streetworks timed road closure disruptions are schema-valid"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_streetworks.py::test_streetworks_sane"
+
+  - id: data-nhspressure
+    statement: "NHS Hospital A&E live wait times and patient load feeds are schema-valid"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_nhspressure.py::test_nhspressure_sane"
+
+  - id: data-cycleinfra
+    statement: "TfL cycle infrastructure paths and hire capacities are schema-valid"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_cycleinfra.py::test_cycleinfra_sane"
+
+  - id: data-floodwarnings
+    statement: "Environment Agency flood warning timed disruptions are schema-valid"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_floodwarnings.py::test_floodwarnings_sane"
+
   # ---- NVIDIA-judge benchmarks (independent, threshold-based) --------------
   - id: bench-latency-p50
     statement: "Real-time replan p50 < 400ms on CPU (GB10 target <50ms)"

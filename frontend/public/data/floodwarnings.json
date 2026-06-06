@@ -1,0 +1,37 @@
+{
+  "source": "scheduled",
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "Environment Agency Live Flood Warnings (bundled)",
+  "floods": [
+    {
+      "id": "fld-thames-barrier",
+      "description": "Thames Barrier / Woolwich \u2014 high tide flood warning",
+      "lat": 51.498,
+      "lng": 0.037,
+      "start": "12:00",
+      "end": "16:00",
+      "date": "2026-06-05",
+      "severity": "Serious"
+    },
+    {
+      "id": "fld-putney-embankment",
+      "description": "Putney Embankment \u2014 localized tidal flooding",
+      "lat": 51.468,
+      "lng": -0.22,
+      "start": "13:30",
+      "end": "16:30",
+      "date": "2026-06-06",
+      "severity": "Serious"
+    },
+    {
+      "id": "fld-richmond",
+      "description": "Richmond Riverpath \u2014 tidal overflow",
+      "lat": 51.458,
+      "lng": -0.31,
+      "start": "14:00",
+      "end": "17:00",
+      "date": "2026-06-07",
+      "severity": "Minimal"
+    }
+  ]
+}

@@ -309,13 +309,22 @@ async def demo_seed(_user: CurrentUser = Depends(require_user)):
     """Populate the in-memory state with the bundled demo scenario and optimise.
     Idempotent (same ids overwrite). Broadcasts a fresh state so every client
     re-hydrates with couriers, jobs and the resulting plan."""
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    # Clinical due windows by priority — set relative to NOW so the demo fleet is
+    # genuinely on-time (and the efficiency gauge reflects real window compliance).
+    due_min = {"stat": 50, "urgent": 95, "routine": 180}
     data = json.loads(_DEMO_SCENARIO.read_text())
     for c in data.get("couriers", []):
         crt = Courier(**c)
+        crt.status = "enroute"  # show an active fleet for the demo
         S.couriers[crt.id] = crt
     for j in data.get("jobs", []):
         job = DeliveryJob(**j)
-        job.created_at = job.created_at or datetime.now(timezone.utc)
+        job.created_at = now
+        mins = due_min.get(job.priority, 120)
+        job.time_window.ready_at = now
+        job.time_window.due_by = now + timedelta(minutes=mins)
         S.jobs[job.id] = job
     plan = await run_optimize()
     await HUB.emit("state", S.snapshot())
@@ -548,7 +557,7 @@ async def _start_background():
     except Exception as e:  # noqa: BLE001
         await HUB.emit("agent_log", {"level": "warn",
                                      "message": f"Auth DB init skipped: {type(e).__name__}: {e}"})
-    asyncio.create_task(nemo_agent.run(HUB.emit, _nemo_inject))
+    asyncio.create_task(nemo_agent.run(HUB.emit, _nemo_inject, interval_s=14))
 
 
 # ----------------------------------------------------------------------------- WS

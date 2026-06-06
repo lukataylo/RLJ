@@ -415,3 +415,59 @@ def is_fresh(fetched_at: str, max_age_days: float = 400.0, now: str | datetime |
         ts = ts.replace(tzinfo=timezone.utc)
     age_days = (ref - ts).total_seconds() / 86400.0
     return 0.0 <= age_days <= max_age_days
+
+
+def validate_airquality(payload: dict) -> dict:
+    """Validate air quality dataset structure."""
+    if not payload:
+        raise AssertionError("Air quality payload is empty")
+    for key in ("source", "fetched_at", "provider", "boroughs", "base_aqi"):
+        if key not in payload:
+            raise AssertionError(f"Air quality missing key: {key}")
+    for b in payload["boroughs"]:
+        for k in ("id", "name", "lat", "lng"):
+            if k not in b:
+                raise AssertionError(f"Borough missing key: {k}")
+        if not point_in_bbox(b["lat"], b["lng"]):
+            raise AssertionError(f"Borough coordinate {(b['lat'], b['lng'])} outside London bbox")
+    return payload
+
+
+def validate_nhspressure(payload: dict) -> dict:
+    """Validate NHS hospital A&E pressure dataset structure."""
+    if not payload:
+        raise AssertionError("NHS pressure payload is empty")
+    for key in ("source", "fetched_at", "provider", "hospitals", "baseline_pressure"):
+        if key not in payload:
+            raise AssertionError(f"NHS pressure missing key: {key}")
+    for h in payload["hospitals"]:
+        for k in ("id", "name", "lat", "lng"):
+            if k not in h:
+                raise AssertionError(f"Hospital missing key: {k}")
+        if not point_in_bbox(h["lat"], h["lng"]):
+            raise AssertionError(f"Hospital coordinate {(h['lat'], h['lng'])} outside London bbox")
+    return payload
+
+
+def validate_cycleinfra(payload: dict) -> dict:
+    """Validate TfL cycle infrastructure dataset structure."""
+    if not payload:
+        raise AssertionError("Cycle infrastructure payload is empty")
+    for key in ("source", "fetched_at", "provider", "stations", "highways"):
+        if key not in payload:
+            raise AssertionError(f"Cycle infra missing key: {key}")
+    for s in payload["stations"]:
+        for k in ("id", "name", "lat", "lng", "capacity"):
+            if k not in s:
+                raise AssertionError(f"Station missing key: {k}")
+        if not point_in_bbox(s["lat"], s["lng"]):
+            raise AssertionError(f"Station coordinate {(s['lat'], s['lng'])} outside London bbox")
+    for hw in payload["highways"]:
+        for k in ("id", "name", "geometry"):
+            if k not in hw:
+                raise AssertionError(f"Highway missing key: {k}")
+        for pt in hw["geometry"]:
+            if not point_in_bbox(pt["lat"], pt["lng"]):
+                raise AssertionError(f"Highway coordinate {(pt['lat'], pt['lng'])} outside London bbox")
+    return payload
+
