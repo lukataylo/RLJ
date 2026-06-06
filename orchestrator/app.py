@@ -67,21 +67,38 @@ S = State()
 
 
 class Hub:
-    """Tracks connected websockets and broadcasts events."""
+    """Tracks connected websockets and broadcasts events. Keeps a short replay buffer of
+    narration/notification events so a client connecting AFTER they were emitted (e.g. the
+    NemoClaw agent's startup lines, or any re-plan that happened before a reload) still sees
+    recent history — otherwise the feed is blank until the next event."""
+    HISTORY_TYPES = ("agent_log", "notification")
+    HISTORY_CAP = 50
+
     def __init__(self):
         self.clients: set[WebSocket] = set()
+        self.history: list[dict] = []
 
     async def join(self, ws: WebSocket):
         await ws.accept()
         self.clients.add(ws)
         await ws.send_json({"type": "state", "payload": S.snapshot(), "ts": _now_iso()})
+        # replay recent narration so the feed is populated immediately on connect
+        for m in self.history:
+            try:
+                await ws.send_json(m)
+            except Exception:  # noqa: BLE001
+                break
 
     def leave(self, ws: WebSocket):
         self.clients.discard(ws)
 
     async def emit(self, type_: str, payload):
-        dead = []
         msg = {"type": type_, "payload": payload, "ts": _now_iso()}
+        if type_ in self.HISTORY_TYPES:
+            self.history.append(msg)
+            if len(self.history) > self.HISTORY_CAP:
+                self.history = self.history[-self.HISTORY_CAP:]
+        dead = []
         for ws in self.clients:
             try:
                 await ws.send_json(msg)

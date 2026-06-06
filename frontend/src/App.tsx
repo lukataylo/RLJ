@@ -1,15 +1,15 @@
 // App shell: wires the WebSocket to the store, hydrates on (re)connect, and lays
 // out the "Direction C" command center — a full-screen map with glass panels
-// floating over it (provenance pill, nav, efficiency, inspector, NEMOCLAW log,
-// priority ticket, verification drawer).
+// floating over it (provenance pill, nav, efficiency, active-delivery list,
+// inspector, NEMOCLAW log, verification drawer).
 
 import { useEffect, useState } from "react";
 import MapView from "./components/MapView";
 import TopBar from "./components/TopBar";
 import EfficiencyPanel from "./components/EfficiencyPanel";
 import Inspector from "./components/Inspector";
+import DeliveryList from "./components/DeliveryList";
 import AgentLog from "./components/AgentLog";
-import PriorityTicket from "./components/PriorityTicket";
 import VerificationPanel from "./components/VerificationPanel";
 import { connectWs, getState } from "./api";
 import { useStore } from "./store";
@@ -61,11 +61,11 @@ export default function App() {
 
       <div className="right-stack">
         <EfficiencyPanel />
+        <DeliveryList />
         <Inspector />
       </div>
 
       <AgentLog />
-      <PriorityTicket />
 
       <VerificationPanel status={status} open={verifyOpen} onClose={() => setVerifyOpen(false)} />
     </div>

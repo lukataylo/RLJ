@@ -103,6 +103,13 @@ export function facilityRGB(type: string): [number, number, number] {
 export const DRIVER_RGB: [number, number, number] = [174, 227, 107];
 export const DRIVER_HEX = "#AEE36B";
 
+// Google-Maps-style route congestion colouring: calm neutral grey-blue for
+// free-flowing segments, red where the path passes through live congestion.
+export const ROUTE_NEUTRAL_RGB: [number, number, number] = [107, 119, 133]; // #6B7785
+export const ROUTE_CONGESTED_RGB: [number, number, number] = [255, 77, 77]; // #FF4D4D
+export const ROUTE_NEUTRAL_HEX = "#6B7785";
+export const ROUTE_CONGESTED_HEX = "#FF4D4D";
+
 // Junction signal phase colours.
 export const SIGNAL_GREEN_RGB: [number, number, number] = [191, 227, 107];
 export const SIGNAL_RED_RGB: [number, number, number] = [255, 77, 77];

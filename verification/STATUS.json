@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-06-05T23:32:23.572098+00:00",
+  "generated_at": "2026-06-06T08:28:53.074982+00:00",
   "summary": {
-    "total": 47,
-    "verified": 47,
+    "total": 52,
+    "verified": 52,
     "failing": 0,
     "unverified": 0,
-    "must_pass_total": 42,
-    "must_pass_verified": 42,
+    "must_pass_total": 45,
+    "must_pass_verified": 45,
     "must_pass_green": true,
-    "tests_passed": 81,
+    "tests_passed": 93,
     "tests_failed": 0
   },
   "claims": [
@@ -55,7 +55,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.001
     },
     {
       "id": "plan-schema",
@@ -64,7 +64,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0341
+      "duration_s": 0.0846
     },
     {
       "id": "job-schema",
@@ -73,7 +73,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 0.0331
+      "duration_s": 0.0836
     },
     {
       "id": "optimize-contract",
@@ -82,7 +82,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.0352
+      "duration_s": 0.0854
     },
     {
       "id": "data-facilities-bbox",
@@ -91,7 +91,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0046
+      "duration_s": 0.0039
     },
     {
       "id": "data-facilities-complete",
@@ -100,7 +100,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.014
+      "duration_s": 0.0121
     },
     {
       "id": "data-demand-valid",
@@ -109,7 +109,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0065
+      "duration_s": 0.0062
     },
     {
       "id": "data-manifest-gate",
@@ -118,7 +118,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0279
+      "duration_s": 0.0265
     },
     {
       "id": "data-roadgraph",
@@ -127,7 +127,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0081
+      "duration_s": 0.0064
     },
     {
       "id": "research-anticipation-beats-reaction",
@@ -181,7 +181,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_signals.py::test_timed_events_valid",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "data-signals-anticipation",
@@ -217,7 +217,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput",
       "status": "verified",
-      "duration_s": 5.0093
+      "duration_s": 7.6236
     },
     {
       "id": "bench-anticipation",
@@ -226,7 +226,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_anticipation_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0005
     },
     {
       "id": "bench-flywheel",
@@ -244,7 +244,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s",
       "status": "verified",
-      "duration_s": 0.0393
+      "duration_s": 0.0377
     },
     {
       "id": "bench-data-integrity",
@@ -253,7 +253,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable",
       "status": "verified",
-      "duration_s": 0.0062
+      "duration_s": 0.0057
     },
     {
       "id": "autonomy-loop",
@@ -262,7 +262,7 @@
       "must_pass": true,
       "test": "tests/unit/test_autonomy.py::test_autonomy_loop_reacts_to_congestion",
       "status": "verified",
-      "duration_s": 0.0145
+      "duration_s": 0.0812
     },
     {
       "id": "solver-optimality-gap",
@@ -271,7 +271,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
       "status": "verified",
-      "duration_s": 10.4355
+      "duration_s": 10.4776
     },
     {
       "id": "solver-scales",
@@ -280,7 +280,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
       "status": "verified",
-      "duration_s": 2.0034
+      "duration_s": 3.1064
     },
     {
       "id": "flywheel-value",
@@ -289,7 +289,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
       "status": "verified",
-      "duration_s": 0.0009
+      "duration_s": 0.0008
     },
     {
       "id": "flywheel-monotone",
@@ -316,7 +316,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_probes.py::test_probe_pings_valid",
       "status": "verified",
-      "duration_s": 0.0186
+      "duration_s": 0.018
     },
     {
       "id": "data-weather",
@@ -337,13 +337,58 @@
       "duration_s": 0.0001
     },
     {
+      "id": "nemoclaw-narration",
+      "statement": "NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic)",
+      "category": "autonomy",
+      "must_pass": true,
+      "test": "tests/unit/test_nemo_agent.py::test_nemo_agent_offline_narrates_and_injects",
+      "status": "verified",
+      "duration_s": 0.0352
+    },
+    {
+      "id": "nemoclaw-online",
+      "statement": "NemoClaw narration is observable by a client connecting after boot (history replay)",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration",
+      "status": "verified",
+      "duration_s": 0.0019
+    },
+    {
+      "id": "courier-vehicle-type",
+      "statement": "Courier vehicle_type round-trips (van/scooter) and defaults to van",
+      "category": "contract",
+      "must_pass": true,
+      "test": "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips",
+      "status": "verified",
+      "duration_s": 0.0113
+    },
+    {
+      "id": "ui-delivery-list",
+      "statement": "Right delivery list renders cards with van/scooter icons (browser e2e)",
+      "category": "e2e",
+      "must_pass": false,
+      "test": "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards",
+      "status": "verified",
+      "duration_s": 11.6137
+    },
+    {
+      "id": "ui-click-highlights-route",
+      "statement": "Clicking a delivery selects it and opens the inspector (browser e2e)",
+      "category": "e2e",
+      "must_pass": false,
+      "test": "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights",
+      "status": "verified",
+      "duration_s": 10.054
+    },
+    {
       "id": "completeness-no-stubs",
       "statement": "No unimplemented stubs in source outside the documented GB10 seams",
       "category": "completeness",
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist",
       "status": "verified",
-      "duration_s": 0.0089
+      "duration_s": 0.0082
     },
     {
       "id": "completeness-no-unwired-buttons",
@@ -352,7 +397,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_unwired_buttons",
       "status": "verified",
-      "duration_s": 0.0017
+      "duration_s": 0.0016
     },
     {
       "id": "completeness-endpoints",
@@ -361,7 +406,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_orchestrator_rest_endpoints_implemented",
       "status": "verified",
-      "duration_s": 0.0071
+      "duration_s": 0.0068
     },
     {
       "id": "completeness-ws-emitted",
@@ -379,7 +424,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 0.3882
+      "duration_s": 0.7353
     },
     {
       "id": "voice-loop",
@@ -388,7 +433,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.0766
+      "duration_s": 0.1286
     },
     {
       "id": "e2e-flywheel-loop",
@@ -397,7 +442,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop",
       "status": "verified",
-      "duration_s": 0.103
+      "duration_s": 0.2287
     },
     {
       "id": "unhappy-cold-safety",
@@ -406,7 +451,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash",
       "status": "verified",
-      "duration_s": 0.057
+      "duration_s": 0.1613
     },
     {
       "id": "unhappy-routing-fallback",
@@ -415,7 +460,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback",
       "status": "verified",
-      "duration_s": 0.0637
+      "duration_s": 0.0621
     },
     {
       "id": "unhappy-malformed-422",
@@ -424,7 +469,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy",
       "status": "verified",
-      "duration_s": 0.0436
+      "duration_s": 0.04
     },
     {
       "id": "unhappy-bad-telemetry",
@@ -433,7 +478,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted",
       "status": "verified",
-      "duration_s": 0.0211
+      "duration_s": 0.02
     }
   ]
 }

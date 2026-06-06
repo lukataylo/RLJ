@@ -10,7 +10,9 @@
 //                         live /congestion hotspots are thickened/reddened.
 //   - ROUTES            — courier plans that FOLLOW THE ROAD NETWORK via the Mapbox
 //                         Directions API (falls back to the straight stop polyline);
-//                         glowing lines coloured by dominant job priority.
+//                         drawn Google-Maps style: NEUTRAL grey-blue for free-flowing
+//                         segments, RED where the path passes live congestion. The
+//                         selected courier's route is brightened; others are dimmed.
 //   - JOB NODES         — pickup (priority colour, ring) + dropoff (lime) glowing dots.
 //   - COURIERS          — glowing markers, status colour, moving along the road path.
 //   - DISRUPTIONS       — pulsing markers; a red ✕ glyph for road closures.
@@ -29,15 +31,14 @@ import type {
   Courier,
   DeliveryJob,
   DisruptionEvent,
-  Driver,
   Plan,
-  Priority,
 } from "../types";
 import {
   COURIER_RGB,
   DISRUPTION_CLASS_RGB,
-  DRIVER_RGB,
   PRIORITY_RGB,
+  ROUTE_CONGESTED_RGB,
+  ROUTE_NEUTRAL_RGB,
   congestionRGB,
   facilityRGB,
 } from "../lib/palette";
@@ -101,15 +102,13 @@ const DISTRICTS: { name: string; lng: number; lat: number }[] = [
 ];
 
 // Toggleable layers shown in the left control stack.
-type LayerKey = "congestion" | "routes" | "incidents" | "drivers" | "buildings";
+type LayerKey = "congestion" | "routes" | "incidents";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
   congestion: true, // "Traffic"
   routes: true,
   incidents: true,
-  drivers: true,
-  buildings: false, // removed (clean basemap) — kept for testid compatibility
 };
 
 interface Snapshot {
@@ -117,7 +116,6 @@ interface Snapshot {
   couriers: Courier[];
   plan: Plan | null;
   disruptions: DisruptionEvent[];
-  drivers: Driver[];
   congestion: CongestionField;
   selectedCourierId: string | null;
 }
@@ -133,7 +131,6 @@ const EMPTY_SNAP: Snapshot = {
   couriers: [],
   plan: null,
   disruptions: [],
-  drivers: [],
   congestion: { cells: [] },
   selectedCourierId: null,
 };
@@ -145,29 +142,6 @@ const FACILITY_GLYPH: Record<string, string> = {
   clinic: "C",
   pharmacy: "P",
 };
-
-// Highest-priority job served by a route -> route colour.
-function routePriority(plan: Plan | null, courierId: string, jobs: DeliveryJob[]): Priority {
-  const route = plan?.routes?.find((r) => r.courier_id === courierId);
-  if (!route) return "routine";
-  const jobById = new Map(jobs.map((j) => [j.id, j]));
-  const order: Priority[] = ["stat", "urgent", "routine"];
-  let best: Priority = "routine";
-  for (const s of route.stops ?? []) {
-    const p = jobById.get(s.job_id)?.priority;
-    if (p && order.indexOf(p) < order.indexOf(best)) best = p;
-  }
-  return best;
-}
-
-function hash01(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return ((h >>> 0) % 100000) / 100000;
-}
 
 // Ordered stop coords for a route (courier start + stops in sequence), de-duped.
 function routeStopCoords(plan: Plan | null, courier: Courier | undefined, courierId: string): LngLat[] {
@@ -197,26 +171,39 @@ function fallbackPath(plan: Plan | null, courierId: string, stopCoords: LngLat[]
   return stopCoords;
 }
 
-interface DriverDot {
-  _t: "driver";
-  driver: Driver;
-  pos: [number, number];
+// Congestion "source" points used to colour route segments red: live hotspot
+// cells plus the midpoints of high-congestion road segments (roads.geojson). A
+// route segment whose midpoint sits within ~SEG_RADIUS of any source reads as
+// congested; everything else stays neutral grey-blue.
+const SEG_RADIUS = 0.0032; // ~320 m in lng/lat degrees near London
+const SEG_R2 = SEG_RADIUS * SEG_RADIUS;
+
+let _srcCache: { key: string; pts: [number, number][] } | null = null;
+function congestionSources(roads: RoadPath[], cells: CongestionCell[], stamp: string): [number, number][] {
+  const key = `${stamp}:${roads.length}:${cells.length}`;
+  if (_srcCache && _srcCache.key === key) return _srcCache.pts;
+  const pts: [number, number][] = [];
+  for (const c of cells) if (c.congestion >= 0.55) pts.push([c.lng, c.lat]);
+  for (const r of roads) {
+    if (r.congestion >= 0.75) {
+      const mid = r.path[Math.floor(r.path.length / 2)] ?? r.path[0];
+      pts.push(mid);
+    }
+  }
+  _srcCache = { key, pts };
+  return pts;
 }
-function driverDots(drivers: Driver[], cells: CongestionCell[], phase: number): DriverDot[] {
-  const anchors: [number, number][] = cells.length
-    ? cells.map((c) => [c.lng, c.lat])
-    : [[-0.095, 51.508]];
-  return drivers.map((d, i) => {
-    const a = anchors[i % anchors.length];
-    const r = hash01(d.id || String(i));
-    const ang = r * Math.PI * 2 + phase * Math.PI * 2 * (0.4 + r * 0.6);
-    const rad = 0.0016 + r * 0.0028;
-    return {
-      _t: "driver" as const,
-      driver: d,
-      pos: [a[0] + Math.cos(ang) * rad, a[1] + Math.sin(ang) * rad * 0.7],
-    };
-  });
+
+// True when a segment a→b passes through congestion (midpoint near a source).
+function segmentCongested(a: LngLat, b: LngLat, sources: [number, number][]): boolean {
+  const mx = (a[0] + b[0]) / 2;
+  const my = (a[1] + b[1]) / 2;
+  for (const s of sources) {
+    const dx = mx - s[0];
+    const dy = my - s[1];
+    if (dx * dx + dy * dy < SEG_R2) return true;
+  }
+  return false;
 }
 
 // Boost road congestion near live hotspot cells (Waze-style "live" colouring).
@@ -273,7 +260,7 @@ function buildLayers(
   phase: number,
   roadPaths: Record<string, LngLat[] | null>,
 ): Layer[] {
-  const { jobs, couriers, plan, disruptions, drivers, congestion, selectedCourierId } = snap;
+  const { jobs, couriers, plan, disruptions, congestion, selectedCourierId } = snap;
   const layers: Layer[] = [];
   const courierById = new Map(couriers.map((c) => [c.id, c]));
 
@@ -309,7 +296,11 @@ function buildLayers(
     );
   }
 
-  // 2. Routes — road-following geometry (Directions API) or straight fallback.
+  // 2. Routes — road-following geometry (Directions API) or straight fallback,
+  //    coloured Google-Maps style: NEUTRAL grey-blue, RED through congestion.
+  const selActive = selectedCourierId != null;
+  const congSources = congestionSources(data.roads, congestion.cells, congestion.generated_at ?? "static");
+
   const routeLines = (plan?.routes ?? [])
     .map((r) => {
       const courier = courierById.get(r.courier_id);
@@ -318,19 +309,39 @@ function buildLayers(
       const road = roadPaths[r.courier_id];
       const path = road && road.length >= 2 ? road : fallbackPath(plan, r.courier_id, stopCoords);
       if (path.length < 2) return null;
-      return { courier_id: r.courier_id, priority: routePriority(plan, r.courier_id, jobs), path };
+      return { courier_id: r.courier_id, selected: r.courier_id === selectedCourierId, path };
     })
-    .filter((r): r is { courier_id: string; priority: Priority; path: LngLat[] } => r !== null);
+    .filter((r): r is { courier_id: string; selected: boolean; path: LngLat[] } => r !== null);
 
-  if (vis.routes && routeLines.length) {
+  // One record per drawn segment so each can be neutral or red independently.
+  interface RouteSeg { courier_id: string; selected: boolean; congested: boolean; path: LngLat[] }
+  const routeSegs: RouteSeg[] = [];
+  for (const rl of routeLines) {
+    for (let i = 0; i < rl.path.length - 1; i++) {
+      const a = rl.path[i];
+      const b = rl.path[i + 1];
+      routeSegs.push({
+        courier_id: rl.courier_id,
+        selected: rl.selected,
+        congested: segmentCongested(a, b, congSources),
+        path: [a, b],
+      });
+    }
+  }
+
+  // Alpha ramps: when a route is selected, it brightens and the rest dim away.
+  const segGlowAlpha = (s: RouteSeg) => (!selActive ? 60 : s.selected ? 100 : 16);
+  const segMainAlpha = (s: RouteSeg) => (!selActive ? 215 : s.selected ? 255 : 55);
+  const segColor = (s: RouteSeg) => (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB);
+
+  if (vis.routes && routeSegs.length) {
     layers.push(
-      new PathLayer<(typeof routeLines)[number]>({
+      new PathLayer<RouteSeg>({
         id: "routes-glow",
-        data: routeLines,
+        data: routeSegs,
         getPath: (d) => d.path,
-        getColor: (d) =>
-          [...PRIORITY_RGB[d.priority], d.courier_id === selectedCourierId ? 95 : 55] as [number, number, number, number],
-        getWidth: (d) => (d.courier_id === selectedCourierId ? 18 : 12),
+        getColor: (d) => [...segColor(d), segGlowAlpha(d)] as [number, number, number, number],
+        getWidth: (d) => (d.selected ? 16 : 10),
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
@@ -338,13 +349,12 @@ function buildLayers(
       }),
     );
     layers.push(
-      new PathLayer<(typeof routeLines)[number]>({
+      new PathLayer<RouteSeg>({
         id: "routes",
-        data: routeLines,
+        data: routeSegs,
         getPath: (d) => d.path,
-        getColor: (d) =>
-          [...PRIORITY_RGB[d.priority], d.courier_id === selectedCourierId ? 255 : 200] as [number, number, number, number],
-        getWidth: (d) => (d.courier_id === selectedCourierId ? 5 : 3.4),
+        getColor: (d) => [...segColor(d), segMainAlpha(d)] as [number, number, number, number],
+        getWidth: (d) => (d.selected ? 5.5 : 3.4),
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
@@ -352,14 +362,14 @@ function buildLayers(
         updateTriggers: { getColor: selectedCourierId, getWidth: selectedCourierId },
       }),
     );
-    // Animated heads riding the road-following path.
+    // Animated heads riding each road-following path (dimmed when not selected).
     const heads = routeLines
       .map((r) => ({
         courier_id: r.courier_id,
-        priority: r.priority,
+        selected: r.selected,
         pos: pointAlong(r.path.map(([lng, lat]) => ({ lat, lng })), phase),
       }))
-      .filter((h): h is { courier_id: string; priority: Priority; pos: [number, number] } => h.pos !== null);
+      .filter((h): h is { courier_id: string; selected: boolean; pos: [number, number] } => h.pos !== null);
     layers.push(
       new ScatterplotLayer<(typeof heads)[number]>({
         id: "trip-heads-glow",
@@ -367,8 +377,8 @@ function buildLayers(
         getPosition: (d) => d.pos,
         getRadius: 22,
         radiusUnits: "pixels",
-        getFillColor: (d) => [...PRIORITY_RGB[d.priority], 70] as [number, number, number, number],
-        updateTriggers: { getPosition: phase },
+        getFillColor: (d) => [232, 237, 230, !selActive ? 55 : d.selected ? 80 : 12] as [number, number, number, number],
+        updateTriggers: { getPosition: phase, getFillColor: selectedCourierId },
       }),
     );
     layers.push(
@@ -380,16 +390,16 @@ function buildLayers(
         radiusUnits: "pixels",
         stroked: true,
         lineWidthMinPixels: 1.5,
-        getLineColor: [232, 237, 230, 230],
-        getFillColor: (d) => [...PRIORITY_RGB[d.priority], 255] as [number, number, number, number],
-        updateTriggers: { getPosition: phase },
+        getLineColor: (d) => [232, 237, 230, !selActive ? 230 : d.selected ? 255 : 50] as [number, number, number, number],
+        getFillColor: (d) => [232, 237, 230, !selActive ? 235 : d.selected ? 255 : 45] as [number, number, number, number],
+        updateTriggers: { getPosition: phase, getLineColor: selectedCourierId, getFillColor: selectedCourierId },
       }),
     );
   }
 
-  // 3. Dashed connectors from each courier to its next stop.
+  // 3. Dashed connectors from each courier to its next stop (neutral; dimmed off-selection).
   if (vis.routes) {
-    const connectors: { path: LngLat[]; priority: Priority }[] = [];
+    const connectors: { path: LngLat[]; selected: boolean }[] = [];
     for (const r of plan?.routes ?? []) {
       const courier = courierById.get(r.courier_id);
       if (!courier?.location) continue;
@@ -397,8 +407,8 @@ function buildLayers(
       if (!next?.location) continue;
       const a: LngLat = [courier.location.lng, courier.location.lat];
       const b: LngLat = [next.location.lng, next.location.lat];
-      const prio = routePriority(plan, r.courier_id, jobs);
-      for (const seg of dashSegments(a, b)) connectors.push({ path: seg, priority: prio });
+      const selected = r.courier_id === selectedCourierId;
+      for (const seg of dashSegments(a, b)) connectors.push({ path: seg, selected });
     }
     if (connectors.length) {
       layers.push(
@@ -406,16 +416,26 @@ function buildLayers(
           id: "courier-connectors",
           data: connectors,
           getPath: (d) => d.path,
-          getColor: (d) => [...PRIORITY_RGB[d.priority], 150] as [number, number, number, number],
+          getColor: (d) =>
+            [...ROUTE_NEUTRAL_RGB, !selActive ? 150 : d.selected ? 190 : 30] as [number, number, number, number],
           getWidth: 1.4,
           widthUnits: "pixels",
+          updateTriggers: { getColor: selectedCourierId },
         }),
       );
     }
   }
 
   // 4. Job nodes — pickup (priority colour + ring) and dropoff (lime) glowing dots.
+  //    Jobs not served by the selected courier dim away while a route is selected.
   if (vis.routes) {
+    const selectedJobIds = new Set<string>();
+    if (selActive) {
+      const selRoute = plan?.routes?.find((r) => r.courier_id === selectedCourierId);
+      for (const s of selRoute?.stops ?? []) selectedJobIds.add(s.job_id);
+    }
+    const dimA = (jobId: string, base: number) =>
+      !selActive || selectedJobIds.has(jobId) ? base : Math.round(base * 0.18);
     const pickups = jobs.map((j) => ({ job: j, loc: j.origin }));
     const drops = jobs.map((j) => ({ job: j, loc: j.destination }));
     layers.push(
@@ -428,9 +448,10 @@ function buildLayers(
         radiusMinPixels: 5,
         stroked: true,
         lineWidthMinPixels: 2,
-        getLineColor: (d) => [...PRIORITY_RGB[d.job.priority], 230] as [number, number, number, number],
-        getFillColor: (d) => [...PRIORITY_RGB[d.job.priority], 90] as [number, number, number, number],
+        getLineColor: (d) => [...PRIORITY_RGB[d.job.priority], dimA(d.job.id, 230)] as [number, number, number, number],
+        getFillColor: (d) => [...PRIORITY_RGB[d.job.priority], dimA(d.job.id, 90)] as [number, number, number, number],
         pickable: true,
+        updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
       }),
     );
     layers.push(
@@ -443,9 +464,10 @@ function buildLayers(
         radiusMinPixels: 4,
         stroked: true,
         lineWidthMinPixels: 1,
-        getLineColor: [5, 9, 11, 220],
-        getFillColor: [191, 227, 107, 235],
+        getLineColor: (d) => [5, 9, 11, dimA(d.job.id, 220)] as [number, number, number, number],
+        getFillColor: (d) => [191, 227, 107, dimA(d.job.id, 235)] as [number, number, number, number],
         pickable: true,
+        updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
       }),
     );
   }
@@ -483,37 +505,7 @@ function buildLayers(
     );
   }
 
-  // 6. Driver probes — animated lime dots.
-  if (vis.drivers && drivers.length) {
-    const dots = driverDots(drivers, congestion.cells, phase);
-    layers.push(
-      new ScatterplotLayer<DriverDot>({
-        id: "drivers-glow",
-        data: dots,
-        getPosition: (d) => d.pos,
-        getRadius: 7,
-        radiusUnits: "pixels",
-        getFillColor: [...DRIVER_RGB, 55] as [number, number, number, number],
-        updateTriggers: { getPosition: phase },
-      }),
-    );
-    layers.push(
-      new ScatterplotLayer<DriverDot>({
-        id: "drivers",
-        data: dots,
-        getPosition: (d) => d.pos,
-        getRadius: 3,
-        radiusUnits: "pixels",
-        radiusMinPixels: 2,
-        stroked: true,
-        lineWidthMinPixels: 0.6,
-        getLineColor: [5, 9, 11, 200],
-        getFillColor: [...DRIVER_RGB, 235] as [number, number, number, number],
-        pickable: true,
-        updateTriggers: { getPosition: phase },
-      }),
-    );
-  }
+  // 6. (Random driver/probe dots removed — drivers still feed congestion server-side.)
 
   // 7. Couriers — glowing markers, colour by status; selected gets a halo.
   layers.push(
@@ -526,7 +518,7 @@ function buildLayers(
       radiusMinPixels: 12,
       radiusMaxPixels: 38,
       getFillColor: (c) =>
-        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), c.id === selectedCourierId ? 90 : 45] as [number, number, number, number],
+        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), c.id === selectedCourierId ? 90 : selActive ? 14 : 45] as [number, number, number, number],
       updateTriggers: { getFillColor: selectedCourierId },
     }),
   );
@@ -543,9 +535,9 @@ function buildLayers(
       lineWidthMinPixels: 2,
       getLineColor: (c) => (c.id === selectedCourierId ? [232, 237, 230, 255] : [5, 9, 11, 255]),
       getFillColor: (c) =>
-        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), 255] as [number, number, number, number],
+        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), selActive && c.id !== selectedCourierId ? 70 : 255] as [number, number, number, number],
       pickable: true,
-      updateTriggers: { getLineColor: selectedCourierId },
+      updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
     }),
   );
 
@@ -637,13 +629,6 @@ function buildLayers(
 function tooltipFor({ object }: PickingInfo): { html: string; className: string } | null {
   if (!object) return null;
   const o = object as Record<string, unknown>;
-  if (o._t === "driver") {
-    const d = (object as DriverDot).driver;
-    return {
-      className: "deck-tip",
-      html: `<b>${d.name ?? d.id}</b><br/>${d.vehicle_type} probe · ${d.points ?? 0} pts<br/><span class="tip-dim">crowdsourced driver</span>`,
-    };
-  }
   if (o._t === "disr") {
     const d = object as { label: string; cls: string };
     return { className: "deck-tip", html: `<b>${d.label}</b><br/><span class="tip-dim">${d.cls} disruption</span>` };
@@ -668,17 +653,19 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
     };
   }
   if ("courier_id" in o && "path" in o) {
-    return { className: "deck-tip", html: `<b>route</b><br/>${(object as { courier_id: string }).courier_id}` };
+    const seg = object as { courier_id: string; congested?: boolean };
+    return {
+      className: "deck-tip",
+      html: `<b>route · ${seg.courier_id}</b><br/><span class="tip-dim">${seg.congested ? "congested stretch" : "free-flowing"}</span>`,
+    };
   }
   return null;
 }
 
-const LEFT_LAYERS: { key: LayerKey; label: string; glyph: string; testid: string; present: boolean }[] = [
-  { key: "congestion", label: "Traffic", glyph: "🚦", testid: "layer-toggle-congestion", present: true },
-  { key: "routes", label: "Routes", glyph: "〰", testid: "layer-toggle-routes", present: true },
-  { key: "incidents", label: "Incidents", glyph: "⚠", testid: "layer-toggle-incidents", present: true },
-  { key: "drivers", label: "Probes", glyph: "◍", testid: "layer-toggle-drivers", present: true },
-  { key: "buildings", label: "Buildings", glyph: "▦", testid: "layer-toggle-buildings", present: false },
+const LEFT_LAYERS: { key: LayerKey; label: string; glyph: string; testid: string }[] = [
+  { key: "congestion", label: "Traffic", glyph: "🚦", testid: "layer-toggle-congestion" },
+  { key: "routes", label: "Routes", glyph: "〰", testid: "layer-toggle-routes" },
+  { key: "incidents", label: "Incidents", glyph: "⚠", testid: "layer-toggle-incidents" },
 ];
 
 export default function MapView() {
@@ -695,7 +682,7 @@ export default function MapView() {
 
   const [optional, setOptional] = useState<OptionalData>({ roads: [], facilities: [], venues: [] });
   const [vis, setVis] = useState<LayerVis>(DEFAULT_VIS);
-  const [counts, setCounts] = useState({ jobs: 0, couriers: 0, routes: 0, drivers: 0, congestion: 0, disruptions: 0 });
+  const [counts, setCounts] = useState({ jobs: 0, couriers: 0, routes: 0, congestion: 0, disruptions: 0 });
 
   const selectCourier = useStore((s) => s.selectCourier);
 
@@ -731,13 +718,11 @@ export default function MapView() {
       const s = useStore.getState();
       const jobs = Object.values(s.jobs);
       const couriers = Object.values(s.couriers);
-      const drivers = Object.values(s.drivers);
       snapRef.current = {
         jobs,
         couriers,
         plan: s.plan,
         disruptions: s.disruptions,
-        drivers,
         congestion: s.congestion,
         selectedCourierId: s.selectedCourierId,
       };
@@ -745,7 +730,6 @@ export default function MapView() {
         jobs: jobs.length,
         couriers: couriers.length,
         routes: s.plan?.routes?.length ?? 0,
-        drivers: drivers.length,
         congestion: s.congestion.cells.length,
         disruptions: s.disruptions.length,
       });
@@ -915,16 +899,15 @@ export default function MapView() {
       {/* Left floating control stack */}
       <div className="control-stack glass" data-testid="layers-panel">
         {LEFT_LAYERS.map((l) => {
-          const on = !!vis[l.key] && l.present;
+          const on = !!vis[l.key];
           return (
             <button
               key={l.key}
               type="button"
-              className={`cs-toggle ${on ? "on" : ""} ${l.present ? "" : "absent"}`}
+              className={`cs-toggle ${on ? "on" : ""}`}
               data-testid={l.testid}
               data-on={on ? "true" : "false"}
-              disabled={!l.present}
-              onClick={() => l.present && toggle(l.key)}
+              onClick={() => toggle(l.key)}
             >
               <span className="cs-glyph">{l.glyph}</span>
               <span className="cs-label">{l.label}</span>
@@ -944,12 +927,10 @@ export default function MapView() {
         data-testid="route-layer-status"
         data-route-count={counts.routes}
         data-traffic={trafficOn ? "on" : "off"}
-        data-buildings="absent"
         data-congestion={counts.congestion}
-        data-drivers={counts.drivers}
       >
         <span className="rs-led" />
-        {`routes:${counts.routes} · cong:${counts.congestion} · drivers:${counts.drivers} · traffic:${trafficOn ? optional.roads.length : "off"}`}
+        {`routes:${counts.routes} · cong:${counts.congestion} · traffic:${trafficOn ? optional.roads.length : "off"}`}
       </div>
     </div>
   );

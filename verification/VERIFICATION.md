@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-05T23:32:23.572098+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T08:28:53.074982+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (42/42) · verified 47/47 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (45/45) · verified 52/52 · failing 0 · unverified 0
 
 ## impact
 
@@ -27,6 +27,7 @@ _Generated 2026-06-05T23:32:23.572098+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Every Plan emitted validates against the shared schema | `test_plan_validates` | verified |
 | ✅ ⭐ | Every DeliveryJob accepted validates against the shared schema | `test_job_roundtrip_validates` | verified |
 | ✅ ⭐ | Routing /optimize honours the OptimizeRequest/Response contract | `test_optimize_endpoint_contract` | verified |
+| ✅ ⭐ | Courier vehicle_type round-trips (van/scooter) and defaults to van | `test_courier_vehicle_type_roundtrips` | verified |
 
 ## data
 
@@ -73,12 +74,16 @@ _Generated 2026-06-05T23:32:23.572098+00:00 — machine output of `make verify`.
 | | claim | test | status |
 |--|--|--|--|
 | ✅ ⭐ | Autonomy controller detects crowdsourced congestion, re-plans around it, and dispatches | `test_autonomy_loop_reacts_to_congestion` | verified |
+| ✅ ⭐ | NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic) | `test_nemo_agent_offline_narrates_and_injects` | verified |
 
 ## e2e
 
 | | claim | test | status |
 |--|--|--|--|
 | ✅ ⭐ | Driver voice assistant routes the FAQ questions to the correct tools | `test_driver_assistant_answers` | verified |
+| ✅ ⭐ | NemoClaw narration is observable by a client connecting after boot (history replay) | `test_nemoclaw_online_narration` | verified |
+| ✅ | Right delivery list renders cards with van/scooter icons (browser e2e) | `test_delivery_list_and_cards` | verified |
+| ✅ | Clicking a delivery selects it and opens the inspector (browser e2e) | `test_click_delivery_highlights` | verified |
 | ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
 | ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |
 | ✅ ⭐ | Telemetry -> congestion -> re-plan loop works end-to-end over the live stack | `test_telemetry_flywheel_loop` | verified |

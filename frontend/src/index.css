@@ -712,6 +712,218 @@ button {
   color: var(--lime);
 }
 
+/* ------------------------------------------------ active delivery list ----- */
+.delivery-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 150px;
+  overflow: hidden;
+  padding: 14px 12px 10px 14px;
+}
+.dl-cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+  padding-right: 2px;
+}
+.dl-count {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(200, 220, 180, 0.07);
+  border: 1px solid var(--hair);
+  border-radius: 7px;
+  padding: 1px 7px;
+  font-size: 11px;
+}
+.dl-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+  min-height: 0;
+}
+.dl-empty {
+  font-size: 11.5px;
+  color: var(--faint);
+  padding: 8px 2px;
+}
+
+/* one delivery card */
+.dcard {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: rgba(200, 220, 180, 0.035);
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--olive);
+  border-radius: 12px;
+  padding: 10px 11px;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+.dcard:hover {
+  background: rgba(200, 220, 180, 0.07);
+  border-color: var(--hair-strong);
+}
+.dcard:active {
+  transform: translateY(1px);
+}
+.dcard.stat {
+  border-left-color: var(--red);
+}
+.dcard.selected {
+  background: rgba(242, 194, 26, 0.1);
+  border-color: rgba(242, 194, 26, 0.45);
+  box-shadow: 0 0 0 1px rgba(242, 194, 26, 0.25), 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+.dc-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.dc-veh {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(200, 220, 180, 0.06);
+  border: 1px solid var(--hair);
+  color: var(--lime);
+}
+.dc-veh.status-van {
+  color: var(--lime);
+}
+.dc-veh.status-scooter {
+  color: var(--yellow);
+}
+.dc-veh.status-bike {
+  color: var(--olive);
+}
+.dc-route {
+  flex: 1;
+  min-width: 0;
+}
+.dc-od {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.25;
+}
+.dc-from,
+.dc-to {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46%;
+}
+.dc-arrow {
+  color: var(--yellow);
+  flex-shrink: 0;
+}
+.dc-sub {
+  margin-top: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dc-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--olive);
+}
+.dc-dot.stat {
+  background: var(--red);
+  box-shadow: 0 0 8px rgba(255, 77, 77, 0.7);
+}
+.dc-dot.urgent {
+  background: var(--amber);
+}
+.dc-dot.routine {
+  background: var(--olive);
+}
+.dc-x {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.dc-x:hover {
+  color: var(--red);
+}
+.dc-prog-track {
+  height: 5px;
+  border-radius: 4px;
+  background: rgba(200, 220, 180, 0.1);
+  overflow: hidden;
+  margin-top: 9px;
+}
+.dc-prog-fill {
+  height: 100%;
+  background: var(--lime);
+  box-shadow: 0 0 8px rgba(191, 227, 107, 0.5);
+  transition: width 0.5s ease;
+}
+.dc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.dc-pill {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.dc-pill.ontime {
+  color: var(--bg);
+  background: var(--lime);
+}
+.dc-pill.risk {
+  color: var(--bg);
+  background: var(--amber);
+}
+.dc-pill.late {
+  color: #fff;
+  background: var(--red);
+}
+.dc-pct {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* keep the inspector from crowding the column when a courier is selected */
+.right-stack .inspector {
+  flex-shrink: 0;
+  max-height: 42vh;
+}
+
 /* ----------------------------------------------------- NEMOCLAW agent log -- */
 .nemoclaw {
   position: absolute;
@@ -738,6 +950,9 @@ button {
   margin-right: 4px;
 }
 .nemo-voice {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 9px;
   letter-spacing: 0.1em;
   font-weight: 700;
@@ -746,10 +961,37 @@ button {
   padding: 2px 7px;
   border-radius: 5px;
 }
+.nemo-voice-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 0 0 0 rgba(5, 9, 11, 0.4);
+  animation: nemo-pulse 1.6s ease-out infinite;
+}
+@keyframes nemo-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(5, 9, 11, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(5, 9, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(5, 9, 11, 0);
+  }
+}
+.nemo-sources {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+  margin-bottom: 9px;
+}
 .nemo-body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 132px;
+  overflow-y: auto;
 }
 .nemo-empty {
   font-size: 11px;

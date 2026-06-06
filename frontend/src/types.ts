@@ -39,12 +39,16 @@ export interface DeliveryJob {
 
 export type CourierStatus = "idle" | "enroute" | "offline";
 
+// Courier vehicle — drives the van/scooter/bike icon in the UI (schemas.json Courier).
+export type CourierVehicle = "van" | "scooter" | "bike";
+
 export interface Courier {
   id: string;
   name?: string;
   location: Location;
   capacity?: number;
   cold_capable?: boolean;
+  vehicle_type?: CourierVehicle;
   status: CourierStatus;
   assigned_route_id?: string | null;
   phone?: string;

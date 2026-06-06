@@ -236,6 +236,37 @@ claims:
     must_pass: true
     test: "tests/voice/test_driver_assistant.py::test_driver_assistant_answers"
 
+  # ---- NemoClaw agent + delivery UI (latest features) ---------------------
+  - id: nemoclaw-narration
+    statement: "NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic)"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_nemo_agent.py::test_nemo_agent_offline_narrates_and_injects"
+
+  - id: nemoclaw-online
+    statement: "NemoClaw narration is observable by a client connecting after boot (history replay)"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration"
+
+  - id: courier-vehicle-type
+    statement: "Courier vehicle_type round-trips (van/scooter) and defaults to van"
+    category: contract
+    must_pass: true
+    test: "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips"
+
+  - id: ui-delivery-list
+    statement: "Right delivery list renders cards with van/scooter icons (browser e2e)"
+    category: e2e
+    must_pass: false
+    test: "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards"
+
+  - id: ui-click-highlights-route
+    statement: "Clicking a delivery selects it and opens the inspector (browser e2e)"
+    category: e2e
+    must_pass: false
+    test: "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights"
+
   # ---- completeness (no stubs / unwired buttons / dead endpoints) ---------
   - id: completeness-no-stubs
     statement: "No unimplemented stubs in source outside the documented GB10 seams"

@@ -83,7 +83,7 @@ async def run(
     cycles = 0
     while max_cycles is None or cycles < max_cycles:
         cycles += 1
-        await asyncio.sleep(interval_s)
+        # work first, then sleep — so the feed shows live activity ~immediately on boot
         items = await fetch_tfl()
         live = bool(items)
         if not items:
@@ -101,3 +101,4 @@ async def run(
             if severe and _in_bbox(it.get("lat"), it.get("lng")):
                 await inject({"kind": "road_closure", "source": "tfl",
                               "geometry": [{"lat": it["lat"], "lng": it["lng"]}]})
+        await asyncio.sleep(interval_s)
