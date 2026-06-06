@@ -1,0 +1,34 @@
+{
+  "source": "scheduled",
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "TfL Streetworks Register (bundled)",
+  "streetworks": [
+    {
+      "id": "stw-whitechapel",
+      "description": "Whitechapel Road \u2014 utility main replacement by Thames Water",
+      "lat": 51.5175,
+      "lng": -0.06,
+      "start": "08:00",
+      "end": "18:00",
+      "date": "2026-06-05"
+    },
+    {
+      "id": "stw-strand",
+      "description": "Strand \u2014 carriageway resurfacing",
+      "lat": 51.511,
+      "lng": -0.12,
+      "start": "09:00",
+      "end": "17:00",
+      "date": "2026-06-06"
+    },
+    {
+      "id": "stw-euston",
+      "description": "Euston Road \u2014 gas mains renewal",
+      "lat": 51.5246,
+      "lng": -0.134,
+      "start": "07:00",
+      "end": "19:00",
+      "date": "2026-06-07"
+    }
+  ]
+}

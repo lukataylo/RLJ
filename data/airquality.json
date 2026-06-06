@@ -1,0 +1,65 @@
+{
+  "source": "scheduled",
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "London Air Quality Network (LAQN) (bundled)",
+  "boroughs": [
+    {
+      "id": "city-of-london",
+      "name": "City of London",
+      "lat": 51.5137,
+      "lng": -0.0918
+    },
+    {
+      "id": "westminster",
+      "name": "Westminster",
+      "lat": 51.4973,
+      "lng": -0.1372
+    },
+    {
+      "id": "tower-hamlets",
+      "name": "Tower Hamlets",
+      "lat": 51.5099,
+      "lng": -0.0059
+    },
+    {
+      "id": "southwark",
+      "name": "Southwark",
+      "lat": 51.5035,
+      "lng": -0.0804
+    },
+    {
+      "id": "camden",
+      "name": "Camden",
+      "lat": 51.529,
+      "lng": -0.1255
+    },
+    {
+      "id": "lambeth",
+      "name": "Lambeth",
+      "lat": 51.4607,
+      "lng": -0.1163
+    },
+    {
+      "id": "hackney",
+      "name": "Hackney",
+      "lat": 51.545,
+      "lng": -0.0553
+    },
+    {
+      "id": "islington",
+      "name": "Islington",
+      "lat": 51.5416,
+      "lng": -0.1022
+    }
+  ],
+  "base_aqi": {
+    "city-of-london": 3,
+    "westminster": 4,
+    "tower-hamlets": 5,
+    "southwark": 3,
+    "camden": 4,
+    "lambeth": 3,
+    "hackney": 2,
+    "islington": 3
+  }
+}

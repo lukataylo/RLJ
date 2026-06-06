@@ -218,9 +218,10 @@ def _places_from_text(low: str, job_type: str) -> tuple[dict, dict]:
 def _time_from_text(low: str) -> Optional[str]:
     """Best-effort clock-time -> ISO-8601 UTC for the demo date (today)."""
     date = os.getenv("RLJ_DEMO_DATE", "2026-06-06")  # keep demo deterministic with samples
-    if "midday" in low or "noon" in low:
+    # word-boundary so "afternoon" doesn't match "noon", etc.
+    if re.search(r"\b(midday|noon)\b", low):
         return f"{date}T12:00:00Z"
-    if "midnight" in low:
+    if re.search(r"\bmidnight\b", low):
         return f"{date}T00:00:00Z"
     # "half ten" -> 10:30
     half = re.search(r"half (\w+)", low)

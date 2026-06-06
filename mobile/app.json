@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "PulseGo Driver",
+    "slug": "pulsego-driver",
+    "version": "0.1.0",
+    "scheme": "pulsego",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "backgroundColor": "#0e0d0c",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.pulsego.driver",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "PulseGo Driver uses your location to give turn-by-turn navigation and contribute anonymous traffic data.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "PulseGo Driver uses your location to keep navigating while the app is in the background.",
+        "UIBackgroundModes": [
+          "location",
+          "audio"
+        ]
+      }
+    },
+    "android": {
+      "package": "org.pulsego.driver",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "PulseGo Driver uses your location for turn-by-turn navigation."
+        }
+      ],
+      "expo-secure-store",
+      "expo-font",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

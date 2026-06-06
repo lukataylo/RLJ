@@ -1,0 +1,92 @@
+./.venv/bin/python verification/run.py
+........................................................................ [ 56%]
+........................................................                 [100%]
+=============================== warnings summary ===============================
+tests/contracts/test_schema_conformance.py::test_plan_validates
+  /Users/lukadadiani/RLJ/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+128 passed, 1 warning in 487.92s (0:08:07)
+→ /Users/lukadadiani/RLJ/.venv/bin/python -m pytest tests -p no:cacheprovider --json-report --json-report-file=/Users/lukadadiani/RLJ/verification/.report.json -q --no-header
+
+============================================================
+VERIFIED 75/75  |  failing 0  |  unverified 0
+external tests: 128 passed, 0 failed
+must-pass: 65/65  ->  ✅ GREEN
+============================================================
+  ✅* [impact     ] stat-compliance        STAT samples meet their clinical window ≥95% of the time
+  ✅* [impact     ] beats-baseline         Solver beats naive greedy dispatch on windows met
+  ✅* [impact     ] eta-sane               Reported ETAs and total time are physically plausible (no scaling bug)
+  ✅* [performance] realtime-replan        Re-optimises within the real-time budget
+  ✅  [performance] no-regression          Solver objective does not regress vs the golden baseline
+  ✅* [contract   ] plan-schema            Every Plan emitted validates against the shared schema
+  ✅* [contract   ] job-schema             Every DeliveryJob accepted validates against the shared schema
+  ✅* [contract   ] optimize-contract      Routing /optimize honours the OptimizeRequest/Response contract
+  ✅* [data       ] data-facilities-bbox   All NHS facility coordinates lie within Greater London
+  ✅* [data       ] data-facilities-complete Facility dataset has no missing required fields or duplicate ids
+  ✅* [data       ] data-demand-valid      Synthetic demand is schema-valid with sane time windows
+  ✅* [data       ] data-manifest-gate     App only loads datasets whose data-quality suite passed (dq_passed=true)
+  ✅  [data       ] data-roadgraph         Road graph is connected and covers the London bbox
+  ✅* [research   ] research-anticipation-beats-reaction Schedule-anticipation significantly beats live-only reactive routing (paired Wilcoxon p<0.05)
+  ✅* [research   ] research-anticipation-beats-blind Schedule-anticipation significantly beats disruption-blind routing
+  ✅* [research   ] research-beats-greedy  Anticipatory method significantly beats naive greedy dispatch
+  ✅* [research   ] research-beats-ortools Anticipatory method beats Google OR-Tools operating reactively (information advantage)
+  ✅  [research   ] research-generalises   Anticipation also helps OR-Tools (effect is the information, not our solver)
+  ✅* [data       ] data-signals-valid     Tower Bridge + event timed-disruption feeds are schema-valid within London
+  ✅* [data       ] data-signals-anticipation Horizon disruptions are a superset of active (schedule sees imminent closures reaction can't)
+  ✅* [data       ] data-airquality        London Air Quality (LAQN) feed is schema-valid and maps borough centroids
+  ✅* [data       ] data-streetworks       TfL Streetworks timed road closure disruptions are schema-valid
+  ✅* [data       ] data-nhspressure       NHS Hospital A&E live wait times and patient load feeds are schema-valid
+  ✅* [data       ] data-cycleinfra        TfL cycle infrastructure paths and hire capacities are schema-valid
+  ✅* [data       ] data-floodwarnings     Environment Agency flood warning timed disruptions are schema-valid
+  ✅* [benchmark  ] bench-latency-p50      Real-time replan p50 < 400ms on CPU (GB10 target <50ms)
+  ✅* [benchmark  ] bench-latency-p95      Replan p95 < 2000ms on CPU
+  ✅* [benchmark  ] bench-scale-100        100-job instance solved < 18s with >=90% served
+  ✅* [benchmark  ] bench-anticipation     Anticipation lift >= 0.15 STAT on-time and significant (judge benchmark)
+  ✅* [benchmark  ] bench-flywheel         Flywheel lift >= 0.15 STAT on-time and significant (judge benchmark)
+  ✅* [benchmark  ] bench-telemetry-throughput Congestion estimation over 10k pings < 2s
+  ✅* [benchmark  ] bench-data-integrity   Every dataset is dq_passed and loadable; tampered data is refused
+  ✅* [autonomy   ] autonomy-loop          Autonomy controller detects crowdsourced congestion, re-plans around it, and dispatches
+  ✅* [research   ] solver-optimality-gap  Zero optimality gap vs Google OR-Tools on the clinical objective (static)
+  ✅* [performance] solver-scales          Solver stays feasible and within time budget at fleet scale (40-80 jobs)
+  ✅* [research   ] flywheel-value         More contributing drivers significantly improve clinical STAT on-time (network effect)
+  ✅  [research   ] flywheel-monotone      Flywheel benefit is monotone in driver participation
+  ✅* [data       ] data-junctions         Traffic-signal junctions + green-wave advice are schema-valid within London
+  ✅* [data       ] data-probes            Crowdsourced driver pings are schema-valid, in-bbox, and deterministic
+  ✅  [data       ] data-weather           Weather congestion multiplier is sane and deterministic
+  ✅* [e2e        ] voice-driver-assistant Driver voice assistant routes the FAQ questions to the correct tools
+  ✅* [autonomy   ] nemoclaw-narration     NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic)
+  ✅* [e2e        ] nemoclaw-online        NemoClaw narration is observable by a client connecting after boot (history replay)
+  ✅* [contract   ] courier-vehicle-type   Courier vehicle_type round-trips (van/scooter) and defaults to van
+  ✅  [e2e        ] ui-delivery-list       Right delivery list renders cards with van/scooter icons (browser e2e)
+  ✅  [e2e        ] ui-click-highlights-route Clicking a delivery selects it and opens the inspector (browser e2e)
+  ✅  [e2e        ] brand-landing          Landing page is on-brand: mascot mark, Poppins display, Cream surface, Pulse Red CTA -> /login (browser e2e)
+  ✅  [e2e        ] brand-login            Login page is on-brand (Cream/Pulse Red/Poppins) and rejects bad credentials with an inline error (browser e2e)
+  ✅* [e2e        ] signals-roundtrip      Signal recommendations POST/GET round-trip and appear in /state
+  ✅* [e2e        ] signals-broadcast      Posted signal recommendations broadcast to the map (WS + narration)
+  ✅* [unhappy    ] signals-malformed      A malformed signal recommendation is rejected (422), system stays healthy
+  ✅* [autonomy   ] signal-agent-parse     GB10 signal agent parses Nemotron JSON and keeps only well-formed recs
+  ✅  [autonomy   ] signal-agent-robust    GB10 signal agent handles non-JSON model output gracefully
+  ✅* [e2e        ] agent-ask-flow         Operator can ask the GB10 agent; question queues, is answered, broadcasts
+  ✅* [e2e        ] fleet-assessments      Per-driver assessments round-trip and broadcast to the map
+  ✅* [e2e        ] courier-redirect       Redirect a courier (200) re-optimises; unknown courier is 404
+  ✅* [data       ] cctv-cameras           Live London CCTV (TfL JamCams) endpoint returns curated cameras
+  ✅* [autonomy   ] agent-answers-tasks    Box agent answers queued operator questions via local Nemotron
+  ✅* [autonomy   ] agent-assesses-drivers Box agent assesses each driver and filters invalid statuses
+  ✅* [security   ] auth-login             Register -> login returns a JWT and /auth/me works with it
+  ✅* [security   ] auth-protects-writes   With auth on, a protected write requires a valid token (401 without, ok with)
+  ✅* [security   ] auth-rejects-no-token  With auth on, a protected write without a token is 401
+  ✅* [security   ] auth-wrong-password    Login with the wrong password is rejected (401)
+  ✅* [security   ] auth-backward-compat   With auth off (dev/test default), writes work without a token
+  ✅* [completeness] completeness-no-stubs  No unimplemented stubs in source outside the documented GB10 seams
+  ✅* [completeness] completeness-no-unwired-buttons Every UI button is wired to a real handler (no dead buttons)
+  ✅* [completeness] completeness-endpoints Every contract REST endpoint is implemented and reachable
+  ✅* [completeness] completeness-ws-emitted Every declared WebSocket event is actually emitted (no dead channels)
+  ✅* [e2e        ] reroute-on-closure     Closing a road triggers a live re-route and scoreboard update
+  ✅* [e2e        ] voice-loop             A new job produces a voice_call dispatch notification
+  ✅* [e2e        ] e2e-flywheel-loop      Telemetry -> congestion -> re-plan loop works end-to-end over the live stack
+  ✅* [unhappy    ] unhappy-cold-safety    A cold-chain job with no fridge-equipped courier is left unassigned, never mis-assigned
+  ✅* [unhappy    ] unhappy-routing-fallback If the routing service is down, the orchestrator still returns a plan (greedy fallback)
+  ✅* [unhappy    ] unhappy-malformed-422  Malformed job input is rejected (422) and the system stays healthy
+  ✅* [unhappy    ] unhappy-bad-telemetry  Out-of-bounds / over-speed pings are rejected; valid ones still ingested

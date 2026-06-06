@@ -179,6 +179,14 @@ export async function optimize(): Promise<Plan> {
   );
 }
 
+/** POST /demo/seed — populate the orchestrator with the demo scenario (couriers +
+ * jobs) and optimise, so a fresh instance shows active routes + deliveries. */
+export async function seedDemo(): Promise<{ couriers: number; jobs: number; routes: number }> {
+  return json(
+    await fetch(`${BASE}/demo/seed`, { method: "POST", headers: authHeaders() }),
+  );
+}
+
 /** POST /notifications — dispatch a courier/clinic notification (voice_call etc.).
  * The orchestrator broadcasts it on the WS (voice agent + agent log pick it up). */
 export async function postNotification(n: {

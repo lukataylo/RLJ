@@ -1,15 +1,16 @@
 // Top floating row of the command center:
 //   - TOP-LEFT pill: local-compute provenance (DGX Spark, zero-egress, live re-plan ms)
-//   - TOP-CENTER nav pill: ☰ menu (scenario actions) + PulseGo wordmark + tabs +
-//     verification badge ("must-pass N/M", opens the Verification drawer) + live clock
+//   - TOP-CENTER nav pill: ☰ scenario menu + PulseGo wordmark + the single live view +
+//     Demo-mode button + verification badge + clock + theme toggle + account avatar.
 //
-// The ☰ menu hosts the demo Actions (Close road / Add STAT / Courier down /
-// Re-optimize) via the existing DemoControls component.
+// The ☰ menu hosts the working demo Actions (Close road / Add STAT / Courier down /
+// Re-optimize) via DemoControls. Non-functional nav tabs were removed.
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
+import { seedDemo } from "../api";
 import DemoControls from "./DemoControls";
 import ThemeToggle from "./ThemeToggle";
 import RouteSourceToggle from "./RouteSourceToggle";
@@ -18,8 +19,6 @@ interface Props {
   status: UseStatus;
   onOpenVerification: () => void;
 }
-
-const TABS = ["Live Map", "Routes", "Analytics", "Incidents"];
 
 export default function TopBar({ status, onOpenVerification }: Props) {
   const connected = useStore((s) => s.connected);
@@ -31,22 +30,25 @@ export default function TopBar({ status, onOpenVerification }: Props) {
   const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
   const [menuOpen, setMenuOpen] = useState(false);
-  const [tab, setTab] = useState("Live Map");
+  const [userOpen, setUserOpen] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const userRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
+  // Close popovers on outside click.
   useEffect(() => {
-    if (!menuOpen) return;
     const onDoc = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [menuOpen]);
+  }, []);
 
   const summary = status.report?.summary;
   const mustPassGreen = summary?.must_pass_green ?? false;
@@ -55,10 +57,23 @@ export default function TopBar({ status, onOpenVerification }: Props) {
   const solveMs = plan?.objective?.solve_ms;
   const clock = now.toLocaleTimeString("en-GB", { hour12: false });
   const userLabel = authUser?.email ?? role ?? "signed in";
+  const initial = (authUser?.email ?? role ?? "U").trim().charAt(0).toUpperCase();
 
   const handleLogout = () => {
     clearAuth();
     navigate("/");
+  };
+
+  const runDemo = async () => {
+    if (seeding) return;
+    setSeeding(true);
+    try {
+      await seedDemo();
+    } catch {
+      /* surfaced via the agent log / no-op on failure */
+    } finally {
+      setSeeding(false);
+    }
   };
 
   return (
@@ -96,19 +111,6 @@ export default function TopBar({ status, onOpenVerification }: Props) {
 
         <span className="nav-mark">Pulse<b>Go</b></span>
 
-        <div className="nav-tabs">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              className={`nav-tab ${tab === t ? "active" : ""}`}
-              onClick={() => setTab(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
         <button
           type="button"
           className={`nav-verify ${status.loaded ? (mustPassGreen ? "ok" : "fail") : "unknown"}`}
@@ -125,20 +127,49 @@ export default function TopBar({ status, onOpenVerification }: Props) {
 
         <RouteSourceToggle />
 
+        {/* Demo toggle — subtle, tucked beside the clock (loads a live scenario). */}
+        <button
+          type="button"
+          className="nav-demo-sub"
+          data-testid="demo-mode"
+          onClick={runDemo}
+          disabled={seeding}
+          title="Load a live demo scenario (couriers, jobs, routes)"
+        >
+          {seeding ? "loading…" : "demo"}
+        </button>
+
         <ThemeToggle />
 
         {token && (
-          <div className="nav-user">
-            <span className="nav-user-name" title={userLabel}>{userLabel}</span>
+          <div className="nav-user" ref={userRef}>
             <button
               type="button"
-              className="nav-logout"
-              data-testid="btn-logout"
-              onClick={handleLogout}
-              title="Log out"
+              className="nav-avatar"
+              data-testid="user-menu"
+              aria-haspopup="menu"
+              aria-expanded={userOpen}
+              aria-label="Account"
+              title={userLabel}
+              onClick={() => setUserOpen((v) => !v)}
             >
-              Logout
+              {initial}
             </button>
+            {userOpen && (
+              <div className="user-dropdown glass" role="menu">
+                <div className="user-dd-email" title={userLabel}>{userLabel}</div>
+                {role && <div className="user-dd-role">{role}</div>}
+                <button
+                  type="button"
+                  className="user-dd-item"
+                  data-testid="btn-logout"
+                  role="menuitem"
+                  onClick={handleLogout}
+                >
+                  Log out
+                </button>
+              </div>
+            )}
           </div>
         )}
       </nav>

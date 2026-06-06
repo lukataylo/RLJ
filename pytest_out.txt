@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.7, pytest-9.0.3, pluggy-1.6.0
+rootdir: /Users/lukadadiani/RLJ
+configfile: pytest.ini
+plugins: json-report-1.5.0, typeguard-4.5.2, metadata-3.1.1, base-url-2.1.0, playwright-0.8.0, anyio-4.13.0
+collected 9 items
+
+tests/data_quality/test_airquality.py .                                  [ 11%]
+tests/data_quality/test_streetworks.py .                                 [ 22%]
+tests/data_quality/test_nhspressure.py .                                 [ 33%]
+tests/data_quality/test_cycleinfra.py .                                  [ 44%]
+tests/data_quality/test_floodwarnings.py .                               [ 55%]
+tests/data_quality/test_manifest.py ....                                 [100%]
+
+============================== 9 passed in 0.43s ===============================

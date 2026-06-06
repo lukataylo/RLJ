@@ -23,6 +23,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 
 import events as events_mod
+import floodwarnings as floodwarnings_mod
+import streetworks as streetworks_mod
 import towerbridge as towerbridge_mod
 
 # DisruptionEvent.source enum is {"tfl","manual"}; scheduled feeds map to manual.
@@ -48,7 +50,12 @@ def timed_events(d: date | datetime | str) -> list[dict]:
     Each item: ``{id, kind, geometry, start, end, intensity, source, label}``.
     Deterministic for a given date.
     """
-    merged = list(towerbridge_mod.lift_events(d)) + list(events_mod.event_disruptions(d))
+    merged = (
+        list(towerbridge_mod.lift_events(d))
+        + list(events_mod.event_disruptions(d))
+        + list(streetworks_mod.streetwork_disruptions(d))
+        + list(floodwarnings_mod.flood_disruptions(d))
+    )
     out = [
         {
             "id": e["id"],

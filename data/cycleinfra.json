@@ -1,0 +1,77 @@
+{
+  "source": "scheduled",
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "TfL Cycle Infrastructure Database + Santander Cycles Open Data (bundled)",
+  "stations": [
+    {
+      "id": "cycle-st-paul",
+      "name": "St. Paul's Cathedral",
+      "lat": 51.514,
+      "lng": -0.098,
+      "capacity": 25
+    },
+    {
+      "id": "cycle-waterloo",
+      "name": "Waterloo Station",
+      "lat": 51.503,
+      "lng": -0.114,
+      "capacity": 45
+    },
+    {
+      "id": "cycle-hyde-park",
+      "name": "Hyde Park Corner",
+      "lat": 51.503,
+      "lng": -0.15,
+      "capacity": 30
+    },
+    {
+      "id": "cycle-london-bridge",
+      "name": "London Bridge Station",
+      "lat": 51.506,
+      "lng": -0.086,
+      "capacity": 35
+    }
+  ],
+  "highways": [
+    {
+      "id": "CS1",
+      "name": "Cycle Superhighway 1",
+      "geometry": [
+        {
+          "lat": 51.517,
+          "lng": -0.085
+        },
+        {
+          "lat": 51.53,
+          "lng": -0.083
+        },
+        {
+          "lat": 51.545,
+          "lng": -0.076
+        }
+      ]
+    },
+    {
+      "id": "CS3",
+      "name": "Cycle Superhighway 3",
+      "geometry": [
+        {
+          "lat": 51.51,
+          "lng": -0.15
+        },
+        {
+          "lat": 51.508,
+          "lng": -0.125
+        },
+        {
+          "lat": 51.511,
+          "lng": -0.075
+        },
+        {
+          "lat": 51.515,
+          "lng": -0.02
+        }
+      ]
+    }
+  ]
+}

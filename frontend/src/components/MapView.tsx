@@ -59,7 +59,66 @@ import {
   type EventVenue,
   type Facility,
 } from "../lib/datasets";
-import { getRoadRoute, routeSignature, type LngLat } from "../lib/routing";
+import { getRoadRoute, routeSignature, clearRouteCache, type LngLat, type RoadGeom } from "../lib/routing";
+
+// Waze-style live-traffic colour for a Mapbox congestion_numeric value (0–100).
+// -1 (unknown) returns null so the caller uses the neutral free-flow colour.
+function wazeRGB(c: number): [number, number, number] | null {
+  if (c < 0) return null;
+  if (c < 35) return [80, 200, 120]; // free — green
+  if (c < 60) return [242, 194, 26]; // moderate — yellow
+  if (c < 80) return [230, 140, 40]; // heavy — orange
+  return [232, 60, 50]; // severe — red
+}
+
+// Interpolate a position a fraction `f` (0..1) along a polyline by cumulative length.
+function posAlong(coords: LngLat[], f: number): LngLat {
+  if (coords.length < 2) return coords[0] ?? [0, 0];
+  const segLen: number[] = [];
+  let total = 0;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const dx = coords[i + 1][0] - coords[i][0];
+    const dy = coords[i + 1][1] - coords[i][1];
+    const d = Math.hypot(dx, dy);
+    segLen.push(d);
+    total += d;
+  }
+  if (total === 0) return coords[0];
+  let want = Math.max(0, Math.min(1, f)) * total;
+  for (let i = 0; i < segLen.length; i++) {
+    if (want <= segLen[i]) {
+      const t = segLen[i] === 0 ? 0 : want / segLen[i];
+      return [
+        coords[i][0] + (coords[i + 1][0] - coords[i][0]) * t,
+        coords[i][1] + (coords[i + 1][1] - coords[i][1]) * t,
+      ];
+    }
+    want -= segLen[i];
+  }
+  return coords[coords.length - 1];
+}
+
+// Stable 0..1 offset per courier so the fleet doesn't move in lock-step.
+function courierOffset(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997;
+  return h / 997;
+}
+
+// Animated demo position: progress the courier along its road-following path over
+// time (desynced per courier). Falls back to the courier's static location.
+function courierAnimPos(
+  c: Courier,
+  roadPaths: Record<string, RoadGeom | null>,
+  phase: number,
+): [number, number] {
+  const road = roadPaths[c.id];
+  if (road && road.coords.length >= 2 && c.status !== "offline" && c.status !== "idle") {
+    const f = (phase + courierOffset(c.id)) % 1;
+    return posAlong(road.coords, f);
+  }
+  return [c.location.lng, c.location.lat];
+}
 import { getTheme, onThemeChange, type Theme } from "../lib/theme";
 import {
   getRouteSource,
@@ -75,7 +134,17 @@ import {
   mdiCrosshairsGps,
   mdiPlus,
   mdiMinus,
+  mdiAirFilter,
+  mdiTrafficCone,
+  mdiWaves,
+  mdiBike,
 } from "@mdi/js";
+
+// Civic real-data feeds (published to /data/*.json by data/build.py).
+interface AirBorough { id: string; name: string; lat: number; lng: number; aqi: number }
+interface PointFeature { id: string; description: string; lat: number; lng: number; severity?: string }
+interface CycleStation { id: string; name: string; lat: number; lng: number; capacity: number }
+interface CycleHighway { id: string; name: string; geometry: { lat: number; lng: number }[] }
 
 // Inline Material Design icon (24×24 path data from @mdi/js).
 function McIcon({ path, size = 18 }: { path: string; size?: number }) {
@@ -136,7 +205,7 @@ const DISTRICTS: { name: string; lng: number; lat: number }[] = [
 ];
 
 // Toggleable layers shown in the left control stack.
-type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv";
+type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "flood" | "cycle";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
@@ -145,6 +214,10 @@ const DEFAULT_VIS: LayerVis = {
   incidents: true,
   signals: true, // GB10 Nemotron signal recs — default ON
   cctv: false, // live CCTV cameras — default OFF to keep the map clean
+  air: false, // London air quality (LAQN) — default OFF
+  roadworks: false, // TfL streetworks — default OFF
+  flood: false, // EA flood warnings — default OFF
+  cycle: false, // TfL cycle infra + hire — default OFF
 };
 
 // Cap on simultaneously rendered camera icons so a dense viewport never clutters.
@@ -172,7 +245,17 @@ interface OptionalData {
   roads: RoadPath[];
   facilities: Facility[];
   venues: EventVenue[];
+  air: AirBorough[];
+  roadworks: PointFeature[];
+  floods: PointFeature[];
+  cycleStations: CycleStation[];
+  cycleHighways: CycleHighway[];
 }
+
+const EMPTY_OPTIONAL: OptionalData = {
+  roads: [], facilities: [], venues: [],
+  air: [], roadworks: [], floods: [], cycleStations: [], cycleHighways: [],
+};
 
 const EMPTY_SNAP: Snapshot = {
   jobs: [],
@@ -329,7 +412,7 @@ function buildLayers(
   data: OptionalData,
   vis: LayerVis,
   phase: number,
-  roadPaths: Record<string, LngLat[] | null>,
+  roadPaths: Record<string, RoadGeom | null>,
   bounds: Bounds,
 ): Layer[] {
   const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId, focusJobId, focusRoute } = snap;
@@ -390,29 +473,40 @@ function buildLayers(
   const highlightActive = selectedCourierId != null || focusedCourierId != null;
   const congSources = congestionSources(data.roads, congestion.cells, congestion.generated_at ?? "static");
 
+  interface RouteLine { courier_id: string; highlighted: boolean; path: LngLat[]; congestion: number[] | null }
   const routeLines = (plan?.routes ?? [])
-    .map((r) => {
+    .map((r): RouteLine | null => {
       const courier = courierById.get(r.courier_id);
       const stopCoords = routeStopCoords(plan, courier, r.courier_id);
       if (stopCoords.length < 2) return null;
       const road = roadPaths[r.courier_id];
-      const path = road && road.length >= 2 ? road : fallbackPath(plan, r.courier_id, stopCoords);
+      const onRoad = road && road.coords.length >= 2;
+      const path = onRoad ? road!.coords : fallbackPath(plan, r.courier_id, stopCoords);
       if (path.length < 2) return null;
-      return { courier_id: r.courier_id, highlighted: isHighlighted(r.courier_id), path };
+      return {
+        courier_id: r.courier_id,
+        highlighted: isHighlighted(r.courier_id),
+        path,
+        congestion: onRoad ? road!.congestion : null,
+      };
     })
-    .filter((r): r is { courier_id: string; highlighted: boolean; path: LngLat[] } => r !== null);
+    .filter((r): r is RouteLine => r !== null);
 
-  // One record per drawn segment so each can be neutral or red independently.
-  interface RouteSeg { courier_id: string; highlighted: boolean; congested: boolean; path: LngLat[] }
+  // One record per drawn segment so each carries its own live-traffic colour.
+  // `cong` is Mapbox congestion_numeric (0–100) when road-following, else -1 and we
+  // fall back to our own congestion sources (binary neutral/red).
+  interface RouteSeg { courier_id: string; highlighted: boolean; cong: number; congested: boolean; path: LngLat[] }
   const routeSegs: RouteSeg[] = [];
   for (const rl of routeLines) {
     for (let i = 0; i < rl.path.length - 1; i++) {
       const a = rl.path[i];
       const b = rl.path[i + 1];
+      const cong = rl.congestion ? (rl.congestion[i] ?? -1) : -1;
       routeSegs.push({
         courier_id: rl.courier_id,
         highlighted: rl.highlighted,
-        congested: segmentCongested(a, b, congSources),
+        cong,
+        congested: cong >= 0 ? cong >= 60 : segmentCongested(a, b, congSources),
         path: [a, b],
       });
     }
@@ -425,10 +519,13 @@ function buildLayers(
     focusRouteActive ? 10 : !highlightActive ? 60 : s.highlighted ? 130 : 16;
   const segMainAlpha = (s: RouteSeg) =>
     focusRouteActive ? 28 : !highlightActive ? 215 : s.highlighted ? 255 : 55;
-  // Highlighted routes render in vivid blue for clarity; everything else keeps
-  // the Google-Maps neutral/red congestion colouring.
-  const segColor = (s: RouteSeg) =>
-    s.highlighted ? ROUTE_HIGHLIGHT_RGB : s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB;
+  // Highlighted (focused/selected) routes render in vivid blue for clarity; every
+  // other route uses the live Waze traffic colour when available, else the
+  // neutral/red congestion fallback.
+  const segColor = (s: RouteSeg): [number, number, number] =>
+    s.highlighted
+      ? (ROUTE_HIGHLIGHT_RGB as [number, number, number])
+      : (wazeRGB(s.cong) ?? (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB));
 
   if (vis.routes && routeSegs.length) {
     layers.push(
@@ -618,21 +715,21 @@ function buildLayers(
     new ScatterplotLayer<Courier>({
       id: "couriers-glow",
       data: couriers,
-      getPosition: (c) => [c.location.lng, c.location.lat],
+      getPosition: (c) => courierAnimPos(c, roadPaths, phase),
       getRadius: 280,
       radiusUnits: "meters",
       radiusMinPixels: 12,
       radiusMaxPixels: 38,
       getFillColor: (c) =>
         [...(COURIER_RGB[c.status] ?? [200, 200, 200]), c.id === selectedCourierId ? 90 : selActive ? 14 : 45] as [number, number, number, number],
-      updateTriggers: { getFillColor: selectedCourierId },
+      updateTriggers: { getFillColor: selectedCourierId, getPosition: phase },
     }),
   );
   layers.push(
     new ScatterplotLayer<Courier>({
       id: "couriers",
       data: couriers,
-      getPosition: (c) => [c.location.lng, c.location.lat],
+      getPosition: (c) => courierAnimPos(c, roadPaths, phase),
       getRadius: 110,
       radiusUnits: "meters",
       radiusMinPixels: 6,
@@ -643,7 +740,7 @@ function buildLayers(
       getFillColor: (c) =>
         [...(COURIER_RGB[c.status] ?? [200, 200, 200]), selActive && c.id !== selectedCourierId ? 70 : 255] as [number, number, number, number],
       pickable: true,
-      updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
+      updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId, getPosition: phase },
     }),
   );
 
@@ -824,6 +921,99 @@ function buildLayers(
     }),
   );
 
+  // ---- Civic real-data overlays (toggleable, default off) ------------------
+  // Air quality — borough AQI dots (green=good → red=poor; AQI 1–10).
+  if (vis.air && data.air.length) {
+    const aqiRGB = (a: number): [number, number, number] =>
+      a <= 3 ? [80, 200, 120] : a <= 6 ? [242, 194, 26] : a <= 8 ? [230, 140, 40] : [232, 60, 50];
+    layers.push(
+      new ScatterplotLayer<AirBorough>({
+        id: "air-quality",
+        data: data.air,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 380,
+        radiusUnits: "meters",
+        radiusMinPixels: 10,
+        getFillColor: (d) => [...aqiRGB(d.aqi), 70] as [number, number, number, number],
+        getLineColor: (d) => [...aqiRGB(d.aqi), 220] as [number, number, number, number],
+        lineWidthMinPixels: 1.5,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
+  // Roadworks — TfL streetworks closures (amber cones).
+  if (vis.roadworks && data.roadworks.length) {
+    layers.push(
+      new ScatterplotLayer<PointFeature>({
+        id: "roadworks",
+        data: data.roadworks,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 7,
+        radiusUnits: "pixels",
+        getFillColor: [230, 140, 40, 230],
+        getLineColor: [20, 14, 4, 255],
+        lineWidthMinPixels: 1.5,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
+  // Flood warnings — Environment Agency (blue).
+  if (vis.flood && data.floods.length) {
+    layers.push(
+      new ScatterplotLayer<PointFeature>({
+        id: "flood",
+        data: data.floods,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 9,
+        radiusUnits: "pixels",
+        getFillColor: [60, 150, 230, 230],
+        getLineColor: [10, 30, 60, 255],
+        lineWidthMinPixels: 1.5,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
+  // Cycle infrastructure — superhighways (cyan paths) + hire docks (small dots).
+  if (vis.cycle) {
+    if (data.cycleHighways.length) {
+      layers.push(
+        new PathLayer<CycleHighway>({
+          id: "cycle-highways",
+          data: data.cycleHighways,
+          getPath: (d) => d.geometry.map((p) => [p.lng, p.lat] as LngLat),
+          getColor: [70, 200, 210, 200],
+          getWidth: 3,
+          widthUnits: "pixels",
+          capRounded: true,
+          jointRounded: true,
+          pickable: true,
+        }),
+      );
+    }
+    if (data.cycleStations.length) {
+      layers.push(
+        new ScatterplotLayer<CycleStation>({
+          id: "cycle-stations",
+          data: data.cycleStations,
+          getPosition: (d) => [d.lng, d.lat],
+          getRadius: 4,
+          radiusUnits: "pixels",
+          getFillColor: [70, 200, 210, 220],
+          getLineColor: [10, 40, 42, 255],
+          lineWidthMinPixels: 1,
+          stroked: true,
+          pickable: true,
+        }),
+      );
+    }
+  }
+
   return layers;
 }
 
@@ -883,6 +1073,10 @@ const LEFT_LAYERS: { key: LayerKey; label: string; icon: string; testid: string 
   { key: "incidents", label: "Incidents", icon: mdiAlertOutline, testid: "layer-toggle-incidents" },
   { key: "signals", label: "Signals", icon: mdiTrafficLight, testid: "layer-toggle-signals" },
   { key: "cctv", label: "CCTV", icon: mdiCctv, testid: "layer-toggle-cctv" },
+  { key: "air", label: "Air quality", icon: mdiAirFilter, testid: "layer-toggle-air" },
+  { key: "roadworks", label: "Roadworks", icon: mdiTrafficCone, testid: "layer-toggle-roadworks" },
+  { key: "flood", label: "Flood", icon: mdiWaves, testid: "layer-toggle-flood" },
+  { key: "cycle", label: "Cycle", icon: mdiBike, testid: "layer-toggle-cycle" },
 ];
 
 export default function MapView() {
@@ -892,16 +1086,16 @@ export default function MapView() {
   const phaseRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const snapRef = useRef<Snapshot>(EMPTY_SNAP);
-  const dataRef = useRef<OptionalData>({ roads: [], facilities: [], venues: [] });
+  const dataRef = useRef<OptionalData>(EMPTY_OPTIONAL);
   const visRef = useRef<LayerVis>(DEFAULT_VIS);
-  const roadPathsRef = useRef<Record<string, LngLat[] | null>>({});
+  const roadPathsRef = useRef<Record<string, RoadGeom | null>>({});
   const routeSourceRef = useRef<RouteSource>(getRouteSource());
   const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boundsRef = useRef<Bounds>(null);
   // Set by an effect; the once-created overlay onClick calls it to open the popover.
   const selectCamRef = useRef<((cam: CctvCamera, x: number, y: number) => void) | null>(null);
 
-  const [optional, setOptional] = useState<OptionalData>({ roads: [], facilities: [], venues: [] });
+  const [optional, setOptional] = useState<OptionalData>(EMPTY_OPTIONAL);
   const [vis, setVis] = useState<LayerVis>(DEFAULT_VIS);
   const [counts, setCounts] = useState({ jobs: 0, couriers: 0, routes: 0, congestion: 0, disruptions: 0, signals: 0 });
   // Open CCTV popover: the picked camera + its on-screen pixel position + a refresh tick.
@@ -943,7 +1137,7 @@ export default function MapView() {
       }
       const snap = snapRef.current;
       const courierById = new Map(snap.couriers.map((c) => [c.id, c]));
-      const next: Record<string, LngLat[] | null> = {};
+      const next: Record<string, RoadGeom | null> = {};
       for (const r of snap.plan?.routes ?? []) {
         const coords = routeStopCoords(snap.plan, courierById.get(r.courier_id), r.courier_id);
         if (coords.length < 2) continue;
@@ -959,6 +1153,16 @@ export default function MapView() {
     };
     return schedule;
   }, []);
+
+  // Refresh live traffic colours periodically (Waze-style realtime) — drop the
+  // route geometry cache so the next resolve re-fetches current Mapbox congestion.
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      clearRouteCache();
+      resolveRoutes();
+    }, 120_000);
+    return () => window.clearInterval(t);
+  }, [resolveRoutes]);
 
   // Keep refs in sync with the store; trigger route resolution when the plan changes.
   useEffect(() => {
@@ -1071,20 +1275,33 @@ export default function MapView() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [roadsGj, facRaw, evtRaw] = await Promise.all([
+      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, fldRaw, cycRaw] = await Promise.all([
         fetchOptionalJson("/data/roads.geojson"),
         fetchOptional<unknown>("/data/facilities.json"),
         fetchOptional<unknown>("/data/events.json"),
+        fetchOptional<{ boroughs?: AirBorough[] }>("/data/airquality.json"),
+        fetchOptional<{ streetworks?: PointFeature[] }>("/data/streetworks.json"),
+        fetchOptional<{ floods?: PointFeature[] }>("/data/floodwarnings.json"),
+        fetchOptional<{ stations?: CycleStation[]; highways?: CycleHighway[] }>("/data/cycleinfra.json"),
       ]);
       if (cancelled) return;
       const roads = parseRoads(roadsGj);
       const facilities = parseFacilities(facRaw);
       const venues = parseEventVenues(evtRaw);
-      setOptional({ roads, facilities, venues });
+      const air = aqRaw?.boroughs ?? [];
+      const roadworks = swRaw?.streetworks ?? [];
+      const floods = fldRaw?.floods ?? [];
+      const cycleStations = cycRaw?.stations ?? [];
+      const cycleHighways = cycRaw?.highways ?? [];
+      setOptional({ roads, facilities, venues, air, roadworks, floods, cycleStations, cycleHighways });
       const loaded: string[] = [];
       if (roads.length) loaded.push(`${roads.length} roads`);
       if (facilities.length) loaded.push(`${facilities.length} facilities`);
       if (venues.length) loaded.push(`${venues.length} event venues`);
+      if (air.length) loaded.push(`${air.length} AQ boroughs`);
+      if (roadworks.length) loaded.push(`${roadworks.length} roadworks`);
+      if (floods.length) loaded.push(`${floods.length} flood warnings`);
+      if (cycleHighways.length) loaded.push(`${cycleHighways.length} cycle routes`);
       if (loaded.length) {
         useStore.getState().pushLog({
           level: "info",

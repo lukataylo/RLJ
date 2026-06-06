@@ -25,6 +25,11 @@ import roadgraph as roadgraph_mod
 import signals as signals_mod
 import towerbridge as towerbridge_mod
 import weather as weather_mod
+import airquality as airquality_mod
+import streetworks as streetworks_mod
+import nhspressure as nhspressure_mod
+import cycleinfra as cycleinfra_mod
+import floodwarnings as floodwarnings_mod
 from loader import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -238,6 +243,108 @@ def build(
         "fetched_at": _now_iso(),
         "dq_passed": pr_passed,
         "dq_suite": "tests/data_quality/test_probes.py",
+    }
+
+    # ---- airquality ------------------------------------------------------- #
+    aq_path = airquality_mod.AIRQUALITY_PATH
+    aq_passed, aq_rows = True, 0
+    try:
+        payload = airquality_mod.write_airquality(aq_path, allow_network=allow_network)
+        aq_rows = len(payload.get("boroughs", []))
+        quality.validate_airquality(payload)
+    except Exception as e:  # noqa: BLE001
+        aq_passed = False
+        print(f"[airquality] DQ FAILED: {e}")
+    datasets["airquality"] = {
+        "source": "live-with-fallback",
+        "path": _rel(aq_path),
+        "rows": aq_rows,
+        "sha256": sha256_file(aq_path) if aq_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": aq_passed,
+        "dq_suite": "tests/data_quality/test_airquality.py",
+    }
+
+    # ---- streetworks ------------------------------------------------------ #
+    sw_path = streetworks_mod.STREETWORKS_PATH
+    sw_passed, sw_rows = True, 0
+    try:
+        streetworks_mod.write_streetworks(sw_path)
+        disruptions = streetworks_mod.streetwork_disruptions(sample_date)
+        sw_rows = len(disruptions)
+        quality.validate_timed_events(disruptions)
+    except Exception as e:  # noqa: BLE001
+        sw_passed = False
+        print(f"[streetworks] DQ FAILED: {e}")
+    datasets["streetworks"] = {
+        "source": "scheduled",
+        "path": _rel(sw_path),
+        "rows": sw_rows,
+        "sha256": sha256_file(sw_path) if sw_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": sw_passed,
+        "dq_suite": "tests/data_quality/test_streetworks.py",
+    }
+
+    # ---- nhspressure ------------------------------------------------------ #
+    nhsp_path = nhspressure_mod.NHSPRESSURE_PATH
+    nhsp_passed, nhsp_rows = True, 0
+    try:
+        payload = nhspressure_mod.write_nhspressure(nhsp_path)
+        nhsp_rows = len(payload.get("hospitals", []))
+        quality.validate_nhspressure(payload)
+    except Exception as e:  # noqa: BLE001
+        nhsp_passed = False
+        print(f"[nhspressure] DQ FAILED: {e}")
+    datasets["nhspressure"] = {
+        "source": "scheduled",
+        "path": _rel(nhsp_path),
+        "rows": nhsp_rows,
+        "sha256": sha256_file(nhsp_path) if nhsp_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": nhsp_passed,
+        "dq_suite": "tests/data_quality/test_nhspressure.py",
+    }
+
+    # ---- cycleinfra ------------------------------------------------------- #
+    cyc_path = cycleinfra_mod.CYCLEINFRA_PATH
+    cyc_passed, cyc_rows = True, 0
+    try:
+        payload = cycleinfra_mod.write_cycleinfra(cyc_path)
+        cyc_rows = len(payload.get("stations", []))
+        quality.validate_cycleinfra(payload)
+    except Exception as e:  # noqa: BLE001
+        cyc_passed = False
+        print(f"[cycleinfra] DQ FAILED: {e}")
+    datasets["cycleinfra"] = {
+        "source": "scheduled",
+        "path": _rel(cyc_path),
+        "rows": cyc_rows,
+        "sha256": sha256_file(cyc_path) if cyc_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": cyc_passed,
+        "dq_suite": "tests/data_quality/test_cycleinfra.py",
+    }
+
+    # ---- floodwarnings ---------------------------------------------------- #
+    fld_path = floodwarnings_mod.FLOODWARNINGS_PATH
+    fld_passed, fld_rows = True, 0
+    try:
+        floodwarnings_mod.write_floodwarnings(fld_path)
+        disruptions = floodwarnings_mod.flood_disruptions(sample_date)
+        fld_rows = len(disruptions)
+        quality.validate_timed_events(disruptions)
+    except Exception as e:  # noqa: BLE001
+        fld_passed = False
+        print(f"[floodwarnings] DQ FAILED: {e}")
+    datasets["floodwarnings"] = {
+        "source": "scheduled",
+        "path": _rel(fld_path),
+        "rows": fld_rows,
+        "sha256": sha256_file(fld_path) if fld_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": fld_passed,
+        "dq_suite": "tests/data_quality/test_floodwarnings.py",
     }
 
     manifest = {"generated_at": _now_iso(), "scenario_now": now, "datasets": datasets}

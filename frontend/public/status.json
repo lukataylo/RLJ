@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-06-06T13:58:00.895248+00:00",
+  "generated_at": "2026-06-06T15:52:59.143569+00:00",
   "summary": {
-    "total": 70,
-    "verified": 70,
+    "total": 83,
+    "verified": 83,
     "failing": 0,
     "unverified": 0,
-    "must_pass_total": 60,
-    "must_pass_verified": 60,
+    "must_pass_total": 73,
+    "must_pass_verified": 73,
     "must_pass_green": true,
-    "tests_passed": 122,
+    "tests_passed": 159,
     "tests_failed": 0
   },
   "claims": [
@@ -64,7 +64,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0849
+      "duration_s": 0.0843
     },
     {
       "id": "job-schema",
@@ -73,7 +73,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 0.0842
+      "duration_s": 0.0837
     },
     {
       "id": "optimize-contract",
@@ -82,7 +82,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.0871
+      "duration_s": 0.0861
     },
     {
       "id": "data-facilities-bbox",
@@ -91,7 +91,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0056
+      "duration_s": 0.0048
     },
     {
       "id": "data-facilities-complete",
@@ -100,7 +100,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0155
+      "duration_s": 0.0161
     },
     {
       "id": "data-demand-valid",
@@ -109,7 +109,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0071
+      "duration_s": 0.0064
     },
     {
       "id": "data-manifest-gate",
@@ -118,7 +118,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.069
+      "duration_s": 0.0648
     },
     {
       "id": "data-roadgraph",
@@ -127,7 +127,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0067
+      "duration_s": 0.0065
     },
     {
       "id": "research-anticipation-beats-reaction",
@@ -154,7 +154,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_beats_greedy_significantly",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "research-beats-ortools",
@@ -190,7 +190,52 @@
       "must_pass": true,
       "test": "tests/data_quality/test_signals.py::test_active_and_horizon_consistency",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0005
+    },
+    {
+      "id": "data-airquality",
+      "statement": "London Air Quality (LAQN) feed is schema-valid and maps borough centroids",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_airquality.py::test_airquality_sane",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-streetworks",
+      "statement": "TfL Streetworks timed road closure disruptions are schema-valid",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_streetworks.py::test_streetworks_sane",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-nhspressure",
+      "statement": "NHS Hospital A&E live wait times and patient load feeds are schema-valid",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_nhspressure.py::test_nhspressure_sane",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-cycleinfra",
+      "statement": "TfL cycle infrastructure paths and hire capacities are schema-valid",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_cycleinfra.py::test_cycleinfra_sane",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-floodwarnings",
+      "statement": "Environment Agency flood warning timed disruptions are schema-valid",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_floodwarnings.py::test_floodwarnings_sane",
+      "status": "verified",
+      "duration_s": 0.0001
     },
     {
       "id": "bench-latency-p50",
@@ -217,7 +262,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput",
       "status": "verified",
-      "duration_s": 7.6341
+      "duration_s": 7.6336
     },
     {
       "id": "bench-anticipation",
@@ -244,7 +289,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s",
       "status": "verified",
-      "duration_s": 0.0398
+      "duration_s": 0.038
     },
     {
       "id": "bench-data-integrity",
@@ -253,7 +298,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable",
       "status": "verified",
-      "duration_s": 0.0064
+      "duration_s": 0.008
     },
     {
       "id": "autonomy-loop",
@@ -262,7 +307,7 @@
       "must_pass": true,
       "test": "tests/unit/test_autonomy.py::test_autonomy_loop_reacts_to_congestion",
       "status": "verified",
-      "duration_s": 0.0824
+      "duration_s": 0.0813
     },
     {
       "id": "solver-optimality-gap",
@@ -271,7 +316,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
       "status": "verified",
-      "duration_s": 10.4806
+      "duration_s": 10.4815
     },
     {
       "id": "solver-scales",
@@ -280,7 +325,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
       "status": "verified",
-      "duration_s": 3.11
+      "duration_s": 3.1049
     },
     {
       "id": "flywheel-value",
@@ -289,7 +334,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
       "status": "verified",
-      "duration_s": 0.0015
+      "duration_s": 0.0006
     },
     {
       "id": "flywheel-monotone",
@@ -307,7 +352,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_junctions.py::test_junctions_valid",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0004
     },
     {
       "id": "data-probes",
@@ -316,7 +361,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_probes.py::test_probe_pings_valid",
       "status": "verified",
-      "duration_s": 0.0193
+      "duration_s": 0.0184
     },
     {
       "id": "data-weather",
@@ -337,13 +382,85 @@
       "duration_s": 0.0001
     },
     {
+      "id": "voice-nlu-intake",
+      "statement": "Voice NLU parses real clinic phrasings into a valid DeliveryJob (priority, cold-chain, places, time)",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/voice/test_nlu.py::test_stat_cold_chain_pickup_from_to",
+      "status": "verified",
+      "duration_s": 0.0002
+    },
+    {
+      "id": "voice-nlu-robust",
+      "statement": "Voice NLU degrades safely on garbage/empty input (never emits an invalid job)",
+      "category": "unhappy",
+      "must_pass": true,
+      "test": "tests/voice/test_nlu.py::test_garbage_text_degrades_to_valid_job",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "voice-tools-degrade",
+      "statement": "Driver-assistant tools return an error dict (never crash) when the orchestrator is down",
+      "category": "unhappy",
+      "must_pass": true,
+      "test": "tests/voice/test_driver_tools.py::test_all_tools_degrade_when_orchestrator_down",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "voice-bridge-status",
+      "statement": "bridge_status derives open/closed from live /state disruptions matched to bridge geometry",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/voice/test_driver_tools.py::test_bridge_status_closed_when_disruption_on_bridge",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "voice-assistant-unhappy",
+      "statement": "Driver assistant speaks a safe fallback when a tool errors (no crash, no dead air)",
+      "category": "unhappy",
+      "must_pass": true,
+      "test": "tests/voice/test_voice_flows.py::test_ask_unhappy_tool_error_speaks_safe_fallback",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "voice-outbound-dispatch",
+      "statement": "Outbound WS handler places a voice call only on voice_call notifications",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/voice/test_voice_flows.py::test_outbound_places_call_on_voice_notification",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "voice-intake-post",
+      "statement": "Inbound intake parses text and POSTs a DeliveryJob to the orchestrator",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/voice/test_voice_flows.py::test_intake_submit_happy",
+      "status": "verified",
+      "duration_s": 0.0005
+    },
+    {
+      "id": "voice-elevenlabs-guard",
+      "statement": "ElevenLabs wrapper is a safe no-op with no API key (offline-demoable)",
+      "category": "unhappy",
+      "must_pass": true,
+      "test": "tests/voice/test_voice_flows.py::test_elevenlabs_disabled_without_key_is_noop",
+      "status": "verified",
+      "duration_s": 0.0002
+    },
+    {
       "id": "nemoclaw-narration",
       "statement": "NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic)",
       "category": "autonomy",
       "must_pass": true,
       "test": "tests/unit/test_nemo_agent.py::test_nemo_agent_offline_narrates_and_injects",
       "status": "verified",
-      "duration_s": 0.0344
+      "duration_s": 0.0336
     },
     {
       "id": "nemoclaw-online",
@@ -352,7 +469,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration",
       "status": "verified",
-      "duration_s": 0.0036
+      "duration_s": 0.0021
     },
     {
       "id": "courier-vehicle-type",
@@ -361,7 +478,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips",
       "status": "verified",
-      "duration_s": 0.0156
+      "duration_s": 0.0128
     },
     {
       "id": "ui-delivery-list",
@@ -370,7 +487,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards",
       "status": "verified",
-      "duration_s": 15.8842
+      "duration_s": 11.4677
     },
     {
       "id": "ui-click-highlights-route",
@@ -379,7 +496,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights",
       "status": "verified",
-      "duration_s": 14.2963
+      "duration_s": 9.7785
     },
     {
       "id": "brand-landing",
@@ -388,7 +505,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_landing_is_on_brand",
       "status": "verified",
-      "duration_s": 0.8503
+      "duration_s": 0.8949
     },
     {
       "id": "brand-login",
@@ -397,7 +514,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_login_is_on_brand_and_rejects_bad_creds",
       "status": "verified",
-      "duration_s": 0.8534
+      "duration_s": 0.8529
     },
     {
       "id": "signals-roundtrip",
@@ -406,7 +523,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_post_get_roundtrip",
       "status": "verified",
-      "duration_s": 0.0148
+      "duration_s": 0.0125
     },
     {
       "id": "signals-broadcast",
@@ -415,7 +532,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_broadcast",
       "status": "verified",
-      "duration_s": 0.0169
+      "duration_s": 0.021
     },
     {
       "id": "signals-malformed",
@@ -424,7 +541,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_malformed_422",
       "status": "verified",
-      "duration_s": 0.0319
+      "duration_s": 0.0233
     },
     {
       "id": "signal-agent-parse",
@@ -433,7 +550,7 @@
       "must_pass": true,
       "test": "tests/unit/test_signal_agent.py::test_ask_nemotron_parses_and_filters",
       "status": "verified",
-      "duration_s": 0.0003
+      "duration_s": 0.0002
     },
     {
       "id": "signal-agent-robust",
@@ -451,7 +568,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_ask_tasks_answer_flow",
       "status": "verified",
-      "duration_s": 2.0571
+      "duration_s": 2.3505
     },
     {
       "id": "fleet-assessments",
@@ -460,7 +577,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_fleet_assessments_roundtrip_and_broadcast",
       "status": "verified",
-      "duration_s": 2.0355
+      "duration_s": 2.0315
     },
     {
       "id": "courier-redirect",
@@ -469,7 +586,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_redirect_known_and_unknown",
       "status": "verified",
-      "duration_s": 0.0331
+      "duration_s": 0.0304
     },
     {
       "id": "cctv-cameras",
@@ -478,7 +595,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_cctv_cameras_shape",
       "status": "verified",
-      "duration_s": 0.1249
+      "duration_s": 0.136
     },
     {
       "id": "agent-answers-tasks",
@@ -505,7 +622,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_register_then_login_returns_jwt_and_me_works",
       "status": "verified",
-      "duration_s": 0.6821
+      "duration_s": 0.6748
     },
     {
       "id": "auth-protects-writes",
@@ -514,7 +631,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_with_token_succeeds",
       "status": "verified",
-      "duration_s": 0.0231
+      "duration_s": 0.0256
     },
     {
       "id": "auth-rejects-no-token",
@@ -523,7 +640,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_without_token_returns_401",
       "status": "verified",
-      "duration_s": 0.0106
+      "duration_s": 0.0102
     },
     {
       "id": "auth-wrong-password",
@@ -532,7 +649,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_login_with_wrong_password_returns_401",
       "status": "verified",
-      "duration_s": 0.2226
+      "duration_s": 0.219
     },
     {
       "id": "auth-backward-compat",
@@ -541,7 +658,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_post_jobs_works_without_token_when_auth_off",
       "status": "verified",
-      "duration_s": 0.0223
+      "duration_s": 0.023
     },
     {
       "id": "completeness-no-stubs",
@@ -550,7 +667,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist",
       "status": "verified",
-      "duration_s": 0.0127
+      "duration_s": 0.0102
     },
     {
       "id": "completeness-no-unwired-buttons",
@@ -559,7 +676,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_unwired_buttons",
       "status": "verified",
-      "duration_s": 0.0022
+      "duration_s": 0.0021
     },
     {
       "id": "completeness-endpoints",
@@ -568,7 +685,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_orchestrator_rest_endpoints_implemented",
       "status": "verified",
-      "duration_s": 0.0123
+      "duration_s": 0.011
     },
     {
       "id": "completeness-ws-emitted",
@@ -586,7 +703,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 0.6422
+      "duration_s": 0.6411
     },
     {
       "id": "voice-loop",
@@ -595,7 +712,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.1309
+      "duration_s": 0.1173
     },
     {
       "id": "e2e-flywheel-loop",
@@ -604,7 +721,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop",
       "status": "verified",
-      "duration_s": 0.2314
+      "duration_s": 0.2318
     },
     {
       "id": "unhappy-cold-safety",
@@ -613,7 +730,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash",
       "status": "verified",
-      "duration_s": 0.1323
+      "duration_s": 0.1318
     },
     {
       "id": "unhappy-routing-fallback",
@@ -622,7 +739,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback",
       "status": "verified",
-      "duration_s": 0.1125
+      "duration_s": 0.0674
     },
     {
       "id": "unhappy-malformed-422",
@@ -631,7 +748,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy",
       "status": "verified",
-      "duration_s": 0.0412
+      "duration_s": 0.0439
     },
     {
       "id": "unhappy-bad-telemetry",
@@ -640,7 +757,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted",
       "status": "verified",
-      "duration_s": 0.0213
+      "duration_s": 0.0211
     }
   ]
 }

@@ -1,0 +1,16 @@
+./.venv/bin/python data/build.py
+
+wrote /Users/lukadadiani/RLJ/data/manifest.json
+  [PASS] facilities  live               rows=31    sha=d437df02e6e4
+  [PASS] demand      fixture            rows=30    sha=09297cd1f8cf
+  [PASS] roads       live               rows=5195  sha=c87b20db4615
+  [PASS] towerbridge scheduled          rows=7     sha=0308472466f7
+  [PASS] events      scheduled          rows=11    sha=d78538adae11
+  [PASS] junctions   bundled-central-london-signals rows=30    sha=601473a3ce9f
+  [PASS] weather     live               rows=8     sha=924ea98c2065
+  [PASS] probes      fixture            rows=800   sha=8017a6c6611c
+  [PASS] airquality  fallback           rows=8     sha=71b7c6463ce9
+  [PASS] streetworks scheduled          rows=1     sha=80e34686d307
+  [PASS] nhspressure scheduled          rows=5     sha=8134266eb325
+  [PASS] cycleinfra  scheduled          rows=4     sha=bae74b395056
+  [PASS] floodwarnings scheduled          rows=1     sha=e9100061e7b7

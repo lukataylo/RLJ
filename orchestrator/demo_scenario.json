@@ -1,0 +1,262 @@
+{
+  "couriers": [
+    {
+      "id": "crt-1",
+      "name": "Van A",
+      "location": {
+        "lat": 51.5246,
+        "lng": -0.1357,
+        "name": "London Bridge depot",
+        "facility_id": null
+      },
+      "capacity": 6.0,
+      "cold_capable": true,
+      "vehicle_type": "van",
+      "status": "enroute",
+      "assigned_route_id": null,
+      "phone": "+44700900000"
+    },
+    {
+      "id": "crt-2",
+      "name": "Scooter B",
+      "location": {
+        "lat": 51.51,
+        "lng": -0.09,
+        "name": "Euston depot",
+        "facility_id": null
+      },
+      "capacity": 3.0,
+      "cold_capable": false,
+      "vehicle_type": "scooter",
+      "status": "enroute",
+      "assigned_route_id": null,
+      "phone": "+44700900001"
+    },
+    {
+      "id": "crt-3",
+      "name": "Van C",
+      "location": {
+        "lat": 51.5246,
+        "lng": -0.1357,
+        "name": "Liverpool St depot",
+        "facility_id": null
+      },
+      "capacity": 6.0,
+      "cold_capable": true,
+      "vehicle_type": "van",
+      "status": "enroute",
+      "assigned_route_id": null,
+      "phone": "+44700900002"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "job-1",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.5,
+        "lng": -0.1,
+        "name": null,
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.51,
+        "lng": -0.09,
+        "name": null,
+        "facility_id": null
+      },
+      "priority": "routine",
+      "time_window": {
+        "ready_at": null,
+        "due_by": null
+      },
+      "cold_chain": false,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": null,
+      "created_at": "2026-06-06T10:43:53.452822Z"
+    },
+    {
+      "id": "job-2",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.5185,
+        "lng": -0.0731,
+        "name": "Royal London pharmacy",
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.503,
+        "lng": -0.0884,
+        "name": "Guy's lab",
+        "facility_id": null
+      },
+      "priority": "urgent",
+      "time_window": {
+        "ready_at": "2026-06-06T10:43:52.548277Z",
+        "due_by": "2026-06-06T12:53:52.548277Z"
+      },
+      "cold_chain": true,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": "urgent sample Royal London pharmacy -> Guy's lab",
+      "created_at": "2026-06-06T10:43:52.691451Z"
+    },
+    {
+      "id": "job-3",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.541,
+        "lng": -0.143,
+        "name": "Camden clinic",
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.5246,
+        "lng": -0.1357,
+        "name": "UCLH lab",
+        "facility_id": null
+      },
+      "priority": "routine",
+      "time_window": {
+        "ready_at": "2026-06-06T10:43:52.548277Z",
+        "due_by": "2026-06-06T13:53:52.548277Z"
+      },
+      "cold_chain": true,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": "routine sample Camden clinic -> UCLH lab",
+      "created_at": "2026-06-06T10:43:52.786706Z"
+    },
+    {
+      "id": "job-4",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.5141,
+        "lng": -0.059,
+        "name": "Bethnal Green surgery",
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.498,
+        "lng": -0.1188,
+        "name": "St Thomas' lab",
+        "facility_id": null
+      },
+      "priority": "routine",
+      "time_window": {
+        "ready_at": "2026-06-06T10:43:52.548277Z",
+        "due_by": "2026-06-06T13:53:52.548277Z"
+      },
+      "cold_chain": false,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": "routine sample Bethnal Green surgery -> St Thomas' lab",
+      "created_at": "2026-06-06T10:43:52.883081Z"
+    },
+    {
+      "id": "job-5",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.5203,
+        "lng": -0.105,
+        "name": "Clerkenwell pharmacy",
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.503,
+        "lng": -0.0884,
+        "name": "Guy's lab",
+        "facility_id": null
+      },
+      "priority": "urgent",
+      "time_window": {
+        "ready_at": "2026-06-06T10:43:52.548277Z",
+        "due_by": "2026-06-06T12:53:52.548277Z"
+      },
+      "cold_chain": true,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": "urgent sample Clerkenwell pharmacy -> Guy's lab",
+      "created_at": "2026-06-06T10:43:52.979625Z"
+    },
+    {
+      "id": "job-6",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.4925,
+        "lng": -0.1465,
+        "name": "Pimlico surgery",
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.5246,
+        "lng": -0.1357,
+        "name": "UCLH lab",
+        "facility_id": null
+      },
+      "priority": "routine",
+      "time_window": {
+        "ready_at": "2026-06-06T10:43:52.548277Z",
+        "due_by": "2026-06-06T13:53:52.548277Z"
+      },
+      "cold_chain": true,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": "routine sample Pimlico surgery -> UCLH lab",
+      "created_at": "2026-06-06T10:43:53.079462Z"
+    },
+    {
+      "id": "job-7",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.5331,
+        "lng": -0.105,
+        "name": "Islington clinic",
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.498,
+        "lng": -0.1188,
+        "name": "St Thomas' lab",
+        "facility_id": null
+      },
+      "priority": "stat",
+      "time_window": {
+        "ready_at": "2026-06-06T10:43:52.548277Z",
+        "due_by": "2026-06-06T11:53:52.548277Z"
+      },
+      "cold_chain": true,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": "stat sample Islington clinic -> St Thomas' lab",
+      "created_at": "2026-06-06T10:43:53.181338Z"
+    },
+    {
+      "id": "job-8",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.4769,
+        "lng": -0.111,
+        "name": "Oval health centre",
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.503,
+        "lng": -0.0884,
+        "name": "Guy's lab",
+        "facility_id": null
+      },
+      "priority": "routine",
+      "time_window": {
+        "ready_at": "2026-06-06T10:43:52.548277Z",
+        "due_by": "2026-06-06T13:53:52.548277Z"
+      },
+      "cold_chain": false,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": "routine sample Oval health centre -> Guy's lab",
+      "created_at": "2026-06-06T10:43:53.286629Z"
+    }
+  ]
+}

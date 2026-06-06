@@ -105,3 +105,28 @@ def test_flywheel_datasets_gated(tmp_path):
         load_dataset("junctions", manifest_path=tmp_manifest)  # dq_passed False
     with pytest.raises(DataNotVerifiedError):
         load_dataset("probes", manifest_path=tmp_manifest)  # hash mismatch
+
+
+def test_new_open_data_datasets_gated(tmp_path):
+    """The 5 new open data datasets are manifest-gated too."""
+    manifest = build_mod.build(allow_network=False)
+    datasets = manifest["datasets"]
+
+    expected_suite = {
+        "airquality": "tests/data_quality/test_airquality.py",
+        "streetworks": "tests/data_quality/test_streetworks.py",
+        "nhspressure": "tests/data_quality/test_nhspressure.py",
+        "cycleinfra": "tests/data_quality/test_cycleinfra.py",
+        "floodwarnings": "tests/data_quality/test_floodwarnings.py",
+    }
+
+    # all five new datasets exist, passed DQ, bind their suite, and load
+    for name, suite in expected_suite.items():
+        assert name in datasets, f"{name} missing from manifest"
+        assert datasets[name]["dq_passed"], f"{name} did not pass DQ"
+        assert datasets[name]["dq_suite"] == suite
+        data = load_dataset(name)
+        assert data, f"{name} loaded empty"
+
+    assert set(expected_suite) <= set(verified_datasets())
+

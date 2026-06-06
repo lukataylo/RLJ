@@ -1,0 +1,59 @@
+{
+  "source": "scheduled",
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "NHS England / Greater London Trust ED Feeds (bundled)",
+  "hospitals": [
+    {
+      "id": "gstt",
+      "name": "Guy's and St Thomas'",
+      "lat": 51.4988,
+      "lng": -0.1189
+    },
+    {
+      "id": "kch",
+      "name": "King's College Hospital",
+      "lat": 51.4679,
+      "lng": -0.0927
+    },
+    {
+      "id": "bart",
+      "name": "St Bartholomew's Hospital",
+      "lat": 51.5185,
+      "lng": -0.0998
+    },
+    {
+      "id": "rfh",
+      "name": "Royal Free Hospital",
+      "lat": 51.554,
+      "lng": -0.165
+    },
+    {
+      "id": "stgeorges",
+      "name": "St George's Hospital",
+      "lat": 51.4272,
+      "lng": -0.1742
+    }
+  ],
+  "baseline_pressure": {
+    "gstt": {
+      "wait_time_min": 180,
+      "load": "busy"
+    },
+    "kch": {
+      "wait_time_min": 240,
+      "load": "critical"
+    },
+    "bart": {
+      "wait_time_min": 90,
+      "load": "normal"
+    },
+    "rfh": {
+      "wait_time_min": 140,
+      "load": "busy"
+    },
+    "stgeorges": {
+      "wait_time_min": 270,
+      "load": "critical"
+    }
+  }
+}
