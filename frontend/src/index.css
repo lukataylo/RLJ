@@ -186,8 +186,7 @@ button {
 .layer-dock {
   position: absolute;
   left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 92px; /* anchored below the top nav so it never overlaps the NemoClaw card */
   z-index: 36;
   display: flex;
   flex-direction: column;
@@ -2241,40 +2240,99 @@ button {
   .how-steps { grid-template-columns: 1fr; }
 }
 
-/* ---- topbar logged-in user + logout (command center, dark theme) ---- */
+/* ---- topbar demo-mode button ---- */
+.nav-demo {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  background: rgba(242, 194, 26, 0.1);
+  border: 1px solid rgba(242, 194, 26, 0.3);
+  border-radius: 999px;
+  padding: 6px 13px;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.nav-demo:hover {
+  background: rgba(242, 194, 26, 0.2);
+  border-color: rgba(242, 194, 26, 0.5);
+  transform: translateY(-1px);
+}
+.nav-demo:disabled { opacity: 0.55; cursor: progress; transform: none; }
+
+/* ---- topbar account avatar + dropdown ---- */
 .nav-user {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
   padding-left: 10px;
   margin-left: 2px;
   border-left: 1px solid var(--hair);
 }
-.nav-user-name {
+.nav-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--yellow);
+  color: #1a1400;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid rgba(242, 194, 26, 0.5);
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.nav-avatar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(242, 194, 26, 0.3);
+}
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 200px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 60;
+}
+.user-dd-email {
   font-family: var(--mono);
-  font-size: 11px;
-  color: var(--muted);
-  max-width: 140px;
+  font-size: 12px;
+  color: var(--text);
+  padding: 8px 10px 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.nav-logout {
+.user-dd-role {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  padding: 0 10px 8px;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 6px;
+}
+.user-dd-item {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 12px;
   color: var(--text);
   background: transparent;
-  border: 1px solid var(--hair-strong);
-  border-radius: 999px;
-  padding: 5px 12px;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  border: none;
+  border-radius: 9px;
+  padding: 9px 10px;
+  transition: background 0.15s, color 0.15s;
 }
-.nav-logout:hover {
-  border-color: var(--red);
+.user-dd-item:hover {
+  background: rgba(255, 77, 77, 0.1);
   color: var(--red);
-  background: rgba(255, 77, 77, 0.07);
 }
 
 /* ---- View toggle: LiDAR point cloud ⇄ operations map ---- */

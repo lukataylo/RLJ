@@ -10,6 +10,8 @@ Env:  ROUTING_URL=http://localhost:8100   (optional; greedy fallback if unreacha
 """
 from __future__ import annotations
 import os
+import json
+import pathlib
 import asyncio
 from datetime import datetime, timezone
 from contextlib import suppress
@@ -291,6 +293,36 @@ async def add_disruption(d: DisruptionEvent, _user: CurrentUser = Depends(requir
 async def optimize(_user: CurrentUser = Depends(require_user)):
     plan = await run_optimize()
     return plan.model_dump(mode="json")
+
+
+# Demo scenario (couriers + jobs) used by the "Demo mode" button so a fresh prod
+# instance shows active routes + deliveries, identical to the local dev scenario.
+# Bundled next to app.py so it ships inside the orchestrator container (whose build
+# root is orchestrator/). Falls back to the repo sample for local dev.
+_DEMO_SCENARIO = pathlib.Path(__file__).resolve().parent / "demo_scenario.json"
+if not _DEMO_SCENARIO.exists():
+    _DEMO_SCENARIO = pathlib.Path(__file__).resolve().parent.parent / "contracts/samples/demo_scenario.json"
+
+
+@app.post("/demo/seed")
+async def demo_seed(_user: CurrentUser = Depends(require_user)):
+    """Populate the in-memory state with the bundled demo scenario and optimise.
+    Idempotent (same ids overwrite). Broadcasts a fresh state so every client
+    re-hydrates with couriers, jobs and the resulting plan."""
+    data = json.loads(_DEMO_SCENARIO.read_text())
+    for c in data.get("couriers", []):
+        crt = Courier(**c)
+        S.couriers[crt.id] = crt
+    for j in data.get("jobs", []):
+        job = DeliveryJob(**j)
+        job.created_at = job.created_at or datetime.now(timezone.utc)
+        S.jobs[job.id] = job
+    plan = await run_optimize()
+    await HUB.emit("state", S.snapshot())
+    await HUB.emit("agent_log", {"level": "info", "source": "system",
+                                 "message": f"Demo mode on — {len(data.get('couriers', []))} couriers, {len(data.get('jobs', []))} jobs dispatched."})
+    return {"couriers": len(S.couriers), "jobs": len(S.jobs),
+            "routes": len(plan.routes) if plan else 0}
 
 
 @app.get("/plan")
