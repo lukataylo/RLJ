@@ -104,16 +104,23 @@ function courierOffset(id: string): number {
   return h / 997;
 }
 
-// Animated demo position: progress the courier along its road-following path over
-// time (desynced per courier). Falls back to the courier's static location.
+// Seconds to traverse a full route once, by vehicle — slower = more realistic
+// (a bike shouldn't blur across London). Demo-compressed but believable.
+const TRAVERSE_SECONDS: Record<string, number> = { van: 150, scooter: 200, bike: 280 };
+
+// Animated demo position: progress the courier along its road-following path at a
+// vehicle-appropriate pace. Ping-pongs (start→end→start) so there's no teleport
+// jump at the loop boundary. Falls back to the courier's static location.
 function courierAnimPos(
   c: Courier,
   roadPaths: Record<string, RoadGeom | null>,
-  phase: number,
+  tSec: number,
 ): [number, number] {
   const road = roadPaths[c.id];
   if (road && road.coords.length >= 2 && c.status !== "offline" && c.status !== "idle") {
-    const f = (phase + courierOffset(c.id)) % 1;
+    const period = TRAVERSE_SECONDS[c.vehicle_type ?? "van"] ?? 150;
+    const u = (tSec / period + courierOffset(c.id)) % 2; // 0..2
+    const f = u <= 1 ? u : 2 - u; // triangle wave → smooth out-and-back
     return posAlong(road.coords, f);
   }
   return [c.location.lng, c.location.lat];
@@ -402,6 +409,7 @@ function buildLayers(
   phase: number,
   roadPaths: Record<string, RoadGeom | null>,
   bounds: Bounds,
+  tSec: number,
 ): Layer[] {
   const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId } = snap;
   const layers: Layer[] = [];
@@ -638,21 +646,21 @@ function buildLayers(
     new ScatterplotLayer<Courier>({
       id: "couriers-glow",
       data: couriers,
-      getPosition: (c) => courierAnimPos(c, roadPaths, phase),
+      getPosition: (c) => courierAnimPos(c, roadPaths, tSec),
       getRadius: 280,
       radiusUnits: "meters",
       radiusMinPixels: 12,
       radiusMaxPixels: 38,
       getFillColor: (c) =>
         [...(COURIER_RGB[c.status] ?? [200, 200, 200]), c.id === selectedCourierId ? 90 : selActive ? 14 : 45] as [number, number, number, number],
-      updateTriggers: { getFillColor: selectedCourierId, getPosition: phase },
+      updateTriggers: { getFillColor: selectedCourierId, getPosition: tSec },
     }),
   );
   layers.push(
     new ScatterplotLayer<Courier>({
       id: "couriers",
       data: couriers,
-      getPosition: (c) => courierAnimPos(c, roadPaths, phase),
+      getPosition: (c) => courierAnimPos(c, roadPaths, tSec),
       getRadius: 110,
       radiusUnits: "meters",
       radiusMinPixels: 6,
@@ -663,7 +671,7 @@ function buildLayers(
       getFillColor: (c) =>
         [...(COURIER_RGB[c.status] ?? [200, 200, 200]), selActive && c.id !== selectedCourierId ? 70 : 255] as [number, number, number, number],
       pickable: true,
-      updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId, getPosition: phase },
+      updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId, getPosition: tSec },
     }),
   );
 
@@ -1281,10 +1289,12 @@ export default function MapView() {
     overlayRef.current = overlay;
 
     let last = performance.now();
+    let elapsed = 0; // monotonic seconds, drives courier movement along roads
     const LOOP_SECONDS = 14;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
+      elapsed += dt;
       phaseRef.current = (phaseRef.current + dt / LOOP_SECONDS) % 1;
       overlay.setProps({
         layers: buildLayers(
@@ -1294,6 +1304,7 @@ export default function MapView() {
           phaseRef.current,
           roadPathsRef.current,
           boundsRef.current,
+          elapsed,
         ),
       });
       rafRef.current = requestAnimationFrame(tick);

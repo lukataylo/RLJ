@@ -865,11 +865,56 @@ button {
 /* ------------------------------------------------ active delivery list ----- */
 /* Headerless delivery stack — each delivery is its own floating glass card
    (the old "ACTIVE DELIVERIES" holding panel was removed per design feedback). */
+/* tabbed delivery sidebar (Active | Upcoming) */
+.delivery-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dl-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 8px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+}
+.dl-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+.dl-tab:hover { color: var(--text); }
+.dl-tab.on { background: var(--fill); color: var(--text); }
+.dl-tab-n {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(200, 220, 180, 0.1);
+  border-radius: 6px;
+  padding: 0 5px;
+}
+.dl-tab.on .dl-tab-n { color: var(--accent, var(--lime)); }
+
 .delivery-stack {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  gap: 10px;
+  gap: 8px;
   overflow-y: auto;
   padding-right: 4px;
   min-height: 0;
@@ -880,6 +925,116 @@ button {
   padding: 12px 14px;
   border-radius: 16px;
 }
+
+/* ---- delivery card · Option 3 (single line + progress underline) ---- */
+.dcard.dc3 {
+  padding: 10px 12px;
+}
+.dc3-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.dc3 .dc-veh {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+.dc3-od {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.dc3-od .dc-from, .dc3-od .dc-to {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46%;
+}
+.dc3-arrow { color: var(--accent, var(--yellow)); flex: 0 0 auto; }
+.dc3-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lime);
+}
+.dc3-dot.risk { background: var(--amber); }
+.dc3-dot.late { background: var(--red); }
+.dc3-pct {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.dc3-track {
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(200, 220, 180, 0.1);
+  overflow: hidden;
+  margin-top: 9px;
+}
+.dc3-track i {
+  display: block;
+  height: 100%;
+  background: var(--lime);
+  transition: width 0.5s ease;
+}
+.dc3-track i.risk { background: var(--amber); }
+.dc3-track i.late { background: var(--red); }
+
+/* hover / selected detail reveal */
+.dc3-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.18s ease, opacity 0.18s ease, margin-top 0.18s ease;
+}
+.dcard.dc3:hover .dc3-details,
+.dcard.dc3.selected .dc3-details {
+  max-height: 40px;
+  opacity: 1;
+  margin-top: 8px;
+}
+.dc3-meta {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dc3-redirect {
+  flex: 0 0 auto;
+  background: rgba(242, 194, 26, 0.12);
+  border: 1px solid rgba(242, 194, 26, 0.32);
+  border-radius: 999px;
+  padding: 4px 11px;
+  color: var(--yellow);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.dc3-redirect:hover { background: rgba(242, 194, 26, 0.22); }
+.dc3-redirect.done { color: var(--bg); background: var(--lime); border-color: var(--lime); }
+.dc3-redirect.error { color: #fff; background: var(--red); border-color: var(--red); }
 
 /* one delivery card — iOS-style glassmorphic */
 .dcard {
@@ -2783,3 +2938,7 @@ button {
   width: 15px;
   height: 15px;
 }
+
+/* assessment pill colours when shown inline in the dc3 details */
+.dc-assess-pill.reroute_suggested { color: var(--bg); background: var(--amber); }
+.dc-assess-pill.at_risk { color: #fff; background: var(--red); }

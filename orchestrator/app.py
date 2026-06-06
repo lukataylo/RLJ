@@ -34,6 +34,11 @@ import auth
 from auth import require_user, current_user, CurrentUser
 
 ROUTING_URL = os.getenv("ROUTING_URL", "http://localhost:8100")
+# LLM seam for NemoClaw operator Q&A (OpenAI-compatible: OpenAI / Nebius / local Ollama).
+# Unset → deterministic state-summary fallback so "Ask NemoClaw" always answers.
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").rstrip("/")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
 app = FastAPI(title="RLJ orchestrator")
 # CORS locked to an env allowlist (the PulseGo frontends). Dev default = local Vite ports.
@@ -463,9 +468,57 @@ async def post_signal_recs(body: SignalRecommendations, _user: CurrentUser = Dep
 
 
 # ----------------------------------------------------------------------------- agent channel
+def _fleet_summary() -> str:
+    couriers = list(S.couriers.values())
+    jobs = list(S.jobs.values())
+    online = sum(1 for c in couriers if getattr(c, "status", "") != "offline")
+    stat = sum(1 for j in jobs
+               if getattr(j, "priority", "") == "stat" and getattr(j, "status", "") not in ("delivered", "failed"))
+    routes = len(S.plan.routes) if S.plan else 0
+    obj = S.plan.objective if S.plan else None
+    met = getattr(obj, "windows_met", 0) if obj else 0
+    tot = getattr(obj, "windows_total", 0) if obj else 0
+    disr = [d.kind for d in S.disruptions][-5:]
+    return (f"{online} couriers online, {len(jobs)} jobs, {stat} STAT in flight, "
+            f"{routes} active routes, {met}/{tot} delivery windows on-time. "
+            f"Active disruptions: {', '.join(disr) if disr else 'none'}.")
+
+
+async def _llm_answer(question: str) -> str | None:
+    """Answer via the configured OpenAI-compatible LLM; None on no-config/failure."""
+    if not LLM_BASE_URL:
+        return None
+    system = (
+        "You are NemoClaw, the on-prem AI dispatcher for a London medical-courier fleet "
+        "running locally on an NVIDIA DGX Spark (zero cloud egress). Answer the operator "
+        "in 1-3 short, concrete, calm sentences. Live fleet state: " + _fleet_summary()
+    )
+    body = {
+        "model": LLM_MODEL,
+        "temperature": 0.3,
+        "max_tokens": 180,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": question},
+        ],
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.post(
+                f"{LLM_BASE_URL}/chat/completions",
+                headers={"Authorization": f"Bearer {LLM_API_KEY}"},
+                json=body,
+            )
+            r.raise_for_status()
+            return r.json()["choices"][0]["message"]["content"].strip()
+    except Exception:  # noqa: BLE001 — fall back to the deterministic summary
+        return None
+
+
 @app.post("/agent/ask")
 async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
-    """Queue a question for the GB10 NemoClaw agent (it polls /agent/tasks and answers)."""
+    """Answer an operator question directly (LLM seam; deterministic fallback). Also
+    leaves a record for the optional GB10 box agent."""
     S._task_n += 1
     task = {"id": f"task-{S._task_n}", "question": body.question,
             "ts": _now_iso(), "status": "pending"}
@@ -473,6 +526,15 @@ async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
     S.agent_tasks = S.agent_tasks[-50:]
     await HUB.emit("agent_log", {"level": "info", "source": "operator",
                                  "message": f"Asked NemoClaw: {body.question[:120]}"})
+
+    answer = await _llm_answer(body.question)
+    if not answer:
+        answer = "Local read — " + _fleet_summary()
+    task["status"] = "answered"
+    task["answer"] = answer
+    await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
+                                 "message": f"NemoClaw: {answer[:280]}"})
+    await HUB.emit("agent_answer", {"task_id": task["id"], "answer": answer})
     return task
 
 

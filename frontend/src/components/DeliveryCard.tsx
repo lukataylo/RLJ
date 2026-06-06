@@ -1,6 +1,7 @@
-// One ACTIVE delivery, rendered as a card in the right-column delivery list.
-// Clicking the card selects its courier (which highlights the route on the map);
-// the ✕ on a selected card clears the selection.
+// One active delivery — a single-line row: vehicle icon · Origin → Destination · %
+// with a hairline progress underline coloured by on-time status. Hovering (or
+// selecting) the row reveals the vehicle type, stop count, places, and Redirect.
+// Clicking selects the courier (highlights the route on the map).
 
 import { useState } from "react";
 import { VehicleIcon } from "./icons";
@@ -21,17 +22,21 @@ export interface DeliveryItem {
   /** 0..1 route progress for the assigned courier. */
   progress: number;
   onTime: OnTimeKind;
-  /** Dropoff ETA / due epoch ms for sorting + sub-line, when known. */
   dueTs: number | null;
+  /** Active = this courier's current leg; upcoming = queued behind it. */
+  phase: "active" | "upcoming";
+  /** Hover detail. */
+  vehicleLabel: string;
+  routeStops: number;
+  routePlaces: string[];
 }
 
 const PILL_LABEL: Record<OnTimeKind, string> = {
-  ontime: "✓ ON TIME",
-  risk: "⚠ AT RISK",
-  late: "✕ LATE",
+  ontime: "On time",
+  risk: "At risk",
+  late: "Late",
 };
 
-// Per-driver assessment pill copy (on_time is intentionally not shown).
 const ASSESS_LABEL: Record<FleetAssessment["status"], string> = {
   on_time: "ON TIME",
   reroute_suggested: "⤳ REROUTE",
@@ -53,11 +58,7 @@ export default function DeliveryCard({
 }) {
   const pct = Math.round(Math.max(0, Math.min(1, item.progress)) * 100);
   const isStat = item.priority === "stat";
-
-  const [redirectState, setRedirectState] = useState<"idle" | "redirecting" | "done" | "error">(
-    "idle",
-  );
-
+  const [redirectState, setRedirectState] = useState<"idle" | "redirecting" | "done" | "error">("idle");
   const showAssessment = !!assessment && assessment.status !== "on_time";
 
   const doRedirect = async () => {
@@ -69,28 +70,27 @@ export default function DeliveryCard({
     } catch {
       setRedirectState("error");
     } finally {
-      // Briefly show the outcome, then return to idle so the button is reusable.
       window.setTimeout(() => setRedirectState("idle"), 2200);
     }
   };
 
   const redirectLabel =
-    redirectState === "redirecting"
-      ? "redirecting…"
-      : redirectState === "done"
-        ? "✓ redirected"
-        : redirectState === "error"
-          ? "✕ failed"
+    redirectState === "redirecting" ? "redirecting…"
+      : redirectState === "done" ? "✓ redirected"
+        : redirectState === "error" ? "✕ failed"
           : "Redirect →";
+
+  const hoverTitle = `${item.vehicleLabel} · ${item.routeStops} stops · ${item.routePlaces.join(" · ")}`;
 
   return (
     <div
       role="button"
       tabIndex={0}
-      className={`dcard ${selected ? "selected" : ""} ${isStat ? "stat" : ""}`}
+      className={`dcard dc3 ${selected ? "selected" : ""} ${isStat ? "stat" : ""}`}
       data-testid="delivery-card"
       data-courier={item.courierId}
       aria-pressed={selected}
+      title={hoverTitle}
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -99,67 +99,52 @@ export default function DeliveryCard({
         }
       }}
     >
-      <div className="dc-top">
+      <div className="dc3-line">
         <span className={`dc-veh status-${item.vehicle ?? "van"}`}>
-          <VehicleIcon vehicle={item.vehicle} size={18} />
+          <VehicleIcon vehicle={item.vehicle} size={16} />
         </span>
-
-        <div className="dc-route">
-          <div className="dc-od">
-            <span className="dc-from">{item.fromName}</span>
-            <span className="dc-arrow">→</span>
-            <span className="dc-to">{item.toName}</span>
-          </div>
-        </div>
-
+        <span className="dc3-od">
+          <span className="dc-from">{item.fromName}</span>
+          <span className="dc3-arrow">→</span>
+          <span className="dc-to">{item.toName}</span>
+        </span>
+        <span className={`dc3-dot ${item.onTime}`} title={PILL_LABEL[item.onTime]} />
+        <span className="dc3-pct">{pct}%</span>
         {selected && (
           <button
             type="button"
             className="dc-x"
             aria-label="Clear selection"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClear();
-            }}
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
           >
             ✕
           </button>
         )}
       </div>
 
-      <div className="dc-prog-track grad">
-        <div className="dc-prog-fill" style={{ width: `${pct}%` }} />
+      <div className="dc3-track">
+        <i className={item.onTime} style={{ width: `${pct}%` }} />
       </div>
 
-      {showAssessment && assessment && (
-        <div
-          className={`dc-assess ${assessment.status}`}
-          data-testid="assessment-pill"
-          title={assessment.note}
+      {/* revealed on hover / when selected */}
+      <div className="dc3-details">
+        <span className="dc3-meta">
+          {item.vehicleLabel} · {item.routeStops} stops · {item.routePlaces.join(" · ")}
+        </span>
+        {showAssessment && assessment && (
+          <span className={`dc-assess-pill ${assessment.status}`} title={assessment.note}>
+            {ASSESS_LABEL[assessment.status]}
+          </span>
+        )}
+        <button
+          type="button"
+          className={`dc3-redirect ${redirectState}`}
+          data-testid="btn-redirect"
+          disabled={redirectState === "redirecting"}
+          onClick={(e) => { e.stopPropagation(); void doRedirect(); }}
         >
-          <span className="dc-assess-pill">{ASSESS_LABEL[assessment.status]}</span>
-          {assessment.note && <span className="dc-assess-note">{assessment.note}</span>}
-        </div>
-      )}
-
-      <div className="dc-foot">
-        <span className={`dc-pill ${item.onTime}`}>{PILL_LABEL[item.onTime]}</span>
-        <div className="dc-foot-right">
-          <span className="dc-pct">{pct}%</span>
-          <button
-            type="button"
-            className={`dc-redirect ${redirectState}`}
-            data-testid="btn-redirect"
-            disabled={redirectState === "redirecting"}
-            aria-busy={redirectState === "redirecting"}
-            onClick={(e) => {
-              e.stopPropagation();
-              void doRedirect();
-            }}
-          >
-            {redirectLabel}
-          </button>
-        </div>
+          {redirectLabel}
+        </button>
       </div>
     </div>
   );
