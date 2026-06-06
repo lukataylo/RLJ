@@ -107,8 +107,11 @@ export const DRIVER_HEX = "#AEE36B";
 // free-flowing segments, red where the path passes through live congestion.
 export const ROUTE_NEUTRAL_RGB: [number, number, number] = [107, 119, 133]; // #6B7785
 export const ROUTE_CONGESTED_RGB: [number, number, number] = [255, 77, 77]; // #FF4D4D
+// Vivid blue for a focused/selected route — stands out while others dim.
+export const ROUTE_HIGHLIGHT_RGB: [number, number, number] = [42, 127, 255]; // #2A7FFF
 export const ROUTE_NEUTRAL_HEX = "#6B7785";
 export const ROUTE_CONGESTED_HEX = "#FF4D4D";
+export const ROUTE_HIGHLIGHT_HEX = "#2A7FFF";
 
 // Junction signal phase colours.
 export const SIGNAL_GREEN_RGB: [number, number, number] = [191, 227, 107];

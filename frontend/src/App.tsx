@@ -10,7 +10,6 @@ import TopBar from "./components/TopBar";
 import EfficiencyPanel from "./components/EfficiencyPanel";
 import Inspector from "./components/Inspector";
 import DeliveryList from "./components/DeliveryList";
-import IntakeBox from "./components/IntakeBox";
 import AgentLog from "./components/AgentLog";
 import VerificationPanel from "./components/VerificationPanel";
 import { connectWs, getCctv, getFleetAssessments, getSignalRecs, getState, me } from "./api";
@@ -108,7 +107,6 @@ export default function App() {
 
       <div className="right-stack">
         <EfficiencyPanel />
-        <IntakeBox />
         <DeliveryList />
         <Inspector />
       </div>

@@ -63,6 +63,7 @@ interface OpsState {
   lastNotification: Notification | null;
   history: MetricSample[];
   selectedCourierId: string | null;
+  focusJobId: string | null;
   fleetAssessments: Record<string, FleetAssessment>;
   cctv: CctvCamera[];
   lastAgentAnswer: AgentAnswer | null;
@@ -80,6 +81,7 @@ interface OpsState {
   applyEvent: (e: WsEvent) => void;
   pushLog: (line: Omit<LogLine, "ts"> & { ts?: string }) => void;
   selectCourier: (id: string | null) => void;
+  setFocusJob: (id: string | null) => void;
   setFleetAssessments: (list: FleetAssessment[]) => void;
   setCctv: (list: CctvCamera[]) => void;
 }
@@ -106,6 +108,7 @@ export const useStore = create<OpsState>((set, get) => ({
   lastNotification: null,
   history: [],
   selectedCourierId: null,
+  focusJobId: null,
   fleetAssessments: {},
   cctv: [],
   lastAgentAnswer: null,
@@ -132,6 +135,8 @@ export const useStore = create<OpsState>((set, get) => ({
   setConnected: (v) => set({ connected: v }),
 
   selectCourier: (id) => set({ selectedCourierId: id }),
+
+  setFocusJob: (id) => set({ focusJobId: id }),
 
   setFleetAssessments: (list) =>
     set({ fleetAssessments: keyByCourier(Array.isArray(list) ? list : []) }),

@@ -40,6 +40,7 @@ import {
   DISRUPTION_CLASS_RGB,
   PRIORITY_RGB,
   ROUTE_CONGESTED_RGB,
+  ROUTE_HIGHLIGHT_RGB,
   ROUTE_NEUTRAL_RGB,
   congestionRGB,
   facilityRGB,
@@ -158,6 +159,7 @@ interface Snapshot {
   signalRecs: SignalRec[];
   cctv: CctvCamera[];
   selectedCourierId: string | null;
+  focusJobId: string | null;
 }
 
 // Map viewport bounds [west, south, east, north]; null until the map first moves.
@@ -178,6 +180,7 @@ const EMPTY_SNAP: Snapshot = {
   signalRecs: [],
   cctv: [],
   selectedCourierId: null,
+  focusJobId: null,
 };
 
 // Short uppercase glyph per signal action for the on-map label.
@@ -325,9 +328,19 @@ function buildLayers(
   roadPaths: Record<string, LngLat[] | null>,
   bounds: Bounds,
 ): Layer[] {
-  const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId } = snap;
+  const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId, focusJobId } = snap;
   const layers: Layer[] = [];
   const courierById = new Map(couriers.map((c) => [c.id, c]));
+
+  // The courier whose route serves the just-created (focused) job, if any.
+  const focusedCourierId =
+    focusJobId != null
+      ? plan?.routes?.find((r) => (r.stops ?? []).some((s) => s.job_id === focusJobId))
+          ?.courier_id ?? null
+      : null;
+  // A route is "highlighted" (vivid blue) when it's the selected OR the focused one.
+  const isHighlighted = (courierId: string) =>
+    courierId === selectedCourierId || courierId === focusedCourierId;
 
   // 1. Congestion-as-roads — glowing Waze-style coloured network.
   if (vis.congestion && data.roads.length) {
@@ -363,7 +376,10 @@ function buildLayers(
 
   // 2. Routes — road-following geometry (Directions API) or straight fallback,
   //    coloured Google-Maps style: NEUTRAL grey-blue, RED through congestion.
+  // Click-to-select dimming (connectors / job nodes / courier markers below).
   const selActive = selectedCourierId != null;
+  // Any route in "highlighted" focus (a selected courier or a freshly-created job)?
+  const highlightActive = selectedCourierId != null || focusedCourierId != null;
   const congSources = congestionSources(data.roads, congestion.cells, congestion.generated_at ?? "static");
 
   const routeLines = (plan?.routes ?? [])
@@ -374,12 +390,12 @@ function buildLayers(
       const road = roadPaths[r.courier_id];
       const path = road && road.length >= 2 ? road : fallbackPath(plan, r.courier_id, stopCoords);
       if (path.length < 2) return null;
-      return { courier_id: r.courier_id, selected: r.courier_id === selectedCourierId, path };
+      return { courier_id: r.courier_id, highlighted: isHighlighted(r.courier_id), path };
     })
-    .filter((r): r is { courier_id: string; selected: boolean; path: LngLat[] } => r !== null);
+    .filter((r): r is { courier_id: string; highlighted: boolean; path: LngLat[] } => r !== null);
 
   // One record per drawn segment so each can be neutral or red independently.
-  interface RouteSeg { courier_id: string; selected: boolean; congested: boolean; path: LngLat[] }
+  interface RouteSeg { courier_id: string; highlighted: boolean; congested: boolean; path: LngLat[] }
   const routeSegs: RouteSeg[] = [];
   for (const rl of routeLines) {
     for (let i = 0; i < rl.path.length - 1; i++) {
@@ -387,17 +403,20 @@ function buildLayers(
       const b = rl.path[i + 1];
       routeSegs.push({
         courier_id: rl.courier_id,
-        selected: rl.selected,
+        highlighted: rl.highlighted,
         congested: segmentCongested(a, b, congSources),
         path: [a, b],
       });
     }
   }
 
-  // Alpha ramps: when a route is selected, it brightens and the rest dim away.
-  const segGlowAlpha = (s: RouteSeg) => (!selActive ? 60 : s.selected ? 100 : 16);
-  const segMainAlpha = (s: RouteSeg) => (!selActive ? 215 : s.selected ? 255 : 55);
-  const segColor = (s: RouteSeg) => (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB);
+  // Alpha ramps: when a route is highlighted, it brightens and the rest dim away.
+  const segGlowAlpha = (s: RouteSeg) => (!highlightActive ? 60 : s.highlighted ? 130 : 16);
+  const segMainAlpha = (s: RouteSeg) => (!highlightActive ? 215 : s.highlighted ? 255 : 55);
+  // Highlighted routes render in vivid blue for clarity; everything else keeps
+  // the Google-Maps neutral/red congestion colouring.
+  const segColor = (s: RouteSeg) =>
+    s.highlighted ? ROUTE_HIGHLIGHT_RGB : s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB;
 
   if (vis.routes && routeSegs.length) {
     layers.push(
@@ -406,11 +425,14 @@ function buildLayers(
         data: routeSegs,
         getPath: (d) => d.path,
         getColor: (d) => [...segColor(d), segGlowAlpha(d)] as [number, number, number, number],
-        getWidth: (d) => (d.selected ? 16 : 10),
+        getWidth: (d) => (d.highlighted ? 18 : 10),
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
-        updateTriggers: { getColor: selectedCourierId, getWidth: selectedCourierId },
+        updateTriggers: {
+          getColor: [selectedCourierId, focusedCourierId],
+          getWidth: [selectedCourierId, focusedCourierId],
+        },
       }),
     );
     layers.push(
@@ -419,12 +441,15 @@ function buildLayers(
         data: routeSegs,
         getPath: (d) => d.path,
         getColor: (d) => [...segColor(d), segMainAlpha(d)] as [number, number, number, number],
-        getWidth: (d) => (d.selected ? 5.5 : 3.4),
+        getWidth: (d) => (d.highlighted ? 6.5 : 3.4),
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
         pickable: true,
-        updateTriggers: { getColor: selectedCourierId, getWidth: selectedCourierId },
+        updateTriggers: {
+          getColor: [selectedCourierId, focusedCourierId],
+          getWidth: [selectedCourierId, focusedCourierId],
+        },
       }),
     );
     // (Removed the animated "trip-head" dots that raced along every route — they read as
@@ -905,6 +930,7 @@ export default function MapView() {
         signalRecs: s.signalRecs,
         cctv: s.cctv,
         selectedCourierId: s.selectedCourierId,
+        focusJobId: s.focusJobId,
       };
       setCounts({
         jobs: jobs.length,
