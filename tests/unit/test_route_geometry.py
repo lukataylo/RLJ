@@ -220,11 +220,134 @@ def test_optimized_route_falls_back_to_input_order_when_no_matrix(monkeypatch):
 
 
 def test_optimized_route_never_raises(monkeypatch):
-    # Everything blows up -> identity order, empty polyline, no exception.
+    # Valhalla down -> matrix/shape degrade to None/[]; identity order, empty
+    # polyline, one (empty) trip. No exception bubbles up.
     def boom(*a, **k):
         raise ConnectionError("valhalla down")
 
     import httpx
     monkeypatch.setattr(httpx, "post", boom)
     out = route_preview.optimized_route([51.50, 51.51, 51.52], [-0.10, -0.11, -0.12])
-    assert out == {"order": [0, 1, 2], "polyline": []}
+    assert out["order"] == [0, 1, 2]
+    assert out["polyline"] == []
+    assert out["splits"] == 1
+    assert out["trips"] == [{"order": [0, 1, 2], "polyline": []}]
+
+
+# --- optimized_route: capacity + cold-chain/priority awareness -----------------------
+def test_optimized_route_backcompat_no_weights_no_capacity(monkeypatch):
+    # Without weights/capacity: same shortest-time NN+2-opt order as before, plus
+    # the new trips/splits envelope (one trip, no split).
+    matrix = [[0, 100, 50], [100, 0, 30], [50, 30, 0]]
+    leg = [[51.5074, -0.1278], [51.5085, -0.1290]]
+    import httpx
+    monkeypatch.setattr(httpx, "post", _route_dispatch(matrix, leg))
+
+    out = route_preview.optimized_route([51.50, 51.51, 51.52], [-0.10, -0.11, -0.12])
+    assert out["order"] == [0, 2, 1]      # unchanged shortest-time ordering
+    assert out["splits"] == 1
+    assert len(out["trips"]) == 1
+    assert out["trips"][0]["order"] == [0, 2, 1]
+    assert out["polyline"] == out["trips"][0]["polyline"]
+
+
+def test_optimized_route_weights_pull_urgent_drop_earlier(monkeypatch):
+    # Pure distance from origin: drop1(idx1) near (10), drop2(idx2) far (20)
+    # -> shortest-time order visits idx1 first => [0, 1, 2].
+    # idx2 is the high-weight (cold/STAT) drop; with these distances the weighted
+    # objective (Σ wᵢ·tᵢ) is minimised by serving the urgent far drop FIRST.
+    matrix = [
+        [0,  10, 20],
+        [10, 0,  30],
+        [20, 30, 0],
+    ]
+    leg = [[51.5074, -0.1278], [51.5085, -0.1290]]
+    import httpx
+    monkeypatch.setattr(httpx, "post", _route_dispatch(matrix, leg))
+
+    # sanity: without weights, the near drop (idx1) is visited first
+    plain = route_preview.optimized_route(
+        [51.50, 51.51, 51.52], [-0.10, -0.11, -0.12])
+    assert plain["order"] == [0, 1, 2]
+
+    weighted = route_preview.optimized_route(
+        [51.50, 51.51, 51.52], [-0.10, -0.11, -0.12],
+        weights=[0, 1, 5])  # idx2 far but most urgent
+    assert weighted["order"][0] == 0
+    # the urgent far drop is delivered before the cheap near one
+    assert weighted["order"].index(2) < weighted["order"].index(1)
+
+
+def test_optimized_route_capacity_splits_into_trips(monkeypatch):
+    # 3 drops, 1 unit each, capacity 2 -> 2 trips: [0,a,b] then [0,c].
+    matrix = [
+        [0,  10, 20, 30],
+        [10, 0,  12, 22],
+        [20, 12, 0,  10],
+        [30, 22, 10, 0],
+    ]
+    leg = [[51.5074, -0.1278], [51.5085, -0.1290]]
+    import httpx
+    monkeypatch.setattr(httpx, "post", _route_dispatch(matrix, leg))
+
+    out = route_preview.optimized_route(
+        [51.50, 51.51, 51.52, 51.53], [-0.10, -0.11, -0.12, -0.13],
+        units=[1, 1, 1], capacity=2)
+    assert out["splits"] == 2
+    assert len(out["trips"]) == 2
+    # each trip is origin + its chunk, with ≤ capacity drops
+    for trip in out["trips"]:
+        assert trip["order"][0] == 0
+        assert len(trip["order"]) - 1 <= 2
+    # all drops covered exactly once across trips, origin per trip
+    drops = [i for trip in out["trips"] for i in trip["order"][1:]]
+    assert sorted(drops) == [1, 2, 3]
+    # combined polyline is the concatenation of the per-trip polylines
+    assert out["polyline"] == out["trips"][0]["polyline"] + out["trips"][1]["polyline"]
+
+
+def test_optimized_route_capacity_respects_per_drop_units(monkeypatch):
+    # Heavy drops: units [2,2,2], capacity 3 -> each drop alone => 3 trips.
+    matrix = [
+        [0,  10, 20, 30],
+        [10, 0,  12, 22],
+        [20, 12, 0,  10],
+        [30, 22, 10, 0],
+    ]
+    leg = [[51.5074, -0.1278], [51.5085, -0.1290]]
+    import httpx
+    monkeypatch.setattr(httpx, "post", _route_dispatch(matrix, leg))
+
+    out = route_preview.optimized_route(
+        [51.50, 51.51, 51.52, 51.53], [-0.10, -0.11, -0.12, -0.13],
+        units=[2, 2, 2], capacity=3)
+    assert out["splits"] == 3
+    for trip in out["trips"]:
+        assert len(trip["order"]) == 2  # origin + a single drop
+
+
+def test_optimized_route_unlimited_capacity_single_trip(monkeypatch):
+    matrix = [[0, 100, 50], [100, 0, 30], [50, 30, 0]]
+    leg = [[51.5074, -0.1278], [51.5085, -0.1290]]
+    import httpx
+    monkeypatch.setattr(httpx, "post", _route_dispatch(matrix, leg))
+
+    out = route_preview.optimized_route(
+        [51.50, 51.51, 51.52], [-0.10, -0.11, -0.12],
+        units=[5, 5], capacity=None)
+    assert out["splits"] == 1
+
+
+def test_optimized_route_capacity_never_raises(monkeypatch):
+    # Valhalla down + capacity: still degrades gracefully (no matrix -> identity
+    # order, empty polylines) while honouring the split. Never raises.
+    import httpx
+    monkeypatch.setattr(httpx, "post",
+                        lambda *a, **k: (_ for _ in ()).throw(ConnectionError("down")))
+    out = route_preview.optimized_route(
+        [51.50, 51.51, 51.52], [-0.10, -0.11, -0.12],
+        weights=[0, 1, 2], units=[1, 1], capacity=1)
+    assert out["order"] == [0, 1, 2]
+    assert out["polyline"] == []
+    assert out["splits"] == 2  # 2 units, cap 1 -> two (empty) trips
+    assert all(t["polyline"] == [] for t in out["trips"])

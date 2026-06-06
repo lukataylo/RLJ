@@ -70,6 +70,110 @@ def test_resolve_unknown_returns_none():
     assert geocode.resolve("") is None
 
 
+# --------------------------------------------------------------- type-aware resolve
+def _entry(geocode, name, lat, lng, type_, aliases=()):
+    """A gazetteer entry in the module's in-memory shape."""
+    return {
+        "name": name, "lat": lat, "lng": lng,
+        "norm": geocode._norm(name), "type": type_,
+        "aliases": [geocode._norm(a) for a in aliases],
+    }
+
+
+def _install(geocode, monkeypatch, entries):
+    """Swap in a tiny synthetic gazetteer so type-ranking is deterministic even
+    when the big data/gazetteer.json is absent on a dev box."""
+    exact = {}
+    for e in entries:
+        exact.setdefault(e["norm"], e)
+        for a in e["aliases"]:
+            exact.setdefault(a, e)
+    monkeypatch.setattr(geocode, "_GAZETTEER", entries)
+    monkeypatch.setattr(geocode, "_EXACT", exact)
+    monkeypatch.setattr(geocode, "_FUZZY_KEYS", list(exact.keys()))
+
+
+def test_health_types_constant():
+    geocode = _load("geocode")
+    assert {"hospital", "lab", "clinic", "gp", "pharmacy", "health"} <= set(geocode.HEALTH_TYPES)
+
+
+def test_resolve_result_includes_type():
+    geocode = _load("geocode")
+    r = geocode.resolve("Guy's Hospital")
+    assert r and "type" in r
+    # facilities.json tags Guy's as a hospital
+    assert r["type"] == "hospital"
+
+
+def test_resolve_prefer_types_picks_hospital_over_samename_place(monkeypatch):
+    # Synthetic reproduction of the real bug: "Whittington" -> housing estate.
+    geocode = _load("geocode")
+    _install(geocode, monkeypatch, [
+        _entry(geocode, "Whittington Estate", 51.5651, -0.1424, "place"),
+        _entry(geocode, "Whittington Hospital", 51.5658, -0.1390, "hospital"),
+    ])
+    # Default (no preference): pure name-similarity favors the SHORTER same-named
+    # place -> this is exactly the mis-resolution we are fixing.
+    assert geocode.resolve("whittington")["name"] == "Whittington Estate"
+    # Type-aware: the hospital wins.
+    r = geocode.resolve("whittington", prefer_types=geocode.HEALTH_TYPES)
+    assert r["name"] == "Whittington Hospital"
+    assert r["type"] == "hospital"
+
+
+def test_resolve_prefer_types_main_hospital_beats_subclinic(monkeypatch):
+    # Among health entries, prefer the shorter/closer exact-ish hospital name over
+    # a longer sub-clinic (the "UCLH main vs Westmoreland Street" shape).
+    geocode = _load("geocode")
+    _install(geocode, monkeypatch, [
+        _entry(geocode, "University College Hospital at Westmoreland Street",
+               51.5196, -0.1497, "health"),
+        _entry(geocode, "University College Hospital", 51.5248, -0.1365, "health"),
+        _entry(geocode, "University College Estate", 51.5230, -0.1300, "place"),
+    ])
+    # Exact-ish full name -> the main hospital, not the longer sub-clinic.
+    r = geocode.resolve("university college hospital", prefer_types=geocode.HEALTH_TYPES)
+    assert r["name"] == "University College Hospital"
+    # Partial name still prefers a health entry over the same-named place.
+    r2 = geocode.resolve("university college", prefer_types=geocode.HEALTH_TYPES)
+    assert r2["type"] in geocode.HEALTH_TYPES
+
+
+def test_resolve_prefer_types_is_soft_no_health_match(monkeypatch):
+    # When nothing health-y matches, still resolve to the best place (e.g. Dalston).
+    geocode = _load("geocode")
+    _install(geocode, monkeypatch, [
+        _entry(geocode, "Dalston", 51.5432, -0.0760, "place"),
+        _entry(geocode, "Kingsland", 51.5460, -0.0760, "place"),
+    ])
+    r = geocode.resolve("dalston", prefer_types=geocode.HEALTH_TYPES)
+    assert r and r["name"] == "Dalston"
+
+
+def test_resolve_prefer_types_none_preserves_behavior(monkeypatch):
+    # prefer_types=None must reproduce the un-biased result (back-compat).
+    geocode = _load("geocode")
+    _install(geocode, monkeypatch, [
+        _entry(geocode, "Whittington Estate", 51.5651, -0.1424, "place"),
+        _entry(geocode, "Whittington Hospital", 51.5658, -0.1390, "hospital"),
+    ])
+    none_res = geocode.resolve("whittington")
+    explicit = geocode.resolve("whittington", prefer_types=None)
+    assert none_res == explicit
+    assert none_res["name"] == "Whittington Estate"  # un-biased default
+
+
+def test_resolve_prefer_types_real_facilities():
+    # Real data path (facilities.json is always present): a hospital from the
+    # curated facilities must beat any same-named generic POI when health-preferred.
+    geocode = _load("geocode")
+    r = geocode.resolve("whittington", prefer_types=geocode.HEALTH_TYPES)
+    assert r is not None
+    assert r["type"] in geocode.HEALTH_TYPES
+    assert "hospital" in r["name"].lower()
+
+
 # --------------------------------------------------------------------------- intake parse
 def test_parse_delivery_heuristic_fallback(monkeypatch):
     geocode = _load("geocode")

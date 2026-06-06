@@ -277,6 +277,17 @@ class AgentIntake(BaseModel):
     text: str
 
 
+def _resolve_health(name: str):
+    """Resolve a place, biasing toward medical facilities when the resolver supports
+    it. Tolerates a ``geocode.resolve`` that doesn't (yet) accept ``prefer_types``
+    (the resolver is owned by another stream and may merge that kwarg later)."""
+    prefer = getattr(geocode, "HEALTH_TYPES", None)
+    try:
+        return geocode.resolve(name, prefer_types=prefer)
+    except TypeError:
+        return geocode.resolve(name)
+
+
 @app.post("/intake")
 async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
     """Offline natural-language delivery intake — MULTI-DROP.
@@ -292,7 +303,7 @@ async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
 
     parsed = parse_delivery(text, geocode.place_names())
 
-    origin = geocode.resolve(parsed["origin"])
+    origin = _resolve_health(parsed["origin"])
     if origin is None:
         return {"ok": False,
                 "error": f"could not resolve '{parsed['origin']}'",
@@ -300,7 +311,7 @@ async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
 
     resolved_dests: list[dict] = []
     for name in parsed["destinations"]:
-        d = geocode.resolve(name)
+        d = _resolve_health(name)
         if d is None:
             return {"ok": False,
                     "error": f"could not resolve '{name}'",
@@ -317,6 +328,7 @@ async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
     origin_loc = Location(lat=origin["lat"], lng=origin["lng"], name=origin["name"])
     created_jobs: list[dict] = []
     job_ids: list[str] = []
+    drop_units: list[float] = []
     for d in resolved_dests:
         job = await _add_job(DeliveryJob(
             type=parsed["type"],
@@ -328,21 +340,39 @@ async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
         ))
         created_jobs.append(job.model_dump(mode="json"))
         job_ids.append(job.id)
+        drop_units.append(float(job.capacity_units))
     await run_optimize()
     for jid in job_ids:
         await emit_dispatch_notification(jid)
 
-    # Optimised multi-hop route: [origin] + drops, visiting order chosen by Valhalla.
+    # Optimised multi-hop route: [origin] + drops. Cold-chain/STAT drops are pulled
+    # earlier (weighted arrival), and the load is split into capacity-bounded trips.
     pts = [origin] + resolved_dests
-    opt = route_preview.optimized_route([p["lat"] for p in pts], [p["lng"] for p in pts])
+    base_w = {"stat": 3, "urgent": 2, "routine": 1}.get(parsed["priority"], 1)
+    drop_weight = base_w + (1 if parsed["cold_chain"] else 0)
+    weights = [0] + [drop_weight] * len(resolved_dests)
+    try:
+        trip_capacity = float(os.environ.get("TRIP_CAPACITY", "6"))
+    except ValueError:
+        trip_capacity = 6.0
+    opt = route_preview.optimized_route(
+        [p["lat"] for p in pts], [p["lng"] for p in pts],
+        weights=weights, units=drop_units, capacity=trip_capacity)
     order_names = [pts[i]["name"] for i in opt["order"]]
 
     n = len(created_jobs)
+    splits = opt.get("splits", 1)
+    notes: list[str] = []
+    if parsed["cold_chain"]:
+        notes.append("cold-chain prioritised")
+    if splits > 1:
+        notes.append(f"{splits} trips, cap {int(trip_capacity)}")
+    suffix = f" ({'; '.join(notes)})" if notes else ""
     return {"ok": True, "jobs": created_jobs,
             "resolved": {"origin": origin, "destinations": resolved_dests},
-            "order": order_names, "route": opt["polyline"],
+            "order": order_names, "route": opt["polyline"], "trips": splits,
             "message": f"Created {n} delivery(ies): {origin['name']} → {drop_names}"
-                       "  · route optimized"}
+                       f" · route optimized{suffix}"}
 
 
 @app.get("/couriers")

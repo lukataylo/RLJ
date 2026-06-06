@@ -15,10 +15,18 @@ inside the London bbox (lat 51.28–51.69, lng −0.51–0.33); entries are de-d
 normalized name (facilities/seed win, so their curated coords are preserved).
 
 ``resolve()`` is deliberately liberal: exact (punctuation/case-insensitive,
-incl. aliases) → substring → difflib fuzzy. It returns ``{"name","lat","lng"}``
-or ``None``, and stays O(1) on the common exact path even at 10k+ entries.
-``place_names()`` returns the canonical names (now potentially huge — do NOT
-feed it to the LLM; intake extracts free-text phrases instead).
+incl. aliases) → substring → difflib fuzzy. It returns
+``{"name","lat","lng","type"}`` or ``None``, and stays O(1) on the common exact
+path even at 10k+ entries. ``place_names()`` returns the canonical names (now
+potentially huge — do NOT feed it to the LLM; intake extracts free-text phrases
+instead).
+
+``resolve()`` is also **type-aware**: callers can pass ``prefer_types`` (e.g.
+``HEALTH_TYPES``) to softly bias selection toward medical facilities, so
+"Whittington" resolves to *Whittington Hospital* rather than the same-named
+*Whittington Estate*. Each entry carries its ``type`` (facilities use their
+facility type like ``hospital``/``lab``; ``_SEED`` areas default to ``place``;
+``gazetteer.json`` entries keep their ``type`` field — ``health``/``place``/…).
 """
 from __future__ import annotations
 
@@ -35,6 +43,22 @@ _GAZETTEER_FILE = _ROOT / "data" / "gazetteer.json"
 
 # London bounding box (matches the rest of the project).
 _BBOX = (51.28, 51.69, -0.51, 0.33)  # lat_min, lat_max, lng_min, lng_max
+
+# Medical/health facility types. Callers pass this as ``prefer_types`` so that a
+# query that matches both a clinical facility and a same-named generic POI
+# resolves to the facility. ``facilities.json`` uses the specific types
+# (hospital/lab/gp/pharmacy/clinic); the big ``gazetteer.json`` tags health POIs
+# with the umbrella ``health`` type.
+HEALTH_TYPES: frozenset[str] = frozenset(
+    {"hospital", "lab", "clinic", "gp", "pharmacy", "health"}
+)
+
+# How much a type-preferred candidate is boosted in the blended ranking score.
+# Tuned so a strong type match overtakes an *equally/slightly-more* similar
+# non-preferred name (e.g. "Whittington Hospital" beats "Whittington Estate",
+# Δsim ≈ 0.05) while staying a SOFT preference: a clearly better non-preferred
+# name (Δsim > _TYPE_BONUS) still wins, so "Dalston" still resolves to the place.
+_TYPE_BONUS = 0.15
 
 
 # Curated seed: well-known London places. (name, lat, lng, [aliases]).
@@ -125,7 +149,7 @@ def _load_gazetteer() -> list[dict]:
     entries: list[dict] = []
     seen: set[str] = set()
 
-    def _add(name: str, lat, lng, aliases: list[str]):
+    def _add(name: str, lat, lng, aliases: list[str], type_: str):
         if not name or lat is None or lng is None:
             return
         try:
@@ -139,21 +163,26 @@ def _load_gazetteer() -> list[dict]:
             return
         seen.add(key)
         entries.append({"name": name, "lat": lat, "lng": lng,
-                        "norm": key, "aliases": [_norm(a) for a in aliases if a]})
+                        "norm": key, "type": (type_ or "place"),
+                        "aliases": [_norm(a) for a in aliases if a]})
 
-    # 1) facilities.json (primary, curated)
+    # 1) facilities.json (primary, curated) — keep the facility's own type
+    #    (hospital/lab/gp/pharmacy/clinic).
     for f in _load_json(_FACILITIES):
         if isinstance(f, dict):
-            _add(f.get("name", ""), f.get("lat"), f.get("lng"), [])
+            _add(f.get("name", ""), f.get("lat"), f.get("lng"), [],
+                 f.get("type", "place"))
 
-    # 2) curated seed (well-known landmarks/areas/stations)
+    # 2) curated seed (well-known landmarks/areas/stations) — default "place".
     for name, lat, lng, aliases in _SEED:
-        _add(name, lat, lng, aliases)
+        _add(name, lat, lng, aliases, "place")
 
-    # 3) big optional gazetteer file: {name,lat,lng,type,source}
+    # 3) big optional gazetteer file: {name,lat,lng,type,source} — keep its type
+    #    (health/place/transport/…).
     for g in _load_json(_GAZETTEER_FILE):
         if isinstance(g, dict):
-            _add(g.get("name", ""), g.get("lat"), g.get("lng"), [])
+            _add(g.get("name", ""), g.get("lat"), g.get("lng"), [],
+                 g.get("type", "place"))
 
     return entries
 
@@ -179,7 +208,27 @@ def place_names() -> list[str]:
 
 
 def _result(e: dict) -> dict:
-    return {"name": e["name"], "lat": e["lat"], "lng": e["lng"]}
+    return {"name": e["name"], "lat": e["lat"], "lng": e["lng"],
+            "type": e.get("type", "place")}
+
+
+def _type_bonus(e: dict, prefer_types: Optional[set]) -> float:
+    """The soft ranking boost for an entry whose ``type`` is preferred."""
+    if prefer_types and e.get("type") in prefer_types:
+        return _TYPE_BONUS
+    return 0.0
+
+
+def _best_key_sim(q: str, e: dict) -> float:
+    """Best name-similarity of ``q`` against the entry's norm + any aliases."""
+    best = 0.0
+    for key in (e["norm"], *e["aliases"]):
+        if not key:
+            continue
+        r = SequenceMatcher(None, q, key).ratio()
+        if r > best:
+            best = r
+    return best
 
 
 def suggest(query: str, n: int = 3) -> list[str]:
@@ -193,35 +242,64 @@ def suggest(query: str, n: int = 3) -> list[str]:
     return scored[:n]
 
 
-def resolve(query: str) -> Optional[dict]:
-    """Resolve a free-text place to ``{"name","lat","lng"}`` or ``None``.
+def resolve(query: str, *, prefer_types: Optional[set] = None) -> Optional[dict]:
+    """Resolve a free-text place to ``{"name","lat","lng","type"}`` or ``None``.
 
     Order: exact/alias (case & punctuation insensitive) → substring (either
-    direction, ranked by similarity) → difflib fuzzy.
+    direction) → difflib fuzzy. Within the substring and fuzzy tiers the result
+    is chosen by a single blended score = name-similarity + a type bonus.
+
+    ``prefer_types`` is an optional, **soft** preference: candidates whose
+    ``type`` is in the set get a ``_TYPE_BONUS`` boost, so among otherwise
+    comparable names a medical facility wins (pass :data:`HEALTH_TYPES`). It only
+    breaks near-ties — a clearly better non-preferred name still wins, so a query
+    with no health match (e.g. "Dalston") resolves to the best place exactly as
+    before. ``prefer_types=None`` reproduces the original behavior.
     """
     q = _norm(query)
     if not q:
         return None
 
-    # 1) exact (incl. aliases)
+    # 1) exact (incl. aliases) — the strongest possible signal; the user named
+    #    this exact place, so honor it regardless of any type preference.
     if q in _EXACT:
         return _result(_EXACT[q])
 
-    # 2) substring, either direction, ranked by similarity
+    # 2) substring, either direction, ranked by similarity + type bonus.
+    #    With prefer_types=None the score is just the matched-key ratio, i.e.
+    #    identical to the original ranking (back-compat).
     cands: list[tuple[float, dict]] = []
     for e in _GAZETTEER:
         for key in (e["norm"], *e["aliases"]):
             if not key:
                 continue
             if q in key or (len(key) >= 3 and key in q):
-                cands.append((SequenceMatcher(None, q, key).ratio(), e))
+                score = SequenceMatcher(None, q, key).ratio() + _type_bonus(e, prefer_types)
+                cands.append((score, e))
                 break
     if cands:
         cands.sort(key=lambda t: t[0], reverse=True)
         return _result(cands[0][1])
 
-    # 3) fuzzy over the precomputed norm/alias keys
-    hits = get_close_matches(q, _FUZZY_KEYS, n=1, cutoff=0.6)
-    if hits:
-        return _result(_EXACT[hits[0]])
-    return None
+    # 3) fuzzy over the precomputed norm/alias keys.
+    if not prefer_types:
+        hits = get_close_matches(q, _FUZZY_KEYS, n=1, cutoff=0.6)
+        if hits:
+            return _result(_EXACT[hits[0]])
+        return None
+    # Type-aware fuzzy: take a few close matches, then re-rank by blended score
+    # (best key similarity + type bonus) so a preferred facility can win.
+    hits = get_close_matches(q, _FUZZY_KEYS, n=5, cutoff=0.6)
+    if not hits:
+        return None
+    seen: set[str] = set()
+    best: Optional[tuple[float, dict]] = None
+    for h in hits:
+        e = _EXACT[h]
+        if e["norm"] in seen:
+            continue
+        seen.add(e["norm"])
+        score = _best_key_sim(q, e) + _type_bonus(e, prefer_types)
+        if best is None or score > best[0]:
+            best = (score, e)
+    return _result(best[1]) if best else None
