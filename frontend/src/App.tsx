@@ -4,6 +4,7 @@
 // inspector, NEMOCLAW log, verification drawer).
 
 import { useEffect, useState } from "react";
+import CityScene from "./components/CityScene";
 import MapView from "./components/MapView";
 import TopBar from "./components/TopBar";
 import EfficiencyPanel from "./components/EfficiencyPanel";
@@ -18,6 +19,7 @@ import { useStatus } from "./hooks/useStatus";
 export default function App() {
   const status = useStatus();
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [view, setView] = useState<"map" | "lidar">("lidar");
 
   useEffect(() => {
     const { applyEvent, setConnected, hydrate, pushLog, setFleetAssessments, setCctv } =
@@ -81,9 +83,29 @@ export default function App() {
 
   return (
     <div className="cc">
-      <MapView />
+      {view === "lidar" ? <CityScene /> : <MapView />}
 
       <TopBar status={status} onOpenVerification={() => setVerifyOpen(true)} />
+
+      {/* View toggle: 3D LiDAR point cloud ⇄ operations map */}
+      <div className="view-toggle glass" role="group" aria-label="View">
+        <button
+          type="button"
+          className={view === "map" ? "on" : ""}
+          data-testid="view-toggle-map"
+          onClick={() => setView("map")}
+        >
+          Map
+        </button>
+        <button
+          type="button"
+          className={view === "lidar" ? "on" : ""}
+          data-testid="view-toggle-lidar"
+          onClick={() => setView("lidar")}
+        >
+          LiDAR 3D
+        </button>
+      </div>
 
       <div className="right-stack">
         <EfficiencyPanel />

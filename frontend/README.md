@@ -4,6 +4,19 @@ The demo centerpiece: a live London map of couriers, jobs and routes that **redr
 when the world changes**. Vite + React + TypeScript, **MapLibre GL** basemap (free,
 no API token) with **deck.gl** overlays for GPU-rendered routes and animated couriers.
 
+## Views: operations map ⇄ LiDAR 3D twin
+
+A toggle (top-centre) switches the main view between:
+
+- **Map** — the deck.gl/MapLibre operations map (couriers, routes, congestion, incidents).
+- **LiDAR 3D** — a Three.js point-cloud digital twin of the Square Mile: the real EA
+  National LIDAR Programme scan (`public/citycloud.bin`, 3M points) with OSM building
+  facades extruded to fill the towers (`public/citybuildings.json`, ~4.4k City buildings),
+  an infinite grid, radar sweep, bloom + vignette, and orbit/zoom. Live disruptions from
+  the orchestrator rise as beams (red for road closures). Ported from Square Mile Pulse
+  (`src/components/CityScene.tsx`, `src/lib/pointcloud.ts`, `src/lib/scene-geo.ts`); needs
+  `three` + `@react-three/{fiber,drei,postprocessing}`.
+
 ## Run
 
 ```bash

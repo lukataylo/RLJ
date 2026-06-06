@@ -1564,3 +1564,92 @@ button {
     width: 300px;
   }
 }
+
+/* ---- View toggle: LiDAR point cloud ⇄ operations map ---- */
+.view-toggle {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+}
+.view-toggle button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 6px 14px;
+  border-radius: calc(var(--radius) - 4px);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.view-toggle button:hover {
+  color: var(--text);
+}
+.view-toggle button.on {
+  background: var(--yellow);
+  color: #07120a;
+  font-weight: 600;
+}
+
+/* ---- LiDAR digital-twin scene (Three.js point cloud, replaces the map) ---- */
+.scene-wrap {
+  position: absolute;
+  inset: 0;
+  background: #04060b;
+}
+.scene-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+.scene-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.scene-legend {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 20;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.7;
+  pointer-events: none;
+}
+.scene-legend .sl-title {
+  color: #5ad1ff;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.scene-legend .sl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.scene-legend .sl-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+.scene-legend .sl-hint {
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 11px;
+}
