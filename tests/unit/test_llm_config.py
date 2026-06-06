@@ -20,7 +20,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 _COLLIDING = (
-    "app", "models", "seed", "greedy", "congestion", "geocode", "intake",
+    "app", "models", "seed", "greedy", "congestion", "geocode", "intake", "nl_intake",
     "solver", "solver_baseline", "solver_ortools", "solver_aco", "solver_ls",
     "traveltime",
 )
@@ -51,12 +51,16 @@ def test_is_local_unset(monkeypatch):
 
 
 def test_config_helpers_defaults(monkeypatch):
-    for k in ("OLLAMA", "MODEL", "OPENAI_API_KEY", "OPENAI_MODEL", "VALHALLA_URL", "LOCAL"):
+    for k in (
+        "OLLAMA", "MODEL", "OPENAI_API_KEY", "OPENAI_MODEL", "LLM_API_KEY",
+        "LLM_MODEL", "LLM_BASE_URL", "VALHALLA_URL", "LOCAL",
+    ):
         monkeypatch.delenv(k, raising=False)
     assert config.ollama_url() == "http://localhost:11434"
     assert config.model() == "nemotron"
     assert config.openai_key() == ""
     assert config.openai_model() == "gpt-4o-mini"
+    assert config.openai_base_url() == "https://api.openai.com/v1"
     assert config.valhalla_enabled() is False
     assert config.llm_available() is False
 
@@ -72,11 +76,24 @@ def test_valhalla_enabled_requires_local_and_url(monkeypatch):
 def test_llm_available(monkeypatch):
     monkeypatch.delenv("LOCAL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
     assert config.llm_available() is False
     monkeypatch.setenv("OPENAI_API_KEY", "sk-x")
     assert config.llm_available() is True
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("LOCAL", "true")
+    assert config.llm_available() is True
+
+
+def test_openai_compatible_env_aliases(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.setenv("LLM_API_KEY", "nebius-key")
+    monkeypatch.setenv("LLM_MODEL", "nemotron-test")
+    monkeypatch.setenv("LLM_BASE_URL", "https://inference.example/v1/")
+    assert config.openai_key() == "nebius-key"
+    assert config.openai_model() == "nemotron-test"
+    assert config.openai_base_url() == "https://inference.example/v1"
     assert config.llm_available() is True
 
 
@@ -177,6 +194,7 @@ def _openai_body(content):
 
 def test_complete_json_openai(monkeypatch):
     monkeypatch.delenv("LOCAL", raising=False)
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
     monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
     cap = _install_fake_httpx(
@@ -193,6 +211,7 @@ def test_complete_json_openai(monkeypatch):
 
 def test_chat_openai(monkeypatch):
     monkeypatch.delenv("LOCAL", raising=False)
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
     cap = _install_fake_httpx(monkeypatch, lambda url: _openai_body("fleet looks healthy"))
     out = llm.chat("status?", system="you are a dispatcher")
@@ -249,11 +268,11 @@ def test_agent_ask_answers_via_llm(monkeypatch):
 
 
 def test_agent_ask_falls_back_when_no_llm(monkeypatch):
-    # No model available -> deterministic fleet-summary fallback (chat is never silent).
+    # No model available -> deterministic keyword-aware fleet fallback (chat is never silent).
     monkeypatch.delenv("LOCAL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     app_mod = _load_app()
     monkeypatch.setattr(app_mod.llm, "chat", lambda *a, **k: None)
 
     ans = asyncio.run(app_mod._answer_question("anything at all?"))
-    assert ans and "Local read" in ans
+    assert ans and "NemoClaw is online" in ans

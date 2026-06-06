@@ -13,6 +13,19 @@ uvicorn app:app --reload --port 8000
 ROUTING_URL=http://localhost:8100 uvicorn app:app --port 8000
 ```
 
+For NemoClaw text-to-speech, either keep these values in `voice/.env` for local
+development or export them before starting the orchestrator:
+
+```dotenv
+ELEVENLABS_API_KEY=your_key
+ELEVENLABS_VOICE_ID=your_voice_id
+# optional; defaults to eleven_turbo_v2_5
+ELEVENLABS_MODEL_ID=eleven_turbo_v2_5
+```
+
+The browser calls `POST /tts`; the API key remains in the orchestrator process.
+When `AUTH_REQUIRED=true`, `/tts` requires the same bearer token as other writes.
+
 Seed demo data (in another terminal, orchestrator running):
 
 ```bash
@@ -24,6 +37,9 @@ python seed.py
 ```bash
 curl -s localhost:8000/healthz | jq        # {status, routing_service}
 curl -s localhost:8000/plan | jq .objective
+curl -sS -X POST localhost:8000/tts \
+  -H "content-type: application/json" \
+  -d '{"text":"NemoClaw voice check"}' --output tts-check.mp3
 # watch live events:
 websocat ws://localhost:8000/ws            # or use the frontend
 ```

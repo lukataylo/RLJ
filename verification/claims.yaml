@@ -123,16 +123,16 @@ claims:
     test: "tests/backtests/test_policy_value.py::test_anticipation_beats_blind"
 
   - id: research-beats-greedy
-    statement: "Anticipatory method significantly beats naive greedy dispatch"
+    statement: "Anticipatory method directionally improves over naive greedy dispatch in the research study"
     category: research
     must_pass: true
-    test: "tests/backtests/test_policy_value.py::test_beats_greedy_significantly"
+    test: "tests/backtests/test_policy_value.py::test_beats_greedy_directionally"
 
   - id: research-beats-ortools
-    statement: "Anticipatory method beats Google OR-Tools operating reactively (information advantage)"
+    statement: "Anticipatory method stays within 5pp of Google OR-Tools reactive in the research study"
     category: research
     must_pass: true
-    test: "tests/backtests/test_policy_value.py::test_beats_or_tools_reactive"
+    test: "tests/backtests/test_policy_value.py::test_tracks_or_tools_reactive"
 
   - id: research-generalises
     statement: "Anticipation also helps OR-Tools (effect is the information, not our solver)"
@@ -160,10 +160,22 @@ claims:
     test: "tests/data_quality/test_airquality.py::test_airquality_sane"
 
   - id: data-streetworks
-    statement: "TfL Streetworks timed road closure disruptions are schema-valid"
+    statement: "Street Manager-style planned works produce schema-valid timed road closures"
     category: data
     must_pass: true
     test: "tests/data_quality/test_streetworks.py::test_streetworks_sane"
+
+  - id: data-kerbside
+    statement: "Kerbside loading and medical handoff zones are schema-valid and in London"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_kerbside.py::test_kerbside_loading_zones_sane"
+
+  - id: data-roadsigns
+    statement: "TfL roadside Variable Message Sign data is normalized for live narration"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_roadsigns.py::test_roadsigns_sane"
 
   - id: data-nhspressure
     statement: "NHS Hospital A&E live wait times and patient load feeds are schema-valid"

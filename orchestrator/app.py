@@ -13,13 +13,25 @@ import os
 import json
 import pathlib
 import asyncio
+import sys
 from datetime import datetime, timezone
 from contextlib import suppress
 
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import Response as HTTPResponse
+from pydantic import BaseModel, Field
+
+# Load ElevenLabs key (and other voice config) from voice/.env when not already set in
+# the shell environment. override=False means a real env var always wins.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _voice_env = pathlib.Path(__file__).parent.parent / "voice" / ".env"
+    if _voice_env.exists():
+        _load_dotenv(_voice_env, override=False)
+except ImportError:
+    pass
 
 from models import (DeliveryJob, Location, Courier, DisruptionEvent, Notification,
                     Plan, OptimizeRequest, OptimizeResponse,
@@ -45,7 +57,9 @@ app = FastAPI(title="RLJ orchestrator")
 # CORS locked to an env allowlist (the PulseGo frontends). Dev default = local Vite ports.
 # In prod set CORS_ORIGINS=https://app.pulsego.org,https://drive.pulsego.org,https://pulsego.org
 _CORS_ORIGINS = [o.strip() for o in os.environ.get(
-    "CORS_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",") if o.strip()]
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:5174,"
+    "http://127.0.0.1:5173,http://127.0.0.1:5174").split(",") if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
@@ -553,26 +567,45 @@ def _fleet_context() -> str:
     return " ".join(parts)
 
 
-def _fleet_brief() -> str:
-    """Deterministic one-liner used when no LLM answer is available."""
-    online = sum(1 for c in S.couriers.values() if getattr(c, "status", "") != "offline")
-    routes = len(S.plan.routes) if S.plan else 0
-    obj = S.plan.objective if S.plan else None
-    met = getattr(obj, "windows_met", 0) if obj else 0
-    tot = getattr(obj, "windows_total", 0) if obj else 0
-    return (f"{online} couriers online, {len(S.jobs)} jobs, {routes} active routes, "
-            f"{met}/{tot} delivery windows on-time.")
+def _fallback_agent_answer(question: str) -> str:
+    """Deterministic answer when the configured LLM/worker is unavailable."""
+    low = question.lower()
+    courier_count = len(S.couriers)
+    job_count = len(S.jobs)
+    route_count = len(S.plan.routes) if S.plan else 0
+    if any(word in low for word in ("route", "window", "plan", "on time")):
+        if S.plan:
+            obj = S.plan.objective
+            return (
+                f"{route_count} routes are active. "
+                f"{obj.windows_met} of {obj.windows_total} delivery windows are currently met."
+            )
+        return "No route plan is active yet. Seed or create deliveries to start planning."
+    if any(word in low for word in ("courier", "driver", "job", "delivery", "fleet")):
+        return (
+            f"The fleet currently has {courier_count} couriers and {job_count} active jobs "
+            f"across {route_count} planned routes."
+        )
+    if any(word in low for word in ("traffic", "congestion", "disruption", "road")):
+        return (
+            f"There are {len(S.disruptions)} recorded disruptions and "
+            f"{len(S.congestion.get('cells', []))} live congestion cells."
+        )
+    return (
+        f"NemoClaw is online. I am monitoring {courier_count} couriers, "
+        f"{job_count} jobs and {route_count} routes."
+    )
 
 
 async def _answer_question(question: str) -> str:
-    """LLM answer via the seam (OpenAI/Ollama per config); deterministic fallback so
-    Ask NemoClaw always responds, even with no model and no on-box worker."""
+    """LLM answer via the seam (OpenAI/Ollama per config); deterministic keyword-aware
+    fallback so Ask NemoClaw always responds, even with no model and no on-box worker."""
     answer = None
     try:
         answer = await asyncio.to_thread(llm.chat, question, system=_fleet_context())
     except Exception:  # noqa: BLE001 - never let the chat hang the request
         answer = None
-    return answer or ("Local read — " + _fleet_brief())
+    return answer or _fallback_agent_answer(question)
 
 
 @app.post("/agent/ask")
@@ -679,6 +712,40 @@ async def _start_background():
         await HUB.emit("agent_log", {"level": "warn",
                                      "message": f"Auth DB init skipped: {type(e).__name__}: {e}"})
     asyncio.create_task(nemo_agent.run(HUB.emit, _nemo_inject, interval_s=14))
+
+
+# ----------------------------------------------------------------------------- TTS proxy
+class TtsRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+
+@app.post("/tts")
+async def tts_proxy(body: TtsRequest, _user: CurrentUser = Depends(require_user)):
+    """Proxy ElevenLabs TTS so the API key never leaves the server.
+    Returns audio/mpeg on success; 503 if no key is configured."""
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="text required")
+    api_key = os.getenv("ELEVENLABS_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="ElevenLabs not configured — set ELEVENLABS_API_KEY")
+    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    payload = {
+        "text": text,
+        "model_id": os.getenv("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5"),
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                url,
+                headers={"xi-api-key": api_key, "accept": "audio/mpeg", "content-type": "application/json"},
+                json=payload,
+            )
+            r.raise_for_status()
+            return HTTPResponse(content=r.content, media_type="audio/mpeg")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"ElevenLabs TTS failed: {type(e).__name__}")
 
 
 # ----------------------------------------------------------------------------- WS

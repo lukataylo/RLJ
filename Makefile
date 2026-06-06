@@ -5,7 +5,7 @@ PY  := ./.venv/bin/python
 # uv-managed environment (https://astral.sh/uv). Creates ./.venv and installs all
 # service + test deps into it; the rest of the targets use ./.venv/bin/python.
 install:
-	uv venv .venv --python 3.12
+	uv venv .venv --python 3.12 --clear
 	uv pip install --python $(PY) -r requirements-test.txt -r orchestrator/requirements.txt -r routing/requirements.txt
 
 # Full gate: runs every external test suite, maps to the claims ledger, writes

@@ -1,0 +1,41 @@
+{
+  "source": "live-with-fallback",
+  "live": false,
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "TfL Unified API Place/VariableMessageSign",
+  "signs": [
+    {
+      "id": "vms-waterloo-bridge",
+      "name": "Waterloo Bridge northbound VMS",
+      "lat": 51.509,
+      "lng": -0.1168,
+      "message": "WATERLOO BRIDGE DELAYS - USE BLACKFRIARS",
+      "severity": "severe",
+      "route_hint": "protect Guy's -> St Thomas STAT route",
+      "updated_at": "2026-06-01T00:00:00+00:00",
+      "active": true
+    },
+    {
+      "id": "vms-strand",
+      "name": "Strand / Aldwych VMS",
+      "lat": 51.5113,
+      "lng": -0.1197,
+      "message": "STRAND WORKS - EXPECT DELAYS",
+      "severity": "moderate",
+      "route_hint": "avoid westbound handoff via Strand",
+      "updated_at": "2026-06-01T00:00:00+00:00",
+      "active": true
+    },
+    {
+      "id": "vms-euston",
+      "name": "Euston Road VMS",
+      "lat": 51.5249,
+      "lng": -0.1341,
+      "message": "EUSTON RD GAS WORKS - QUEUES",
+      "severity": "moderate",
+      "route_hint": "prefer Tavistock Place for UCLH pickup",
+      "updated_at": "2026-06-01T00:00:00+00:00",
+      "active": true
+    }
+  ]
+}

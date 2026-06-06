@@ -22,6 +22,7 @@ in [`schemas.json`](schemas.json).
 | POST | `/optimize` | — | `Plan` | anyone forcing a re-plan |
 | GET  | `/plan` | — | `Plan` | any |
 | POST | `/notifications` | `Notification` | `Notification` (also broadcast on WS) | orchestrator/internal |
+| POST | `/tts` | `{text}` (1-500 chars) | `audio/mpeg`; `503` when ElevenLabs is not configured | frontend NemoClaw chat |
 
 ### WebSocket — `ws://localhost:8000/ws`
 

@@ -2,6 +2,7 @@
 // Base URL comes from VITE_ORCHESTRATOR_URL, default http://localhost:8000.
 
 import type {
+  AgentTask,
   CctvCamera,
   CongestionField,
   DeliveryJob,
@@ -244,8 +245,8 @@ export async function getSignalRecs(): Promise<SignalRec[]> {
 
 /** POST /agent/ask — queue a question for the GB10 Nemotron agent. The answer
  * arrives asynchronously as a WS "agent_log" (source "nemotron") + "agent_answer". */
-export async function askAgent(question: string): Promise<unknown> {
-  return json(
+export async function askAgent(question: string): Promise<AgentTask> {
+  return json<AgentTask>(
     await fetch(`${BASE}/agent/ask`, {
       method: "POST",
       headers: authHeaders({ "content-type": "application/json" }),

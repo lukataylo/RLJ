@@ -1,4 +1,4 @@
-"""TfL Streetworks integration (offline-safe, planned roadworks bundle).
+"""Street Manager planned works integration (offline-safe bundle).
 
 Exposes:
 * ``streetwork_disruptions(date)`` -> list of TimedEvent road_closures.
@@ -10,12 +10,14 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent
+ROOT = DATA_DIR.parent
 STREETWORKS_PATH = DATA_DIR / "streetworks.json"
+FRONTEND_STREETWORKS_PATH = ROOT / "frontend" / "public" / "data" / "streetworks.json"
 
 BUNDLE_FETCHED_AT = "2026-06-01T00:00:00+00:00"
 SOURCE = "scheduled"
 
-# Core London streetwork permits (representative fallback)
+# Core London Street Manager-style works (representative fallback).
 BUNDLED_STREETWORKS = [
     {
         "id": "stw-whitechapel",
@@ -25,6 +27,10 @@ BUNDLED_STREETWORKS = [
         "start": "08:00",
         "end": "18:00",
         "date": "2026-06-05",
+        "authority": "Tower Hamlets",
+        "permit_reference": "SM-TFL-20260605-001",
+        "traffic_management": "lane_closure",
+        "severity": "severe",
     },
     {
         "id": "stw-strand",
@@ -34,6 +40,10 @@ BUNDLED_STREETWORKS = [
         "start": "09:00",
         "end": "17:00",
         "date": "2026-06-06",
+        "authority": "Westminster",
+        "permit_reference": "SM-TFL-20260606-014",
+        "traffic_management": "road_closure",
+        "severity": "severe",
     },
     {
         "id": "stw-euston",
@@ -43,6 +53,36 @@ BUNDLED_STREETWORKS = [
         "start": "07:00",
         "end": "19:00",
         "date": "2026-06-07",
+        "authority": "Camden",
+        "permit_reference": "SM-TFL-20260607-021",
+        "traffic_management": "multi_way_signals",
+        "severity": "moderate",
+    },
+    {
+        "id": "stw-waterloo",
+        "description": "Waterloo Bridge approach — emergency telecoms duct works",
+        "lat": 51.5085,
+        "lng": -0.1175,
+        "start": "08:30",
+        "end": "16:30",
+        "date": "2026-06-05",
+        "authority": "Lambeth",
+        "permit_reference": "SM-TFL-20260605-031",
+        "traffic_management": "lane_closure",
+        "severity": "severe",
+    },
+    {
+        "id": "stw-holborn",
+        "description": "Holborn Viaduct — burst water main repair",
+        "lat": 51.5170,
+        "lng": -0.1030,
+        "start": "06:00",
+        "end": "21:00",
+        "date": "2026-06-05",
+        "authority": "City of London",
+        "permit_reference": "SM-TFL-20260605-044",
+        "traffic_management": "contra_flow",
+        "severity": "moderate",
     },
 ]
 
@@ -89,6 +129,10 @@ def streetwork_disruptions(d: date | datetime | str) -> list[dict]:
                 "intensity": 1.0,
                 "source": SOURCE,
                 "label": sw["description"],
+                "authority": sw["authority"],
+                "permit_reference": sw["permit_reference"],
+                "traffic_management": sw["traffic_management"],
+                "severity": sw["severity"],
                 "fetched_at": BUNDLE_FETCHED_AT,
             }
         )
@@ -99,14 +143,17 @@ def build_streetworks() -> dict:
     return {
         "source": SOURCE,
         "fetched_at": BUNDLE_FETCHED_AT,
-        "provider": "TfL Streetworks Register (bundled)",
+        "provider": "DfT Street Manager / TfL planned works (bundled representative)",
         "streetworks": BUNDLED_STREETWORKS,
     }
 
 
 def write_streetworks(path: Path | str = STREETWORKS_PATH) -> dict:
     payload = build_streetworks()
-    Path(path).write_text(json.dumps(payload, indent=2) + "\n")
+    blob = json.dumps(payload, indent=2) + "\n"
+    Path(path).write_text(blob)
+    FRONTEND_STREETWORKS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    FRONTEND_STREETWORKS_PATH.write_text(blob)
     return payload
 
 

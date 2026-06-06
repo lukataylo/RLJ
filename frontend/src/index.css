@@ -1471,6 +1471,38 @@ button {
   opacity: 0.7;
   cursor: default;
 }
+.nemo-ask-mic {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  background: var(--fill);
+  border: 1px solid var(--hair);
+  border-radius: 9px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nemo-ask-mic:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: rgba(255, 59, 48, 0.35);
+  color: var(--accent);
+}
+.nemo-ask-mic.active {
+  background: var(--accent-soft);
+  border-color: rgba(255, 59, 48, 0.55);
+  color: var(--accent);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+.nemo-ask-mic:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+  50% { box-shadow: 0 0 0 5px rgba(255, 59, 48, 0); }
+}
 .nemo-presets {
   display: flex;
   gap: 6px;

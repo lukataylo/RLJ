@@ -34,7 +34,7 @@ def _load_manifest(manifest_path: Path | str | None) -> tuple[Path, dict]:
 
 
 def _resolve_path(base: Path, entry: dict) -> Path:
-    p = Path(entry["path"])
+    p = Path(str(entry["path"]).replace("\\", "/"))
     return p if p.is_absolute() else (base / p)
 
 
