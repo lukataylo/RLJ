@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 _COLLIDING = (
     "app", "models", "seed", "greedy", "congestion",
     "solver", "solver_baseline", "solver_ortools", "solver_aco",
-    "solver_ls", "traveltime",
+    "solver_ls", "solver_hgs", "solver_garnet", "garnet_model", "traveltime",
 )
 
 

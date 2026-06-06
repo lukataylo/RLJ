@@ -12,6 +12,7 @@ import time
 
 import solver_aco
 import solver_baseline
+import solver_garnet
 import solver_hgs
 import solver_ls
 import solver_ortools
@@ -73,6 +74,18 @@ def plan(req: OptimizeRequest, *, ortools_time_s: int = ORTOOLS_TIME_S) -> Plan:
             if ort is not None:
                 candidates.append(ort)
         except Exception:  # noqa: BLE001
+            pass
+
+    # GARNET neural route-optimiser (off by default; $GARNET_ENABLED to switch on). It
+    # contributes a learned job ordering as one more candidate. Returns None when disabled
+    # or torch is absent, so the portfolio is unchanged unless explicitly turned on; and
+    # because pick_best chooses lexicographically, it can only ever help, never hurt.
+    if solver_garnet.enabled():
+        try:
+            garnet = solver_garnet.plan(req)
+            if garnet is not None:
+                candidates.append(garnet)
+        except Exception:  # noqa: BLE001 - never let an optional member break the service
             pass
 
     pool = [c for c in candidates if c is not None]

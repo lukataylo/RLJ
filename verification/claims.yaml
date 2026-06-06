@@ -41,6 +41,18 @@ claims:
     must_pass: false
     test: "tests/backtests/test_routing_sla.py::test_golden_no_regression"
 
+  - id: garnet-safe
+    statement: "GARNET neural route-optimiser (when enabled) yields feasible plans and never degrades the portfolio objective"
+    category: performance
+    must_pass: false  # optional engine, off by default; gated behind torch + $GARNET_ENABLED
+    test: "tests/unit/test_garnet.py::test_enabling_garnet_never_degrades"
+
+  - id: garnet-valid-tour
+    statement: "GARNET greedy decoding produces a valid Hamiltonian tour (each city once)"
+    category: performance
+    must_pass: false
+    test: "tests/unit/test_garnet.py::test_greedy_decode_is_valid_tour"
+
   # ---- contracts (cross-stream integrity) ---------------------------------
   - id: plan-schema
     statement: "Every Plan emitted validates against the shared schema"

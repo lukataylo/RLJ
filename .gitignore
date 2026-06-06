@@ -38,3 +38,6 @@ __pycache__/
 
 # Generated audio
 *.mp3
+
+# GARNET trained checkpoint (produced by routing/train_garnet.py; not source)
+routing/garnet.pt

@@ -83,6 +83,33 @@ rung is used, so a valid `Plan` is *always* returned.
 Travel-time ladder (`traveltime.py`): GPU batched-SSSP → OSMnx/networkx road graph →
 **haversine/numpy** (active default). The two road-graph tiers are documented seams.
 
+## GARNET — neural route-optimiser (optional, off by default)
+
+`solver_garnet.py` + `garnet_model.py` implement **GARNET** (Khriss et al., 2026 —
+`garnet.pdf`), the encoder–decoder graph-neural-network TSP solver the team originally
+planned for route optimisation: **D-RRWP** multi-hop random-walk positional encoding +
+**random rewiring** + **GRASS** edge-additive attention, with an **MHA→SHA** decoder that
+builds a tour, trained by policy-gradient RL (`train_garnet.py`).
+
+GARNET solves the *symmetric Euclidean TSP*; our problem is multi-vehicle D-PDPTW. So we use
+it honestly as an **ordering brain**: it ranks the jobs, the existing feasible constructor +
+local search turn that order into a valid plan, and the result joins the portfolio. Because
+`pick_best` chooses lexicographically over all candidates, **enabling GARNET can never make a
+plan worse** — same fallback-ladder guarantee as every other rung.
+
+```bash
+# torch is an OPTIONAL dep (import-guarded). Install it only to use/train GARNET:
+#   torch>=2.2   (CPU wheel fine; CUDA wheel on the GB10)
+python train_garnet.py --nodes 20 --steps 2000 --out garnet.pt   # produce a checkpoint
+GARNET_ENABLED=1 uvicorn app:app --port 8100                      # switch it on
+curl -s http://localhost:8100/healthz   # {"status":"ok","solver":"hgs-adaptive+garnet"}
+```
+
+`$GARNET_ENABLED` (truthy `1/true/yes/on`; **unset → off**) is the toggle; `$GARNET_WEIGHTS`
+(default `routing/garnet.pt`) points at the checkpoint. With no checkpoint the net still emits
+valid tours on its initial weights — just not trained-quality ones. When torch is absent or
+the toggle is off, the module is a no-op and the service is byte-for-byte unchanged.
+
 ## What to show in the demo
 
 1. `python bench.py` — prints the comparison table below. The **headline line** is the
@@ -111,6 +138,9 @@ constraints greedy ignores (pickup-order, cold-chain, interleaved multi-job load
 |------|---------|
 | `app.py` | FastAPI service; solver selection + fallback ladder |
 | `solver_aco.py` | Custom ACO D-PDPTW solver (`xp` = CuPy/NumPy) |
+| `garnet_model.py` | GARNET neural TSP architecture (D-RRWP + rewiring + GRASS + MHA→SHA), torch |
+| `solver_garnet.py` | GARNET portfolio member + `$GARNET_ENABLED` toggle (off by default) |
+| `train_garnet.py` | Policy-gradient trainer → `garnet.pt` checkpoint (optional, torch) |
 | `solver_baseline.py` | Greedy port + import-guarded cuOpt / OR-Tools |
 | `traveltime.py` | Travel-time matrix (haversine now; GPU-SSSP + OSMnx seams) |
 | `models.py` | Pydantic mirror of `contracts/schemas.json` (self-contained) |

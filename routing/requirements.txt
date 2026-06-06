@@ -25,3 +25,8 @@ requests>=2.31   # HTTP client for the Valhalla travel-time tier (traveltime.val
 #   Real road-graph travel times (traveltime.osmnx_matrix tier):
 # osmnx>=1.9
 # networkx>=3.2
+#
+#   GARNET neural route-optimiser (solver_garnet / garnet_model / train_garnet). Import-
+#   guarded and OFF by default ($GARNET_ENABLED unset). Only needed to switch GARNET on or
+#   to train a checkpoint. CPU wheel is fine; use a CUDA wheel on the GB10:
+# torch>=2.2

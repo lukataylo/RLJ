@@ -26,6 +26,7 @@ from fastapi import FastAPI
 import solver
 import solver_aco
 import solver_baseline
+import solver_garnet
 from models import LatLng, OptimizeRequest, OptimizeResponse, Plan
 from route_geometry import valhalla_route_shape
 
@@ -37,7 +38,11 @@ app = FastAPI(title="RLJ Routing Service", version="0.1.0")
 
 def _select_solver() -> str:
     """Decide the headline solver for /healthz. ACO is always available; its label
-    reflects whether the CuPy GPU backend is active (gpu-aco) or numpy (aco-numpy)."""
+    reflects whether the CuPy GPU backend is active (gpu-aco) or numpy (aco-numpy).
+    When the GARNET neural route-optimiser is switched on ($GARNET_ENABLED), the label
+    advertises it as an active portfolio member."""
+    if solver_garnet.enabled():
+        return f"{solver.SOLVER_NAME}+garnet"
     return solver.SOLVER_NAME
 
 
