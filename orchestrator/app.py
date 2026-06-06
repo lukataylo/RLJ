@@ -56,7 +56,6 @@ class State:
         self.fleet_assessments: dict[str, dict] = {}  # courier_id -> {status,note}
         self.couriers_helped: int = 0
         self._task_n = 0
-        self.progress: dict[str, float] = {}   # courier_id -> fraction along current route
         self._job_n = 0
         self._crt_n = 0
         self._dis_n = 0
@@ -151,7 +150,6 @@ async def run_optimize() -> Plan:
         await HUB.emit("agent_log", {"level": "warn",
                                      "message": f"Routing service unavailable ({type(e).__name__}); used greedy fallback."})
     S.plan = plan
-    S.progress = {}   # restart courier animation along the new routes
     obj = plan.objective
     await HUB.emit("plan_updated", plan.model_dump(mode="json"))
     await HUB.emit("agent_log", {"level": "info",
@@ -502,45 +500,6 @@ async def signals_advice(driver_id: str = "", lat: float = 0.0, lng: float = 0.0
             "seconds_to_green": 18.0, "confidence": 0.4}
 
 
-# ----------------------------------------------------------------------------- movement
-MOVE_INTERVAL_S = 2.0
-MOVE_STEP = 0.12   # fraction of route advanced per tick
-
-
-def _interp(poly, frac: float):
-    if not poly:
-        return None
-    if len(poly) == 1:
-        return {"lat": poly[0].lat, "lng": poly[0].lng}
-    n = len(poly) - 1
-    x = max(0.0, min(1.0, frac)) * n
-    i = min(int(x), n - 1)
-    f = x - i
-    a, b = poly[i], poly[i + 1]
-    return {"lat": a.lat + (b.lat - a.lat) * f, "lng": a.lng + (b.lng - a.lng) * f}
-
-
-async def courier_mover():
-    """Advance each courier along its assigned route and broadcast courier_moved — the
-    real-time fleet-motion channel the frontend animates."""
-    while True:
-        await asyncio.sleep(MOVE_INTERVAL_S)
-        if not S.plan:
-            continue
-        for route in S.plan.routes:
-            if not route.polyline:
-                continue
-            frac = min(1.0, S.progress.get(route.courier_id, 0.0) + MOVE_STEP)
-            S.progress[route.courier_id] = frac
-            pos = _interp(route.polyline, frac)
-            courier = S.couriers.get(route.courier_id)
-            if courier and pos:
-                courier.location.lat = pos["lat"]
-                courier.location.lng = pos["lng"]
-                if courier.status == "idle":
-                    courier.status = "enroute"
-                await HUB.emit("courier_moved", {"courier_id": route.courier_id, "location": pos})
-
 
 async def _nemo_inject(d: dict):
     """Adapter so the NemoClaw agent can post a disruption (and trigger a re-plan)."""
@@ -557,7 +516,6 @@ async def _start_background():
     except Exception as e:  # noqa: BLE001
         await HUB.emit("agent_log", {"level": "warn",
                                      "message": f"Auth DB init skipped: {type(e).__name__}: {e}"})
-    asyncio.create_task(courier_mover())
     asyncio.create_task(nemo_agent.run(HUB.emit, _nemo_inject))
 
 

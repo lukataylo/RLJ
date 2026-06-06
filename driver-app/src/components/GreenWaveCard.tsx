@@ -5,6 +5,7 @@
 
 import { useStore } from "../store";
 import Speedometer from "./Speedometer";
+import DotMatrix from "./DotMatrix";
 
 const mps2kmh = (m: number) => m * 3.6;
 
@@ -43,8 +44,8 @@ export default function GreenWaveCard() {
         <div className="greenwave-stats">
           {secs != null && (
             <div className="gw-stat">
-              <span className="gw-num">{Math.round(secs)}s</span>
-              <span className="gw-cap">to green</span>
+              <DotMatrix value={Math.round(secs)} dot={6} gap={3} charGap={8} tone="amber" />
+              <span className="gw-cap">sec to green</span>
             </div>
           )}
           {targetKmh != null && (

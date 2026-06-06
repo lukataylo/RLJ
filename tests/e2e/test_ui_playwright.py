@@ -16,7 +16,7 @@ import pytest
 
 pytestmark = pytest.mark.e2e
 
-UI_URL = "http://localhost:5173"
+UI_URL = "http://localhost:5173/app"  # command center now lives under /app (landing is at /)
 ORCH_HEALTH = "http://localhost:8000/healthz"
 WAIT = 10_000  # ms — bounded locator/expect timeout
 
@@ -88,11 +88,13 @@ def test_delivery_list_and_cards(page):
 
 
 def test_click_delivery_highlights(page):
-    """Clicking a delivery card selects it (aria-pressed/selected class) AND drives
-    the Inspector from the fleet overview into that courier's detail view."""
+    """Clicking a delivery card selects it (aria-pressed/selected class) AND opens
+    the Inspector on that courier's detail view. The fleet-overview default was
+    removed, so the Inspector is absent until a courier is selected."""
     expect(page.get_by_test_id("delivery-list")).to_be_visible(timeout=WAIT)
     inspector = page.get_by_test_id("inspector")
-    expect(inspector).to_be_visible(timeout=WAIT)
+    # No selection yet -> inspector is not rendered (no fleet-overview segment).
+    expect(inspector).to_have_count(0)
 
     cards = page.get_by_test_id("delivery-card")
     expect(cards.first).to_be_visible(timeout=WAIT)
@@ -100,7 +102,6 @@ def test_click_delivery_highlights(page):
     courier_id = card.get_attribute("data-courier")
     assert courier_id, "delivery card missing data-courier"
 
-    before = inspector.inner_text()
     card.click()
 
     # 1) the card gains a selected state
@@ -108,11 +109,10 @@ def test_click_delivery_highlights(page):
     klass = card.get_attribute("class") or ""
     assert "selected" in klass, f"clicked card did not get .selected class: {klass!r}"
 
-    # 2) the inspector updates to that courier (text changes; overview is replaced
-    #    by the courier detail view, which renders the courier name).
-    expect(inspector).not_to_contain_text("FLEET OVERVIEW", timeout=WAIT)
+    # 2) the inspector now appears with that courier's live detail.
+    expect(inspector).to_be_visible(timeout=WAIT)
     after = inspector.inner_text()
-    assert after.strip() and after != before, "inspector did not update after selection"
+    assert after.strip(), "inspector did not populate after selection"
 
 
 def test_nemoclaw_feed_live(page):

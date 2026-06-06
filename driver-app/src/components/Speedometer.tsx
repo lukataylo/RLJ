@@ -37,7 +37,7 @@ export default function Speedometer({
   const curFrac = cur / max;
   const onTarget =
     targetKmh != null && Math.abs(speedKmh - targetKmh) <= 2.5;
-  const color = onTarget ? "#23f0c7" : "#18f0ff";
+  const color = onTarget ? "#34d399" : "#fff6ee";
 
   const fillEnd = START + SWEEP * curFrac;
   const tickDeg =
@@ -86,7 +86,7 @@ export default function Speedometer({
             y1={tickInner.y}
             x2={tickOuter.x}
             y2={tickOuter.y}
-            stroke="#ff9d2f"
+            stroke="#f6c453"
             strokeWidth={4}
             strokeLinecap="round"
             filter="url(#speedo-glow)"

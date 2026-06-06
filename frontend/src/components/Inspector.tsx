@@ -5,7 +5,7 @@
 import { useMemo } from "react";
 import { useStore } from "../store";
 import { postNotification } from "../api";
-import { courierScheduleOffset, fmtClock, statInFlight } from "../lib/format";
+import { courierScheduleOffset, fmtClock } from "../lib/format";
 import type { DeliveryJob } from "../types";
 
 function primaryJob(jobIds: string[], jobsMap: Record<string, DeliveryJob>): DeliveryJob | null {
@@ -21,36 +21,11 @@ export default function Inspector() {
   const selectCourier = useStore((s) => s.selectCourier);
 
   const jobs = useMemo(() => Object.values(jobsMap), [jobsMap]);
-  const couriers = useMemo(() => Object.values(couriersMap), [couriersMap]);
   const courier = selectedId ? couriersMap[selectedId] : null;
 
-  if (!courier) {
-    const online = couriers.filter((c) => c.status !== "offline").length;
-    return (
-      <section className="inspector glass" data-testid="inspector">
-        <div className="insp-overview-cap">FLEET OVERVIEW</div>
-        <div className="insp-grid">
-          <div className="insp-ov">
-            <span className="ov-num">{online}</span>
-            <span className="ov-lbl">ONLINE</span>
-          </div>
-          <div className="insp-ov">
-            <span className="ov-num">{plan?.routes?.length ?? 0}</span>
-            <span className="ov-lbl">ROUTES</span>
-          </div>
-          <div className="insp-ov">
-            <span className="ov-num">{jobs.length}</span>
-            <span className="ov-lbl">JOBS</span>
-          </div>
-          <div className="insp-ov">
-            <span className="ov-num danger">{statInFlight(jobs)}</span>
-            <span className="ov-lbl">STAT</span>
-          </div>
-        </div>
-        <div className="insp-hint">Select a courier on the map to inspect its live job.</div>
-      </section>
-    );
-  }
+  // No courier selected → render nothing (fleet-overview segment removed per
+  // design feedback; the right column is just the floating delivery cards).
+  if (!courier) return null;
 
   const route = plan?.routes?.find((r) => r.courier_id === courier.id);
   const stops = [...(route?.stops ?? [])].sort((a, b) => a.sequence - b.sequence);

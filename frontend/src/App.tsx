@@ -4,6 +4,7 @@
 // inspector, NEMOCLAW log, verification drawer).
 
 import { useEffect, useState } from "react";
+import CityScene from "./components/CityScene";
 import MapView from "./components/MapView";
 import TopBar from "./components/TopBar";
 import EfficiencyPanel from "./components/EfficiencyPanel";
@@ -11,13 +12,24 @@ import Inspector from "./components/Inspector";
 import DeliveryList from "./components/DeliveryList";
 import AgentLog from "./components/AgentLog";
 import VerificationPanel from "./components/VerificationPanel";
-import { connectWs, getCctv, getFleetAssessments, getSignalRecs, getState } from "./api";
+import { connectWs, getCctv, getFleetAssessments, getSignalRecs, getState, me } from "./api";
 import { useStore } from "./store";
 import { useStatus } from "./hooks/useStatus";
 
 export default function App() {
   const status = useStatus();
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [view, setView] = useState<"map" | "lidar">("map");  // map by default; LiDAR is opt-in
+
+  // If a token is present, validate it via /auth/me and surface the user. A 401
+  // (or absence) clears it — dev runs auth-off so this never blocks the console.
+  useEffect(() => {
+    const { token, setAuthUser, clearAuth } = useStore.getState();
+    if (!token) return;
+    me()
+      .then((user) => setAuthUser(user))
+      .catch(() => clearAuth());
+  }, []);
 
   useEffect(() => {
     const { applyEvent, setConnected, hydrate, pushLog, setFleetAssessments, setCctv } =
@@ -81,9 +93,17 @@ export default function App() {
 
   return (
     <div className="cc">
-      <MapView />
+      {view === "lidar" ? <CityScene /> : <MapView />}
 
       <TopBar status={status} onOpenVerification={() => setVerifyOpen(true)} />
+
+      {/* View toggle: operations map ⇄ 3D LiDAR city twin */}
+      <div className="view-toggle glass" role="group" aria-label="View">
+        <button type="button" className={view === "map" ? "on" : ""}
+                data-testid="view-toggle-map" onClick={() => setView("map")}>Map</button>
+        <button type="button" className={view === "lidar" ? "on" : ""}
+                data-testid="view-toggle-lidar" onClick={() => setView("lidar")}>LiDAR 3D</button>
+      </div>
 
       <div className="right-stack">
         <EfficiencyPanel />

@@ -33,7 +33,6 @@ events (all shaped `{type, payload, ts}`):
 | `state`        | full snapshot | frontend |
 | `job_created`  | `DeliveryJob` | frontend |
 | `plan_updated` | `Plan` | frontend |
-| `courier_moved`| `{courier_id, location}` | frontend |
 | `disruption`   | `DisruptionEvent` | frontend |
 | `agent_log`    | `{level, message}` plain-English narration | frontend (side panel) |
 | `notification` | `Notification` | **voice** (place outbound call), frontend |

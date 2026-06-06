@@ -1,31 +1,37 @@
 {
-  "generated_at": "2026-06-06T10:50:38.955564+00:00",
+  "generated_at": "2026-06-06T13:56:02.030785+00:00",
   "scenario_now": "2026-06-05T08:00:00+00:00",
   "datasets": {
     "facilities": {
-      "source": "bundled-nhs-london",
+      "source": "live-with-fallback",
+      "live": false,
+      "provider": "bundled-nhs-london",
       "path": "data/facilities.json",
       "rows": 26,
       "sha256": "d6b868efe1bea1dfe9f3172fabd4980bb0d1dc120883080020d6317e73f6f3ea",
-      "fetched_at": "2026-06-06T10:50:38.940391+00:00",
+      "fetched_at": "2026-06-06T13:56:02.014755+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_facilities.py"
     },
     "demand": {
-      "source": "synthetic(seed=7, now=2026-06-05T08:00:00+00:00)",
+      "source": "synthetic-test-fixture",
+      "detail": "synthetic(seed=7, now=2026-06-05T08:00:00+00:00)",
+      "map_display": false,
       "path": "data/demand.json",
       "rows": 30,
       "sha256": "09297cd1f8cf39f57c271c48630cca2712a27a416d4c5b5cbc0f0dd7e0376ed7",
-      "fetched_at": "2026-06-06T10:50:38.945194+00:00",
+      "fetched_at": "2026-06-06T13:56:02.020245+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_demand.py"
     },
     "roads": {
-      "source": "synthetic-grid (osmnx if available)",
+      "source": "live-with-fallback",
+      "live": false,
+      "provider": "synthetic-grid-fallback",
       "path": "frontend/public/data/roads.geojson",
       "rows": 586,
       "sha256": "564c9538bb832d3365971ce86104476639f06ebc7994e11a7dcab5c92644f17a",
-      "fetched_at": "2026-06-06T10:50:38.949866+00:00",
+      "fetched_at": "2026-06-06T13:56:02.024754+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_road_graph.py"
     },
@@ -52,25 +58,28 @@
       "path": "data/junctions.json",
       "rows": 30,
       "sha256": "601473a3ce9f3f3ad640eb23c515e4ae8c0b3c8b9fe70640de8d91e5e972081c",
-      "fetched_at": "2026-06-06T10:50:38.950677+00:00",
+      "fetched_at": "2026-06-06T13:56:02.025568+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_junctions.py"
     },
     "weather": {
       "source": "bundled-representative",
+      "live": false,
       "path": "data/weather.json",
       "rows": 8,
-      "sha256": "7960a2fe383417775452ac4d4a8c74f27aa3b2396867e112794873c4afa0e5d6",
+      "sha256": "d79e84a815c293e0f75dd8813333059ae6ae14eb52ba6238a76bc54483ebda54",
       "fetched_at": "2026-06-01T00:00:00+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_weather.py"
     },
     "probes": {
-      "source": "simulated(seed=0, drivers=40, now=2026-06-05T08:00:00+00:00)",
+      "source": "synthetic-test-fixture",
+      "detail": "simulated(seed=0, drivers=40, now=2026-06-05T08:00:00+00:00)",
+      "map_display": false,
       "path": "data/probes_snapshot.json",
       "rows": 800,
       "sha256": "8017a6c6611cd9cc3c17edd05211d04dfd539b39dec337530874fbd04ea851de",
-      "fetched_at": "2026-06-06T10:50:38.955562+00:00",
+      "fetched_at": "2026-06-06T13:56:02.030782+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_probes.py"
     }

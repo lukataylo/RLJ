@@ -1,6 +1,7 @@
 {
   "source": "bundled-representative",
   "fetched_at": "2026-06-01T00:00:00+00:00",
+  "live": false,
   "provider": "bundled representative London weather states",
   "conditions": [
     "clear",
