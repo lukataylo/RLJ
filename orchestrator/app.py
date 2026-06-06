@@ -19,7 +19,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depe
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
+from models import (DeliveryJob, Location, Courier, DisruptionEvent, Notification,
                     Plan, OptimizeRequest, OptimizeResponse,
                     Driver, DriverPing, TelemetryBatch,
                     SignalRecommendation, SignalRecommendations,
@@ -27,6 +27,8 @@ from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
 from greedy import greedy_plan
 import congestion as congestion_mod
 import nemo_agent
+import geocode
+from intake import parse_delivery
 import db
 import auth
 from auth import require_user, current_user, CurrentUser
@@ -256,6 +258,55 @@ async def create_job(job: DeliveryJob, _user: CurrentUser = Depends(require_user
     await run_optimize()
     await emit_dispatch_notification(job.id)
     return job.model_dump(mode="json")
+
+
+class AgentIntake(BaseModel):
+    text: str
+
+
+@app.post("/intake")
+async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
+    """Offline natural-language delivery intake.
+
+    Free text -> parse (local Nemotron, regex fallback) -> resolve both places
+    against the offline London gazetteer -> create a job through the SAME path as
+    POST /jobs (so it re-optimizes and the route renders live).
+    """
+    text = (body.text or "").strip()
+    if not text:
+        return {"ok": False, "error": "empty request", "suggestions": []}
+
+    parsed = parse_delivery(text, geocode.place_names())
+    origin = geocode.resolve(parsed["origin"])
+    destination = geocode.resolve(parsed["destination"])
+
+    if origin is None or destination is None:
+        unresolved = parsed["origin"] if origin is None else parsed["destination"]
+        return {"ok": False,
+                "error": f"could not resolve {'origin' if origin is None else 'destination'}: "
+                         f"'{unresolved}'",
+                "suggestions": geocode.suggest(unresolved)}
+
+    job = DeliveryJob(
+        type=parsed["type"],
+        priority=parsed["priority"],
+        cold_chain=parsed["cold_chain"],
+        origin=Location(lat=origin["lat"], lng=origin["lng"], name=origin["name"]),
+        destination=Location(lat=destination["lat"], lng=destination["lng"],
+                             name=destination["name"]),
+        raw_text=text,
+    )
+    await HUB.emit("agent_log", {"level": "info", "source": "intake",
+                                 "message": f"Intake: \"{text[:100]}\" -> "
+                                            f"{job.priority.upper()} {job.type} "
+                                            f"{origin['name']} -> {destination['name']}."})
+    # Same path as POST /jobs: assigns id, emits job_created + agent_log, re-optimizes,
+    # then dispatch notification.
+    created = await create_job(job, _user)
+    job_id = created.get("id")
+    return {"ok": True, "job": created,
+            "resolved": {"origin": origin, "destination": destination},
+            "message": f"Created {job_id}: {origin['name']} → {destination['name']}"}
 
 
 @app.get("/couriers")
