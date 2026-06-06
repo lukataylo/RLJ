@@ -25,19 +25,24 @@ import torch
 import garnet_model as gm
 
 
-def train(nodes: int, steps: int, batch: int, lr: float, out: str, seed: int) -> None:
+def train(nodes: int, steps: int, batch: int, lr: float, out: str, seed: int,
+          device: str = "cpu") -> None:
+    dev = torch.device(device)
     torch.manual_seed(seed)
-    gen = torch.Generator().manual_seed(seed)
-    model = gm.GarnetTSP(gm.Config(seed=seed))
+    # The decode-sampling generator must live on the same device as the probability tensors
+    # (torch.multinomial checks this); coords are generated on it too.
+    gen = torch.Generator(device=dev).manual_seed(seed)
+    model = gm.GarnetTSP(gm.Config(seed=seed)).to(dev)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=0.96)
+    print(f"training on {dev} ({torch.cuda.get_device_name(0) if dev.type == 'cuda' else 'cpu'})")
 
     for step in range(1, steps + 1):
         model.train()
         batch_loss = model.encoder.coord_in.weight.new_zeros(())
         sampled_len = greedy_len = 0.0
         for _ in range(batch):
-            coords = torch.rand(nodes, 2, generator=gen)
+            coords = torch.rand(nodes, 2, generator=gen, device=dev)
             # sampled rollout (exploration) — carries the gradient
             tour_s, logp = model(coords, sample=True, generator=gen)
             len_s = gm.tour_length(coords, tour_s)
@@ -72,8 +77,10 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=1e-4)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", type=str, default="garnet.pt")
+    ap.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
+                    help="cuda (GB10 GPU) or cpu; defaults to cuda when available")
     args = ap.parse_args()
-    train(args.nodes, args.steps, args.batch, args.lr, args.out, args.seed)
+    train(args.nodes, args.steps, args.batch, args.lr, args.out, args.seed, args.device)
 
 
 if __name__ == "__main__":

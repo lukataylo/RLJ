@@ -162,7 +162,11 @@ class Encoder(nn.Module):
     def forward(self, coords: torch.Tensor):
         cfg = self.cfg
         n = coords.shape[0]
-        gen = torch.Generator(device=coords.device).manual_seed(cfg.seed)
+        # Structural rewiring is built on CPU (tiny, index-based) with a CPU generator so it
+        # is device-agnostic — torch.randperm rejects a CUDA generator — then moved to the
+        # model's device. Seeded by cfg.seed, so the realisation is reproducible and
+        # identical on CPU and GPU.
+        gen = torch.Generator().manual_seed(cfg.seed)
 
         a_knn = _knn_adjacency(coords, cfg.knn)
         a_rewire = _random_regular(n, cfg.rewire_r, gen).to(coords.device)
