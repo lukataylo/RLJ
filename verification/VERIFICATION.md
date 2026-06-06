@@ -1,6 +1,6 @@
 # Verification status
 
-_Generated 2026-06-06T12:56:19.475779+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T13:58:00.895248+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
 **Must-pass gate: ✅ GREEN** (60/60) · verified 70/70 · failing 0 · unverified 0
 

@@ -98,9 +98,7 @@ export default function AgentLog() {
   return (
     <section className="nemoclaw glass" data-testid="agent-log">
       <header className="nemo-head">
-        <span className="nemo-title">
-          <span className="nemo-bars">❘❙</span> NEMOCLAW · LOCAL AGENT
-        </span>
+        <span className="nemo-title">NemoClaw</span>
         <button
           type="button"
           className="nemo-agent-btn"
@@ -147,7 +145,7 @@ export default function AgentLog() {
           </div>
         </div>
       )}
-      <div className="nemo-sources">sources: TfL · London datastore · live ops</div>
+      <div className="nemo-sources">Local agent · TfL · live ops</div>
       <div className="nemo-body" data-testid="nemoclaw-feed">
         {feed.length === 0 && <div className="nemo-empty">Awaiting agent activity…</div>}
         {feed.map((l, i) => {

@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
 import DemoControls from "./DemoControls";
+import ThemeToggle from "./ThemeToggle";
 
 interface Props {
   status: UseStatus;
@@ -61,14 +62,14 @@ export default function TopBar({ status, onOpenVerification }: Props) {
 
   return (
     <>
-      {/* TOP-LEFT provenance pill */}
+      {/* TOP-LEFT provenance pill — trimmed to the essentials */}
       <div className="prov-pill glass">
         <span className="prov-shield" aria-hidden>⛨</span>
         <div className="prov-lines">
-          <div className="prov-line-1">RUNNING LOCAL · DGX SPARK GB10</div>
+          <div className="prov-line-1">Local · DGX Spark GB10</div>
           <div className="prov-line-2">
             <span className={`prov-dot ${connected ? "live" : "off"}`} />
-            ZERO EGRESS · {solveMs != null ? Math.round(solveMs) : "—"} ms re-plan
+            {solveMs != null ? Math.round(solveMs) : "—"} ms re-plan
           </div>
         </div>
       </div>
@@ -92,7 +93,7 @@ export default function TopBar({ status, onOpenVerification }: Props) {
           )}
         </div>
 
-        <span className="nav-mark">PulseGo</span>
+        <span className="nav-mark">Pulse<b>Go</b></span>
 
         <div className="nav-tabs">
           {TABS.map((t) => (
@@ -120,6 +121,8 @@ export default function TopBar({ status, onOpenVerification }: Props) {
         </button>
 
         <span className="nav-clock">{clock}</span>
+
+        <ThemeToggle />
 
         {token && (
           <div className="nav-user">

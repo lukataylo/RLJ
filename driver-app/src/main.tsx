@@ -1,16 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-// Sci-fi type system (offline-safe, bundled via @fontsource), matching the
-// PulseGo ops console: Orbitron for display/big numbers, Rajdhani for body/labels.
-import "@fontsource/orbitron/latin-500.css";
-import "@fontsource/orbitron/latin-700.css";
-import "@fontsource/orbitron/latin-800.css";
-import "@fontsource/orbitron/latin-900.css";
-import "@fontsource/rajdhani/latin-300.css";
-import "@fontsource/rajdhani/latin-400.css";
-import "@fontsource/rajdhani/latin-500.css";
-import "@fontsource/rajdhani/latin-600.css";
-import "@fontsource/rajdhani/latin-700.css";
+// PulseGo brand type system (offline-safe, bundled via @fontsource):
+// Poppins for display/headings, Inter for body/labels.
+import "@fontsource/poppins/latin-500.css";
+import "@fontsource/poppins/latin-600.css";
+import "@fontsource/poppins/latin-700.css";
+import "@fontsource/poppins/latin-800.css";
+import "@fontsource/inter/latin-400.css";
+import "@fontsource/inter/latin-500.css";
+import "@fontsource/inter/latin-600.css";
+import "@fontsource/inter/latin-700.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "./index.css";

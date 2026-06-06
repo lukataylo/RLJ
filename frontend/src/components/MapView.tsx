@@ -59,6 +59,7 @@ import {
   type Facility,
 } from "../lib/datasets";
 import { getRoadRoute, routeSignature, type LngLat } from "../lib/routing";
+import { getTheme, onThemeChange, type Theme } from "../lib/theme";
 import {
   mdiTrafficLight,
   mdiCarMultiple,
@@ -89,27 +90,33 @@ const INITIAL_VIEW = {
 
 const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN ?? "").trim();
 const USE_MAPBOX = MAPBOX_TOKEN.length > 0;
-const MAPBOX_STYLE = "mapbox://styles/mapbox/dark-v11";
+const MAPBOX_STYLE_DARK = "mapbox://styles/mapbox/dark-v11";
+const MAPBOX_STYLE_LIGHT = "mapbox://styles/mapbox/light-v11";
+const mapboxStyleFor = (theme: Theme) => (theme === "light" ? MAPBOX_STYLE_LIGHT : MAPBOX_STYLE_DARK);
 
-const MAP_STYLE: maplibregl.StyleSpecification = {
+// Calm Command basemap: CARTO dark_all (charcoal) or light_all (cream) raster,
+// swapped live when the dark/light theme toggles.
+const CARTO_TILES = (theme: Theme) => {
+  const variant = theme === "light" ? "light_all" : "dark_all";
+  return ["a", "b", "c"].map((s) => `https://${s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}.png`);
+};
+const MAP_BG = (theme: Theme) => (theme === "light" ? "#e9ded0" : "#0e0d0c");
+
+const mapStyle = (theme: Theme): maplibregl.StyleSpecification => ({
   version: 8,
   sources: {
     carto: {
       type: "raster",
-      tiles: [
-        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-      ],
+      tiles: CARTO_TILES(theme),
       tileSize: 256,
       attribution: "© OpenStreetMap contributors © CARTO",
     },
   },
   layers: [
-    { id: "bg", type: "background", paint: { "background-color": "#05090b" } },
+    { id: "bg", type: "background", paint: { "background-color": MAP_BG(theme) } },
     { id: "carto", type: "raster", source: "carto" },
   ],
-};
+});
 
 // Static London district labels — atmosphere, drawn muted/uppercase.
 const DISTRICTS: { name: string; lng: number; lat: number }[] = [
@@ -957,16 +964,41 @@ export default function MapView() {
     };
   }, []);
 
+  // Swap the basemap live when the dark/light theme toggles. CARTO raster tiles
+  // (tokenless path) swap in place; Mapbox falls back to a full setStyle.
+  useEffect(() => {
+    return onThemeChange((theme) => {
+      const m = mapRef.current as maplibregl.Map | undefined;
+      if (!m) return;
+      if (USE_MAPBOX) {
+        try {
+          (m as unknown as mapboxgl.Map).setStyle(mapboxStyleFor(theme));
+        } catch {
+          /* style swap unavailable — non-fatal */
+        }
+        return;
+      }
+      try {
+        const src = m.getSource("carto") as maplibregl.RasterTileSource | undefined;
+        src?.setTiles?.(CARTO_TILES(theme));
+        m.setPaintProperty("bg", "background-color", MAP_BG(theme));
+      } catch {
+        /* source not ready — non-fatal */
+      }
+    });
+  }, []);
+
   // Init map + overlay once.
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const theme0 = getTheme();
     let map: maplibregl.Map | mapboxgl.Map;
     if (USE_MAPBOX) {
       mapboxgl.accessToken = MAPBOX_TOKEN;
       map = new mapboxgl.Map({
         container: containerRef.current,
-        style: MAPBOX_STYLE,
+        style: mapboxStyleFor(theme0),
         center: INITIAL_VIEW.center,
         zoom: INITIAL_VIEW.zoom,
         pitch: INITIAL_VIEW.pitch,
@@ -977,7 +1009,7 @@ export default function MapView() {
     } else {
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: MAP_STYLE,
+        style: mapStyle(theme0),
         center: INITIAL_VIEW.center,
         zoom: INITIAL_VIEW.zoom,
         pitch: INITIAL_VIEW.pitch,

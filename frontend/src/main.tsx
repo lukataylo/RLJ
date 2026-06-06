@@ -11,8 +11,9 @@ import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
 import "@fontsource/inter/700.css";
-// Poppins — display face for the public brand surfaces (landing + login) per
-// the PulseGo brand guideline (headings: Poppins Bold/Extrabold; body: Inter).
+// Poppins — display face for headings/numerals across the brand: the public
+// surfaces (landing + login) and the Calm Command app shell.
+import "@fontsource/poppins/500.css";
 import "@fontsource/poppins/600.css";
 import "@fontsource/poppins/700.css";
 import "@fontsource/poppins/800.css";
@@ -23,6 +24,10 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import App from "./App";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import { initTheme } from "./lib/theme";
+
+// Apply the persisted dark/light theme before first paint (no flash).
+initTheme();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

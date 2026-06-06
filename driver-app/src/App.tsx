@@ -9,12 +9,13 @@
 //   * congestion / guidance — poll the read endpoints, fall back to demo data
 //     when offline, or hide a card when the endpoint 404s while online.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Signup from "./components/Signup";
 import DriverMap from "./components/DriverMap";
 import GreenWaveCard from "./components/GreenWaveCard";
 import ContributionStats from "./components/ContributionStats";
-import AskButton from "./components/AskButton";
+import BottomNav, { type Tab } from "./components/BottomNav";
+import VoiceOverlay from "./components/VoiceOverlay";
 import { useStore } from "./store";
 import {
   getCongestion,
@@ -34,6 +35,23 @@ const GUIDANCE_MS = 4000;
 
 export default function App() {
   const driver = useStore((s) => s.driver);
+  const setDriver = useStore((s) => s.setDriver);
+
+  // Demo deep-link: ?demo seeds a local driver so the home screen is reachable
+  // without onboarding (the app is demo-first; signup still mints a real id).
+  useEffect(() => {
+    if (driver) return;
+    if (new URLSearchParams(window.location.search).has("demo")) {
+      setDriver({
+        id: "drv_demo01",
+        name: "Sam",
+        vehicle_type: "scooter",
+        consent: true,
+        joined_at: new Date().toISOString(),
+        points: 240,
+      });
+    }
+  }, [driver, setDriver]);
 
   if (!driver) return <Signup />;
   return <DriverHome />;
@@ -51,6 +69,10 @@ function DriverHome() {
 
   const simRef = useRef<(() => GpsFix) | null>(null);
   const tickRef = useRef(0);
+
+  const params = new URLSearchParams(window.location.search);
+  const [tab, setTab] = useState<Tab>(params.get("tab") === "impact" ? "impact" : "drive");
+  const [voiceOpen, setVoiceOpen] = useState(params.has("voice"));
 
   // -- health probe (and re-probe periodically) -----------------------------
   useEffect(() => {
@@ -249,21 +271,31 @@ function DriverHome() {
       </div>
 
       <main className="main">
-        <DriverMap />
-
-        <div className="cards">
-          <GreenWaveCard />
-          <ContributionStats />
-          {congestionSource === "demo" && (
-            <p className="demo-foot">
-              Demo data — start the orchestrator (VITE_ORCHESTRATOR_URL) for live
-              congestion &amp; green-wave guidance.
-            </p>
-          )}
-        </div>
+        {tab === "drive" ? (
+          <>
+            <DriverMap />
+            <div className="cards">
+              <GreenWaveCard />
+              {congestionSource === "demo" && (
+                <p className="demo-foot">
+                  Demo data — start the orchestrator (VITE_ORCHESTRATOR_URL) for live
+                  congestion &amp; green-wave guidance.
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="cards">
+            <ContributionStats />
+          </div>
+        )}
       </main>
 
-      <AskButton />
+      <BottomNav tab={tab} onTab={setTab} onVoice={() => setVoiceOpen(true)} />
+
+      {voiceOpen && (
+        <VoiceOverlay name={driver.name ?? undefined} onClose={() => setVoiceOpen(false)} />
+      )}
     </div>
   );
 }

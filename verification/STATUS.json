@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-06T12:56:19.475779+00:00",
+  "generated_at": "2026-06-06T13:58:00.895248+00:00",
   "summary": {
     "total": 70,
     "verified": 70,
@@ -55,7 +55,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.001
     },
     {
       "id": "plan-schema",
@@ -64,7 +64,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0852
+      "duration_s": 0.0849
     },
     {
       "id": "job-schema",
@@ -73,7 +73,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 0.0847
+      "duration_s": 0.0842
     },
     {
       "id": "optimize-contract",
@@ -82,7 +82,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.0881
+      "duration_s": 0.0871
     },
     {
       "id": "data-facilities-bbox",
@@ -91,7 +91,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.003
+      "duration_s": 0.0056
     },
     {
       "id": "data-facilities-complete",
@@ -100,7 +100,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0172
+      "duration_s": 0.0155
     },
     {
       "id": "data-demand-valid",
@@ -109,7 +109,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0073
+      "duration_s": 0.0071
     },
     {
       "id": "data-manifest-gate",
@@ -118,7 +118,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0967
+      "duration_s": 0.069
     },
     {
       "id": "data-roadgraph",
@@ -127,7 +127,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0088
+      "duration_s": 0.0067
     },
     {
       "id": "research-anticipation-beats-reaction",
@@ -154,7 +154,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_beats_greedy_significantly",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0
     },
     {
       "id": "research-beats-ortools",
@@ -217,7 +217,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput",
       "status": "verified",
-      "duration_s": 7.6133
+      "duration_s": 7.6341
     },
     {
       "id": "bench-anticipation",
@@ -226,7 +226,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_anticipation_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0006
     },
     {
       "id": "bench-flywheel",
@@ -235,7 +235,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_flywheel_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0006
     },
     {
       "id": "bench-telemetry-throughput",
@@ -244,7 +244,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s",
       "status": "verified",
-      "duration_s": 0.0375
+      "duration_s": 0.0398
     },
     {
       "id": "bench-data-integrity",
@@ -253,7 +253,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable",
       "status": "verified",
-      "duration_s": 0.0043
+      "duration_s": 0.0064
     },
     {
       "id": "autonomy-loop",
@@ -262,7 +262,7 @@
       "must_pass": true,
       "test": "tests/unit/test_autonomy.py::test_autonomy_loop_reacts_to_congestion",
       "status": "verified",
-      "duration_s": 0.0818
+      "duration_s": 0.0824
     },
     {
       "id": "solver-optimality-gap",
@@ -271,7 +271,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
       "status": "verified",
-      "duration_s": 10.4773
+      "duration_s": 10.4806
     },
     {
       "id": "solver-scales",
@@ -280,7 +280,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
       "status": "verified",
-      "duration_s": 3.1107
+      "duration_s": 3.11
     },
     {
       "id": "flywheel-value",
@@ -289,7 +289,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0015
     },
     {
       "id": "flywheel-monotone",
@@ -307,7 +307,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_junctions.py::test_junctions_valid",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0006
     },
     {
       "id": "data-probes",
@@ -316,7 +316,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_probes.py::test_probe_pings_valid",
       "status": "verified",
-      "duration_s": 0.0207
+      "duration_s": 0.0193
     },
     {
       "id": "data-weather",
@@ -343,7 +343,7 @@
       "must_pass": true,
       "test": "tests/unit/test_nemo_agent.py::test_nemo_agent_offline_narrates_and_injects",
       "status": "verified",
-      "duration_s": 0.034
+      "duration_s": 0.0344
     },
     {
       "id": "nemoclaw-online",
@@ -352,7 +352,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration",
       "status": "verified",
-      "duration_s": 0.003
+      "duration_s": 0.0036
     },
     {
       "id": "courier-vehicle-type",
@@ -361,7 +361,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips",
       "status": "verified",
-      "duration_s": 0.0157
+      "duration_s": 0.0156
     },
     {
       "id": "ui-delivery-list",
@@ -370,7 +370,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards",
       "status": "verified",
-      "duration_s": 11.7619
+      "duration_s": 15.8842
     },
     {
       "id": "ui-click-highlights-route",
@@ -379,7 +379,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights",
       "status": "verified",
-      "duration_s": 11.0168
+      "duration_s": 14.2963
     },
     {
       "id": "brand-landing",
@@ -388,7 +388,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_landing_is_on_brand",
       "status": "verified",
-      "duration_s": 0.997
+      "duration_s": 0.8503
     },
     {
       "id": "brand-login",
@@ -397,7 +397,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_login_is_on_brand_and_rejects_bad_creds",
       "status": "verified",
-      "duration_s": 0.949
+      "duration_s": 0.8534
     },
     {
       "id": "signals-roundtrip",
@@ -406,7 +406,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_post_get_roundtrip",
       "status": "verified",
-      "duration_s": 0.012
+      "duration_s": 0.0148
     },
     {
       "id": "signals-broadcast",
@@ -415,7 +415,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_broadcast",
       "status": "verified",
-      "duration_s": 0.0123
+      "duration_s": 0.0169
     },
     {
       "id": "signals-malformed",
@@ -424,7 +424,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_malformed_422",
       "status": "verified",
-      "duration_s": 0.0243
+      "duration_s": 0.0319
     },
     {
       "id": "signal-agent-parse",
@@ -433,7 +433,7 @@
       "must_pass": true,
       "test": "tests/unit/test_signal_agent.py::test_ask_nemotron_parses_and_filters",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0003
     },
     {
       "id": "signal-agent-robust",
@@ -451,7 +451,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_ask_tasks_answer_flow",
       "status": "verified",
-      "duration_s": 2.0626
+      "duration_s": 2.0571
     },
     {
       "id": "fleet-assessments",
@@ -460,7 +460,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_fleet_assessments_roundtrip_and_broadcast",
       "status": "verified",
-      "duration_s": 2.0295
+      "duration_s": 2.0355
     },
     {
       "id": "courier-redirect",
@@ -469,7 +469,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_redirect_known_and_unknown",
       "status": "verified",
-      "duration_s": 0.0294
+      "duration_s": 0.0331
     },
     {
       "id": "cctv-cameras",
@@ -478,7 +478,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_cctv_cameras_shape",
       "status": "verified",
-      "duration_s": 0.1838
+      "duration_s": 0.1249
     },
     {
       "id": "agent-answers-tasks",
@@ -505,7 +505,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_register_then_login_returns_jwt_and_me_works",
       "status": "verified",
-      "duration_s": 0.7564
+      "duration_s": 0.6821
     },
     {
       "id": "auth-protects-writes",
@@ -514,7 +514,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_with_token_succeeds",
       "status": "verified",
-      "duration_s": 0.0304
+      "duration_s": 0.0231
     },
     {
       "id": "auth-rejects-no-token",
@@ -523,7 +523,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_without_token_returns_401",
       "status": "verified",
-      "duration_s": 0.0123
+      "duration_s": 0.0106
     },
     {
       "id": "auth-wrong-password",
@@ -532,7 +532,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_login_with_wrong_password_returns_401",
       "status": "verified",
-      "duration_s": 0.2394
+      "duration_s": 0.2226
     },
     {
       "id": "auth-backward-compat",
@@ -541,7 +541,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_post_jobs_works_without_token_when_auth_off",
       "status": "verified",
-      "duration_s": 0.0311
+      "duration_s": 0.0223
     },
     {
       "id": "completeness-no-stubs",
@@ -550,7 +550,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist",
       "status": "verified",
-      "duration_s": 0.0126
+      "duration_s": 0.0127
     },
     {
       "id": "completeness-no-unwired-buttons",
@@ -559,7 +559,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_unwired_buttons",
       "status": "verified",
-      "duration_s": 0.0028
+      "duration_s": 0.0022
     },
     {
       "id": "completeness-endpoints",
@@ -568,7 +568,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_orchestrator_rest_endpoints_implemented",
       "status": "verified",
-      "duration_s": 0.0142
+      "duration_s": 0.0123
     },
     {
       "id": "completeness-ws-emitted",
@@ -577,7 +577,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_ws_events_declared_are_emitted",
       "status": "verified",
-      "duration_s": 0.0008
+      "duration_s": 0.0006
     },
     {
       "id": "reroute-on-closure",
@@ -586,7 +586,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 0.6389
+      "duration_s": 0.6422
     },
     {
       "id": "voice-loop",
@@ -595,7 +595,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.1211
+      "duration_s": 0.1309
     },
     {
       "id": "e2e-flywheel-loop",
@@ -604,7 +604,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop",
       "status": "verified",
-      "duration_s": 0.3307
+      "duration_s": 0.2314
     },
     {
       "id": "unhappy-cold-safety",
@@ -613,7 +613,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash",
       "status": "verified",
-      "duration_s": 0.1346
+      "duration_s": 0.1323
     },
     {
       "id": "unhappy-routing-fallback",
@@ -622,7 +622,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback",
       "status": "verified",
-      "duration_s": 0.0889
+      "duration_s": 0.1125
     },
     {
       "id": "unhappy-malformed-422",
@@ -631,7 +631,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy",
       "status": "verified",
-      "duration_s": 0.0602
+      "duration_s": 0.0412
     },
     {
       "id": "unhappy-bad-telemetry",
@@ -640,7 +640,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted",
       "status": "verified",
-      "duration_s": 0.0253
+      "duration_s": 0.0213
     }
   ]
 }

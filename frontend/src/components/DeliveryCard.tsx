@@ -101,7 +101,7 @@ export default function DeliveryCard({
     >
       <div className="dc-top">
         <span className={`dc-veh status-${item.vehicle ?? "van"}`}>
-          <VehicleIcon vehicle={item.vehicle} size={22} />
+          <VehicleIcon vehicle={item.vehicle} size={18} />
         </span>
 
         <div className="dc-route">

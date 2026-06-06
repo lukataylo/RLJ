@@ -3,7 +3,7 @@
 // for pings; couriers_helped/points come from guidance.contribution + driver.
 
 import { useStore } from "../store";
-import CountUp from "./CountUp";
+import DotMatrix from "./DotMatrix";
 
 export default function ContributionStats() {
   const pings = useStore((s) => s.pings);
@@ -29,30 +29,24 @@ export default function ContributionStats() {
       </header>
 
       <div className="hero-impact">
-        <span className="hero-num">
-          <CountUp value={minutesSaved} />
+        <span className="hero-dm">
+          <DotMatrix value={minutesSaved} dot={8} gap={4} charGap={11} tone="amber" />
           <span className="hero-unit">min</span>
         </span>
         <span className="hero-cap">you made London faster</span>
       </div>
 
       <div className="stat-grid">
-        <div className="stat-cell">
-          <span className="stat-num" data-testid="contribution-pings">
-            <CountUp value={pings} />
-          </span>
+        <div className="stat-cell" data-testid="contribution-pings">
+          <DotMatrix value={pings} dot={4} gap={2} charGap={5} tone="white" />
           <span className="stat-cap">pings sent</span>
         </div>
         <div className="stat-cell">
-          <span className="stat-num">
-            <CountUp value={couriersHelped} />
-          </span>
+          <DotMatrix value={couriersHelped} dot={4} gap={2} charGap={5} tone="white" />
           <span className="stat-cap">couriers helped</span>
         </div>
         <div className="stat-cell">
-          <span className="stat-num accent">
-            <CountUp value={points} />
-          </span>
+          <DotMatrix value={points} dot={4} gap={2} charGap={5} tone="red" />
           <span className="stat-cap">points</span>
         </div>
       </div>
