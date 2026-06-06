@@ -93,6 +93,14 @@ Beyond the single optimiser, RLJ is a **multi-agent, self-improving** city syste
   GPU-parallel ACO + **Google OR-Tools** (and **NVIDIA cuOpt** on the GB10), every candidate
   local-search-refined. It has **zero optimality gap vs OR-Tools** on the clinical objective
   and **scales to 80+ jobs** within budget (gated tests).
+- **Delta-evaluation HGS solver** (`routing/solver_hgs.py`): a from-scratch metaheuristic
+  (delta evaluation + neighbor lists + don't-look bits + ruin-and-recreate LNS; design after
+  Vidal's HGS / PyVRP and Ropke-Pisinger ALNS). It reaches **equal-or-better clinical quality
+  in ~1/10 the wall-clock time** of the whole-plan-rescoring local search — i.e. **~10× faster
+  at equal-or-better quality**, externally re-scored and reproduced by fresh-context agents.
+  This is a *time-to-quality* result, **not** a 10× claim on route quality vs OR-Tools (which
+  no router achieves). See [`routing/RESEARCH_HGS.md`](routing/RESEARCH_HGS.md) and the gate
+  `tests/benchmarks/test_hgs_speedup.py`.
 - **Autonomy loop** (`orchestrator/autonomy.py`): Curator validates crowdsourced probes →
   congestion field → Dispatcher re-plans medical routes around it → Driver/Voice agents
   communicate. Deterministic, unit-tested.

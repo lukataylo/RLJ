@@ -12,12 +12,13 @@ import time
 
 import solver_aco
 import solver_baseline
+import solver_hgs
 import solver_ls
 import solver_ortools
 from models import OptimizeRequest, Plan
 
-# "gpu-aco" on the GB10 (CuPy), "aco-numpy" on CPU. We append "+ls" for the refinement.
-SOLVER_NAME = solver_aco.SOLVER_NAME + "+ls"
+# The live service is an adaptive portfolio centred on the delta-evaluation HGS engine.
+SOLVER_NAME = "hgs-adaptive"
 ORTOOLS_TIME_S = 1   # per-call budget for the OR-Tools portfolio member (cuOpt on GB10)
 
 
@@ -35,20 +36,30 @@ def plan(req: OptimizeRequest, *, ortools_time_s: int = ORTOOLS_TIME_S) -> Plan:
         return out
 
     # Tiered portfolio for low latency + scale:
-    #  * small (<=12 jobs, the real-time replan case): metaheuristics only (greedy +
-    #    insertion + GPU-ACO + LS). These already tie OR-Tools on the clinical objective on
-    #    small instances, so we skip OR-Tools' fixed time budget and replan in ~100ms.
+    #  * small (<=12 jobs, the real-time replan case): HGS + constructive members only.
+    #    On CPU, the delta-evaluation HGS dominates the old ACO path on both quality and
+    #    latency, so we keep ACO off the hot path unless a GPU backend is actually present.
     #  * mid (13-25): add OR-Tools (modest budget) for extra assurance.
     #  * big (>25): O(J^3) members off; rely on greedy + OR-Tools/cuOpt (which scale).
     small = P.J <= 12
     big = P.J > 25
     candidates: list[Plan] = [solver_baseline.greedy_plan(req)]  # always-available net
+    # Delta-evaluation HGS: scales (O(2 routes)/move vs LS's O(plan)/move) so it runs at
+    # EVERY size and is the primary optimiser on big instances where the O(J^3) LS is off.
+    # Budget grows modestly with size; it reaches LS-grade quality in ~1/10 the LS time
+    # (see routing/bench_hgs.py + tests/benchmarks/test_hgs_speedup.py).
+    try:
+        hgs_budget = min(3.0, 0.10 + 0.025 * P.J) if big else (0.08 if small else 0.30)
+        candidates.append(solver_hgs.solve(req, time_budget_s=hgs_budget))
+    except Exception:  # noqa: BLE001 - never let a member break the service
+        pass
     if not big:
         candidates.append(solver_ls.construct(req))             # insertion (LS-polished)
-        try:
-            candidates.append(solver_aco.solve(req))            # GPU-parallel explorer
-        except Exception:  # noqa: BLE001 - never let a member break the service
-            pass
+        if solver_aco.GPU_BACKEND:
+            try:
+                candidates.append(solver_aco.solve(req))        # GPU-parallel explorer
+            except Exception:  # noqa: BLE001 - never let a member break the service
+                pass
     try:
         cuopt = solver_baseline.try_cuopt(req)                   # NVIDIA cuOpt (GB10)
         if cuopt is not None:
