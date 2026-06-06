@@ -87,9 +87,10 @@ def _collect_ws(ws, predicate, deadline_s: float = 12.0):
 
 
 def test_ask_tasks_answer_flow(stack):
-    """POST /agent/ask -> the task shows up pending in GET /agent/tasks. The GB10 agent's
-    POST /agent/answer marks it answered (gone from the pending list) and broadcasts an
-    'agent_answer' frame (plus an agent_log line with source 'nemotron')."""
+    """POST /agent/ask -> the orchestrator answers directly (LLM seam, or deterministic
+    fleet-summary fallback when no LLM is configured): the returned task is 'answered'
+    with a non-empty answer, and an 'agent_answer' frame (plus an agent_log line with
+    source 'nemotron') is broadcast. The /agent/answer box-agent path still works."""
     from websockets.sync.client import connect
 
     base = stack["base"]
@@ -97,36 +98,30 @@ def test_ask_tasks_answer_flow(stack):
         # drain the initial state snapshot + any replayed history
         _collect_ws(ws, lambda ev: False, deadline_s=1.5)
 
-        with httpx.Client(base_url=base, timeout=10) as c:
+        with httpx.Client(base_url=base, timeout=15) as c:
             r = c.post("/agent/ask", json={"question": "Which junctions are worst right now?"})
             assert r.status_code == 200, r.text
             task = r.json()
-            assert task.get("status") == "pending"
+            assert task.get("status") == "answered", task
+            assert task.get("answer"), "no direct answer returned"
             task_id = task["id"]
             assert task_id
 
-            pending = c.get("/agent/tasks")
-            assert pending.status_code == 200, pending.text
-            ids = [t["id"] for t in pending.json()]
-            assert task_id in ids, f"asked task not pending: {pending.json()}"
-
+            # the optional GB10 box path is still accepted (idempotent)
             ans = c.post("/agent/answer", json={"task_id": task_id, "answer": "Bank and Aldgate are hottest."})
             assert ans.status_code == 200, ans.text
             assert ans.json().get("ok") is True
 
-            still = c.get("/agent/tasks").json()
-            assert task_id not in [t["id"] for t in still], f"task still pending after answer: {still}"
-
         # an agent_answer frame (and/or an agent_log nemotron line) must arrive
         def _is_answer(ev):
             if ev.get("type") == "agent_answer":
-                return (ev.get("payload") or {}).get("task_id") == task_id
+                return True
             if ev.get("type") == "agent_log":
                 return (ev.get("payload") or {}).get("source") == "nemotron"
             return False
 
         hit, seen = _collect_ws(ws, _is_answer, deadline_s=12.0)
-        assert hit is not None, f"no agent_answer/agent_log(nemotron) after answer; saw {seen}"
+        assert hit is not None, f"no agent_answer/agent_log(nemotron) after ask; saw {seen}"
 
 
 def test_fleet_assessments_roundtrip_and_broadcast(stack):

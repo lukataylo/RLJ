@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-06T16:56:13.592368+00:00",
+  "generated_at": "2026-06-06T17:27:48.354418+00:00",
   "summary": {
     "total": 83,
     "verified": 83,
@@ -19,7 +19,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_stat_window_compliance",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0002
     },
     {
       "id": "beats-baseline",
@@ -28,7 +28,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_beats_greedy",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0007
     },
     {
       "id": "eta-sane",
@@ -46,7 +46,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_solve_budget",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "no-regression",
@@ -55,7 +55,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0009
+      "duration_s": 0.0007
     },
     {
       "id": "plan-schema",
@@ -64,7 +64,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0843
+      "duration_s": 0.085
     },
     {
       "id": "job-schema",
@@ -73,7 +73,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 0.0837
+      "duration_s": 0.084
     },
     {
       "id": "optimize-contract",
@@ -82,7 +82,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.0866
+      "duration_s": 0.0871
     },
     {
       "id": "data-facilities-bbox",
@@ -91,7 +91,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0056
+      "duration_s": 0.0057
     },
     {
       "id": "data-facilities-complete",
@@ -100,7 +100,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.014
+      "duration_s": 0.0687
     },
     {
       "id": "data-demand-valid",
@@ -109,7 +109,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0062
+      "duration_s": 0.0064
     },
     {
       "id": "data-manifest-gate",
@@ -118,7 +118,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0629
+      "duration_s": 0.0273
     },
     {
       "id": "data-roadgraph",
@@ -127,7 +127,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0069
+      "duration_s": 0.0068
     },
     {
       "id": "research-anticipation-beats-reaction",
@@ -172,7 +172,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_policy_value.py::test_anticipation_generalises_to_ortools",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "data-signals-valid",
@@ -190,7 +190,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_signals.py::test_active_and_horizon_consistency",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0006
     },
     {
       "id": "data-airquality",
@@ -244,7 +244,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_routing_latency_p50_fastpath",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0003
     },
     {
       "id": "bench-latency-p95",
@@ -253,7 +253,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_routing_latency_p95_cpu",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0011
     },
     {
       "id": "bench-scale-100",
@@ -262,7 +262,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput",
       "status": "verified",
-      "duration_s": 7.6338
+      "duration_s": 7.6461
     },
     {
       "id": "bench-anticipation",
@@ -271,7 +271,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_anticipation_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0016
     },
     {
       "id": "bench-flywheel",
@@ -280,7 +280,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_flywheel_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0008
+      "duration_s": 0.0006
     },
     {
       "id": "bench-telemetry-throughput",
@@ -289,7 +289,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s",
       "status": "verified",
-      "duration_s": 0.0456
+      "duration_s": 0.0388
     },
     {
       "id": "bench-data-integrity",
@@ -298,7 +298,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable",
       "status": "verified",
-      "duration_s": 0.0093
+      "duration_s": 0.0083
     },
     {
       "id": "autonomy-loop",
@@ -307,7 +307,7 @@
       "must_pass": true,
       "test": "tests/unit/test_autonomy.py::test_autonomy_loop_reacts_to_congestion",
       "status": "verified",
-      "duration_s": 0.0817
+      "duration_s": 0.0819
     },
     {
       "id": "solver-optimality-gap",
@@ -316,7 +316,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
       "status": "verified",
-      "duration_s": 10.4768
+      "duration_s": 10.4943
     },
     {
       "id": "solver-scales",
@@ -325,7 +325,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
       "status": "verified",
-      "duration_s": 3.111
+      "duration_s": 3.1083
     },
     {
       "id": "flywheel-value",
@@ -334,7 +334,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
       "status": "verified",
-      "duration_s": 0.0009
+      "duration_s": 0.0015
     },
     {
       "id": "flywheel-monotone",
@@ -352,7 +352,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_junctions.py::test_junctions_valid",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0005
     },
     {
       "id": "data-probes",
@@ -361,7 +361,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_probes.py::test_probe_pings_valid",
       "status": "verified",
-      "duration_s": 0.0184
+      "duration_s": 0.0186
     },
     {
       "id": "data-weather",
@@ -469,7 +469,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration",
       "status": "verified",
-      "duration_s": 0.0022
+      "duration_s": 0.0031
     },
     {
       "id": "courier-vehicle-type",
@@ -478,7 +478,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips",
       "status": "verified",
-      "duration_s": 0.0136
+      "duration_s": 0.0142
     },
     {
       "id": "ui-delivery-list",
@@ -487,7 +487,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards",
       "status": "verified",
-      "duration_s": 11.6402
+      "duration_s": 7.3169
     },
     {
       "id": "ui-click-highlights-route",
@@ -496,7 +496,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights",
       "status": "verified",
-      "duration_s": 10.69
+      "duration_s": 10.3605
     },
     {
       "id": "brand-landing",
@@ -505,7 +505,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_landing_is_on_brand",
       "status": "verified",
-      "duration_s": 0.8652
+      "duration_s": 0.9291
     },
     {
       "id": "brand-login",
@@ -514,7 +514,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_login_is_on_brand_and_rejects_bad_creds",
       "status": "verified",
-      "duration_s": 0.8349
+      "duration_s": 0.8466
     },
     {
       "id": "signals-roundtrip",
@@ -523,7 +523,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_post_get_roundtrip",
       "status": "verified",
-      "duration_s": 0.0121
+      "duration_s": 0.0124
     },
     {
       "id": "signals-broadcast",
@@ -532,7 +532,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_broadcast",
       "status": "verified",
-      "duration_s": 0.0121
+      "duration_s": 0.0132
     },
     {
       "id": "signals-malformed",
@@ -541,7 +541,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_malformed_422",
       "status": "verified",
-      "duration_s": 0.0354
+      "duration_s": 0.0242
     },
     {
       "id": "signal-agent-parse",
@@ -568,7 +568,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_ask_tasks_answer_flow",
       "status": "verified",
-      "duration_s": 2.0524
+      "duration_s": 2.0391
     },
     {
       "id": "fleet-assessments",
@@ -577,7 +577,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_fleet_assessments_roundtrip_and_broadcast",
       "status": "verified",
-      "duration_s": 2.0331
+      "duration_s": 2.0277
     },
     {
       "id": "courier-redirect",
@@ -586,7 +586,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_redirect_known_and_unknown",
       "status": "verified",
-      "duration_s": 0.0322
+      "duration_s": 0.0312
     },
     {
       "id": "cctv-cameras",
@@ -595,7 +595,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_cctv_cameras_shape",
       "status": "verified",
-      "duration_s": 0.1626
+      "duration_s": 0.1273
     },
     {
       "id": "agent-answers-tasks",
@@ -622,7 +622,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_register_then_login_returns_jwt_and_me_works",
       "status": "verified",
-      "duration_s": 0.6755
+      "duration_s": 0.6795
     },
     {
       "id": "auth-protects-writes",
@@ -631,7 +631,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_with_token_succeeds",
       "status": "verified",
-      "duration_s": 0.0231
+      "duration_s": 0.0253
     },
     {
       "id": "auth-rejects-no-token",
@@ -640,7 +640,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_without_token_returns_401",
       "status": "verified",
-      "duration_s": 0.0105
+      "duration_s": 0.0132
     },
     {
       "id": "auth-wrong-password",
@@ -649,7 +649,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_login_with_wrong_password_returns_401",
       "status": "verified",
-      "duration_s": 0.2196
+      "duration_s": 0.2201
     },
     {
       "id": "auth-backward-compat",
@@ -658,7 +658,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_post_jobs_works_without_token_when_auth_off",
       "status": "verified",
-      "duration_s": 0.0221
+      "duration_s": 0.0272
     },
     {
       "id": "completeness-no-stubs",
@@ -667,7 +667,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist",
       "status": "verified",
-      "duration_s": 0.0113
+      "duration_s": 0.01
     },
     {
       "id": "completeness-no-unwired-buttons",
@@ -676,7 +676,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_unwired_buttons",
       "status": "verified",
-      "duration_s": 0.0021
+      "duration_s": 0.0023
     },
     {
       "id": "completeness-endpoints",
@@ -694,7 +694,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_ws_events_declared_are_emitted",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0005
     },
     {
       "id": "reroute-on-closure",
@@ -703,7 +703,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 0.6393
+      "duration_s": 0.6387
     },
     {
       "id": "voice-loop",
@@ -712,7 +712,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.1178
+      "duration_s": 0.1302
     },
     {
       "id": "e2e-flywheel-loop",
@@ -721,7 +721,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop",
       "status": "verified",
-      "duration_s": 0.2357
+      "duration_s": 0.2313
     },
     {
       "id": "unhappy-cold-safety",
@@ -730,7 +730,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash",
       "status": "verified",
-      "duration_s": 0.1314
+      "duration_s": 0.1295
     },
     {
       "id": "unhappy-routing-fallback",
@@ -739,7 +739,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback",
       "status": "verified",
-      "duration_s": 0.075
+      "duration_s": 0.0638
     },
     {
       "id": "unhappy-malformed-422",
@@ -748,7 +748,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy",
       "status": "verified",
-      "duration_s": 0.0415
+      "duration_s": 0.0408
     },
     {
       "id": "unhappy-bad-telemetry",
@@ -757,7 +757,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted",
       "status": "verified",
-      "duration_s": 0.0208
+      "duration_s": 0.0231
     }
   ]
 }

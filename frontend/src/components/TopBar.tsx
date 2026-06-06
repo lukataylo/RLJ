@@ -85,27 +85,18 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
         </div>
       </div>
 
-      <nav className="nav-pill glass">
-      <span className="nav-mark">Pulse<b>Go</b></span>
+      <div className="topbar-pills">
+        <nav className="nav-pill glass">
+          <span className="nav-mark">Pulse<b>Go</b></span>
+        </nav>
 
-      <span className="nav-spacer" />
-
-      <button
-        type="button"
-        className={`nav-verify ${status.loaded ? (mustPassGreen ? "ok" : "fail") : "unknown"}`}
-        data-testid="verification-badge"
-        data-must-pass-green={String(mustPassGreen)}
-        onClick={onOpenVerification}
-        title="Open verification panel"
-      >
-        <span className="nav-verify-dot" />
-        {status.loaded ? `${mpVerified}/${mpTotal}` : "—/—"}
-      </button>
-
-      <ThemeToggle />
+        <div className="theme-pill glass">
+          <ThemeToggle />
+        </div>
+      </div>
 
       {token && (
-        <div className="nav-user" ref={userRef}>
+        <div className="user-pill glass" ref={userRef}>
           <button
             type="button"
             className="nav-avatar"
@@ -122,6 +113,20 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
             <div className="user-dropdown glass" role="menu">
               <div className="user-dd-email" title={userLabel}>{userLabel}</div>
               {role && <div className="user-dd-role">{role}</div>}
+
+              <button
+                type="button"
+                className="user-dd-item between"
+                data-testid="verification-badge"
+                data-must-pass-green={String(mustPassGreen)}
+                role="menuitem"
+                onClick={() => { setUserOpen(false); onOpenVerification(); }}
+              >
+                <span>Verification</span>
+                <span className={`dd-verify ${status.loaded ? (mustPassGreen ? "ok" : "fail") : ""}`}>
+                  {status.loaded ? `${mpVerified}/${mpTotal}` : "—/—"}
+                </span>
+              </button>
 
               <button
                 type="button"
@@ -166,7 +171,6 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
           )}
         </div>
       )}
-      </nav>
     </>
   );
 }

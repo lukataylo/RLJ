@@ -418,7 +418,8 @@ button {
 }
 
 /* ------------------------------------------------------- top-center nav ---- */
-.nav-pill {
+/* top-centre row of separate pills: PulseGo · theme · account */
+.topbar-pills {
   position: absolute;
   top: 16px;
   left: 50%;
@@ -426,8 +427,26 @@ button {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 8px 14px;
+  gap: 10px;
+}
+.nav-pill {
+  display: flex;
+  align-items: center;
+  padding: 9px 16px;
+}
+.theme-pill {
+  display: flex;
+  align-items: center;
+  padding: 5px 7px;
+}
+.user-pill {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  padding: 5px 7px;
 }
 .nav-menu-wrap {
   position: relative;
@@ -530,7 +549,7 @@ button {
 .right-stack {
   position: absolute;
   right: 18px;
-  top: 16px;
+  top: 70px; /* clear the top-right account pill */
   z-index: 35;
   width: 318px;
   display: flex;
@@ -1047,7 +1066,7 @@ button {
   border: 1px solid var(--hair);
   border-radius: 13px;
   padding: 9px 11px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
   transition: background 0.18s, border-color 0.18s, transform 0.1s, box-shadow 0.18s;
 }
 .dcard:hover {
@@ -1059,12 +1078,12 @@ button {
 }
 .dcard.stat {
   border-color: rgba(255, 59, 48, 0.34);
-  box-shadow: var(--shadow), inset 3px 0 0 var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .dcard.selected {
   background: var(--accent-soft);
   border-color: rgba(255, 59, 48, 0.5);
-  box-shadow: 0 0 0 1px rgba(255, 59, 48, 0.28), var(--shadow);
+  box-shadow: 0 0 0 1px rgba(255, 59, 48, 0.28);
 }
 .dc-top {
   display: flex;
@@ -2567,6 +2586,20 @@ button {
   padding: 9px 10px;
   transition: background 0.15s, color 0.15s;
 }
+.user-dd-item.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.user-dd-item.between:hover { background: var(--fill); color: var(--text); }
+.dd-verify {
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dd-verify.ok { color: var(--lime); }
+.dd-verify.fail { color: var(--red); }
 .user-dd-item:hover {
   background: rgba(255, 77, 77, 0.1);
   color: var(--red);
