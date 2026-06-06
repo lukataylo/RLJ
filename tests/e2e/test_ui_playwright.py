@@ -16,8 +16,8 @@ import pytest
 
 pytestmark = pytest.mark.e2e
 
-UI_URL = "http://localhost:5173/app"  # command center now lives under /app (landing is at /)
-ORCH_HEALTH = "http://localhost:8000/healthz"
+UI_URL = "http://127.0.0.1:5173/app"  # explicit loopback avoids localhost proxy/IPv6 ambiguity
+ORCH_HEALTH = "http://127.0.0.1:8000/state"
 WAIT = 10_000  # ms — bounded locator/expect timeout
 
 
@@ -121,6 +121,68 @@ def test_nemoclaw_feed_live(page):
     expect(feed).to_be_visible(timeout=WAIT)
     expect(feed.locator(".nemo-line").first).to_be_visible(timeout=WAIT)
     assert feed.locator(".nemo-line").count() >= 1, "nemoclaw feed has no log lines"
+
+
+def test_nemoclaw_inline_microphone_submits_transcript(page):
+    """A browser SpeechRecognition final result fills and submits the NemoClaw input."""
+    page.add_init_script(
+        """
+        class MockSpeechRecognition {
+          constructor() {
+            this.lang = "";
+            this.interimResults = false;
+            this.continuous = false;
+            this.maxAlternatives = 1;
+          }
+          start() {
+            setTimeout(() => {
+              const result = [{ transcript: "How many routes are active?" }];
+              result.isFinal = true;
+              this.onresult?.({ resultIndex: 0, results: [result] });
+              this.onend?.();
+            }, 20);
+          }
+          stop() { this.onend?.(); }
+          abort() { this.onend?.(); }
+        }
+        window.SpeechRecognition = MockSpeechRecognition;
+        window.webkitSpeechRecognition = MockSpeechRecognition;
+        """
+    )
+    page.route(
+        "**/agent/ask",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"id":"task-mic","question":"How many routes are active?",'
+                 '"ts":"2026-06-06T12:00:00Z","status":"pending"}',
+        ),
+    )
+    page.route(
+        "**/tts",
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"test fallback"}',
+        ),
+    )
+    page.reload(wait_until="domcontentloaded")
+
+    with page.expect_request("**/agent/ask", timeout=WAIT) as request_info:
+        page.get_by_test_id("ask-mic").click()
+
+    assert request_info.value.post_data_json == {
+        "question": "How many routes are active?"
+    }
+
+    with page.expect_request("**/tts", timeout=WAIT) as tts_request:
+        answer = page.request.post(
+            "http://127.0.0.1:8000/agent/answer",
+            data={"task_id": "task-mic", "answer": "Three routes are active."},
+        )
+        assert answer.ok, answer.text()
+
+    assert tts_request.value.post_data_json == {"text": "Three routes are active."}
 
 
 def test_no_console_errors(page):

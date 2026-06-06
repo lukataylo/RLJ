@@ -20,9 +20,6 @@ import httpx
 
 import config
 
-_OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-
-
 def complete_json(prompt: str, *, timeout: float = 20.0) -> Optional[dict]:
     """Ask the active LLM for a JSON object. Returns the parsed dict, or None on any failure."""
     try:
@@ -52,7 +49,11 @@ def complete_json(prompt: str, *, timeout: float = 20.0) -> Optional[dict]:
             }
             headers = {"Authorization": f"Bearer {key}"}
             with httpx.Client(timeout=timeout) as client:
-                r = client.post(_OPENAI_URL, json=payload, headers=headers)
+                r = client.post(
+                    f"{config.openai_base_url()}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
                 r.raise_for_status()
                 body = r.json()
             content = body["choices"][0]["message"]["content"]
@@ -89,7 +90,11 @@ def chat(prompt: str, *, system: Optional[str] = None, timeout: float = 30.0) ->
             payload = {"model": config.openai_model(), "messages": messages}
             headers = {"Authorization": f"Bearer {key}"}
             with httpx.Client(timeout=timeout) as client:
-                r = client.post(_OPENAI_URL, json=payload, headers=headers)
+                r = client.post(
+                    f"{config.openai_base_url()}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
                 r.raise_for_status()
                 body = r.json()
             text = (body["choices"][0]["message"]["content"] or "").strip()

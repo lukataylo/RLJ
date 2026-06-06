@@ -179,6 +179,15 @@ export interface AgentAnswer {
   answer: string;
 }
 
+// ---- Queued question returned by POST /agent/ask ----
+export interface AgentTask {
+  id: string;
+  question: string;
+  ts: string;
+  status: "pending" | "answered";
+  answer?: string;
+}
+
 // ---- Orchestrator state snapshot (GET /state and WS "state" payload) ----
 export interface StateSnapshot {
   jobs: DeliveryJob[];
