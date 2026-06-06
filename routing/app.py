@@ -82,7 +82,12 @@ def optimize(req: OptimizeRequest) -> OptimizeResponse:
     # types those fields as non-nullable-when-present, so omission keeps us valid while
     # still "strict in what we emit".
     plan = _solve(req)
-    return OptimizeResponse(plan=plan)
+    # Build the response from a dict, not the Plan instance directly: under some test
+    # import orders the orchestrator and routing `models` modules both bind to the name
+    # `models`, so a solver may return a Plan from the *other* module object and pydantic
+    # rejects it on identity (model_type). Round-tripping through model_dump() is
+    # identity-agnostic and validates back into this module's Plan.
+    return OptimizeResponse(plan=plan.model_dump())
 
 
 if __name__ == "__main__":
