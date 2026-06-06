@@ -1,15 +1,16 @@
 // App shell: wires the WebSocket to the store, hydrates on (re)connect, and lays
-// out the command-center grid (TopBar / FleetRail / Map+KPIs / Ops rail).
+// out the "Direction C" command center — a full-screen map with glass panels
+// floating over it (provenance pill, nav, efficiency, inspector, NEMOCLAW log,
+// priority ticket, verification drawer).
 
 import { useEffect, useState } from "react";
 import MapView from "./components/MapView";
 import TopBar from "./components/TopBar";
-import FleetRail from "./components/FleetRail";
-import KpiCards from "./components/KpiCards";
-import DemoControls from "./components/DemoControls";
+import EfficiencyPanel from "./components/EfficiencyPanel";
+import Inspector from "./components/Inspector";
 import AgentLog from "./components/AgentLog";
+import PriorityTicket from "./components/PriorityTicket";
 import VerificationPanel from "./components/VerificationPanel";
-import BottomStrip from "./components/BottomStrip";
 import { connectWs, getState } from "./api";
 import { useStore } from "./store";
 import { useStatus } from "./hooks/useStatus";
@@ -53,27 +54,18 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app">
+    <div className="cc">
+      <MapView />
+
       <TopBar status={status} onOpenVerification={() => setVerifyOpen(true)} />
 
-      <div className="app-body">
-        <FleetRail />
-
-        <main className="main">
-          <MapView />
-          <div className="main-overlay-top">
-            <KpiCards status={status} />
-          </div>
-          <div className="main-overlay-bottom">
-            <BottomStrip />
-          </div>
-        </main>
-
-        <aside className="ops-rail">
-          <DemoControls />
-          <AgentLog />
-        </aside>
+      <div className="right-stack">
+        <EfficiencyPanel />
+        <Inspector />
       </div>
+
+      <AgentLog />
+      <PriorityTicket />
 
       <VerificationPanel status={status} open={verifyOpen} onClose={() => setVerifyOpen(false)} />
     </div>

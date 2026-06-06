@@ -63,6 +63,20 @@ export async function optimize(): Promise<Plan> {
   return json<Plan>(await fetch(`${BASE}/optimize`, { method: "POST" }));
 }
 
+/** POST /notifications — dispatch a courier/clinic notification (voice_call etc.).
+ * The orchestrator broadcasts it on the WS (voice agent + agent log pick it up). */
+export async function postNotification(n: {
+  channel: string; to?: string; job_id?: string; message: string;
+}): Promise<unknown> {
+  return json(
+    await fetch(`${BASE}/notifications`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(n),
+    }),
+  );
+}
+
 /** GET /congestion — live crowdsourced congestion field. Empty field on 404/error. */
 export async function getCongestion(): Promise<CongestionField> {
   try {

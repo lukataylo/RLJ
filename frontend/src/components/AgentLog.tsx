@@ -1,40 +1,30 @@
-// Live agent narration feed (agent_log + notification + system events).
+// NEMOCLAW local-agent log — the last few narration lines (agent_log + notifications
+// + system), with mono timestamps. Glass card, bottom-left of the command center.
 
-import { useEffect, useRef } from "react";
 import { useStore } from "../store";
-
-const LEVEL_CLASS: Record<string, string> = {
-  warn: "log-warn",
-  error: "log-error",
-  info: "log-info",
-};
 
 export default function AgentLog() {
   const logs = useStore((s) => s.logs);
-  const endRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs.length]);
+  const last = logs.slice(-3);
 
   return (
-    <section className="log" data-testid="agent-log">
-      <div className="log-title">
-        <span>Agent Log</span>
-        <span className="log-count">{logs.length}</span>
-      </div>
-      <div className="log-body">
-        {logs.length === 0 && <div className="log-empty">Waiting for events…</div>}
-        {logs.map((l, i) => (
-          <div key={i} className={`log-line ${LEVEL_CLASS[l.level] ?? "log-info"}`}>
-            <span className="log-ts">
-              {new Date(l.ts).toLocaleTimeString("en-GB", { hour12: false })}
+    <section className="nemoclaw glass" data-testid="agent-log">
+      <header className="nemo-head">
+        <span className="nemo-title">
+          <span className="nemo-bars">❘❙</span> NEMOCLAW · LOCAL AGENT
+        </span>
+        <span className="nemo-voice">VOICE LIVE</span>
+      </header>
+      <div className="nemo-body">
+        {last.length === 0 && <div className="nemo-empty">Awaiting agent activity…</div>}
+        {last.map((l, i) => (
+          <div key={i} className={`nemo-line lvl-${l.level}`}>
+            <span className="nemo-ts">
+              {new Date(l.ts).toLocaleTimeString("en-GB", { hour12: false }).slice(0, 5)}
             </span>
-            <span className={`log-tag tag-${l.source}`}>{l.source.replace("_", " ")}</span>
-            <span className="log-msg">{l.message}</span>
+            <span className="nemo-msg">{l.message}</span>
           </div>
         ))}
-        <div ref={endRef} />
       </div>
     </section>
   );
