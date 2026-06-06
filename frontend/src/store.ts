@@ -63,6 +63,10 @@ interface OpsState {
   lastNotification: Notification | null;
   history: MetricSample[];
   selectedCourierId: string | null;
+  focusJobId: string | null;
+  // The just-created delivery's own pickup→dropoff road geometry (from /intake),
+  // drawn as a dedicated clean blue A→B line on the map. null = no focus route.
+  focusRoute: { lat: number; lng: number }[] | null;
   fleetAssessments: Record<string, FleetAssessment>;
   cctv: CctvCamera[];
   lastAgentAnswer: AgentAnswer | null;
@@ -80,6 +84,8 @@ interface OpsState {
   applyEvent: (e: WsEvent) => void;
   pushLog: (line: Omit<LogLine, "ts"> & { ts?: string }) => void;
   selectCourier: (id: string | null) => void;
+  setFocusJob: (id: string | null) => void;
+  setFocusRoute: (pts: { lat: number; lng: number }[] | null) => void;
   setFleetAssessments: (list: FleetAssessment[]) => void;
   setCctv: (list: CctvCamera[]) => void;
 }
@@ -106,6 +112,8 @@ export const useStore = create<OpsState>((set, get) => ({
   lastNotification: null,
   history: [],
   selectedCourierId: null,
+  focusJobId: null,
+  focusRoute: null,
   fleetAssessments: {},
   cctv: [],
   lastAgentAnswer: null,
@@ -131,7 +139,13 @@ export const useStore = create<OpsState>((set, get) => ({
 
   setConnected: (v) => set({ connected: v }),
 
-  selectCourier: (id) => set({ selectedCourierId: id }),
+  // Selecting (clicking) a courier returns to the normal fleet view: clear any
+  // delivery focus route + focused job so only the courier highlight applies.
+  selectCourier: (id) => set({ selectedCourierId: id, focusRoute: null, focusJobId: null }),
+
+  setFocusJob: (id) => set({ focusJobId: id }),
+
+  setFocusRoute: (pts) => set({ focusRoute: pts }),
 
   setFleetAssessments: (list) =>
     set({ fleetAssessments: keyByCourier(Array.isArray(list) ? list : []) }),

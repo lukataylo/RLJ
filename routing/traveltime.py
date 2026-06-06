@@ -19,11 +19,19 @@ Three tiers, in order of fidelity (see the fallback ladder in README.md):
      vectorised; identical distance model to the orchestrator's greedy fallback so the
      two are directly comparable in bench.py.
 
+In addition to those in-process tiers there is an **out-of-process road-graph tier** that
+talks to a local **Valhalla** routing server over HTTP (``valhalla_matrix``). Unlike the
+two seams below it is fully implemented: it asks Valhalla's ``/sources_to_targets`` matrix
+API for real street travel times, and — true to the repo's "every component has a
+fallback" rule — silently degrades to the haversine default on any error so the service
+never blocks on Valhalla being up.
+
 Everything is written through the module-level array namespace ``xp`` (CuPy if present,
 else NumPy) so the haversine baseline itself already runs on the GPU when one exists.
 """
 from __future__ import annotations
 
+import os
 from typing import Iterable, Sequence
 
 # --- array backend: CuPy on the GB10, NumPy on this Mac -----------------------------
@@ -142,6 +150,129 @@ def _apply_disruptions(travel_s: np.ndarray, lats, lngs, disruptions) -> np.ndar
                     out[i, j] *= factor
                     out[j, i] *= factor
     return out
+
+
+# =====================================================================================
+# Out-of-process road-graph tier — Valhalla matrix API over HTTP (IMPLEMENTED).
+# =====================================================================================
+def _valhalla_exclude_polygons(disruptions) -> list:
+    """Translate road-closure disruptions into Valhalla ``exclude_polygons``.
+
+    Valhalla expects each polygon as a list of ``[lon, lat]`` rings. We only emit a
+    polygon for ``road_closure`` geometries with **>= 3 points** (a genuine area Valhalla
+    can route around). Point/line closures and ``traffic``/``courier_down`` events are
+    intentionally skipped here — there is no robust 1:1 mapping to an avoidance polygon,
+    so we keep it simple and let the haversine-style penalties handle those upstream.
+    Never raises: odd/partial disruption objects are quietly ignored.
+    """
+    polys: list = []
+    for d in disruptions or []:
+        try:
+            kind = d.kind if hasattr(d, "kind") else d.get("kind")
+            if kind != "road_closure":
+                continue
+            pts = _disruption_points(d)
+            if len(pts) >= 3:
+                polys.append([[float(lng), float(lat)] for (lat, lng) in pts])
+        except Exception:  # noqa: BLE001 - a malformed disruption must not break the request
+            continue
+    return polys
+
+
+def valhalla_matrix(
+    lats: Sequence[float],
+    lngs: Sequence[float],
+    *,
+    base_url: str | None = None,
+    costing: str = "auto",
+    disruptions: Iterable | None = None,
+    timeout_s: float = 10.0,
+) -> np.ndarray:
+    """Road-graph travel-time tier backed by a local **Valhalla** server (seconds).
+
+    POSTs the ``N`` stops as both sources and targets to Valhalla's
+    ``{base_url}/sources_to_targets`` matrix endpoint and parses the *concise* response
+    (``sources_to_targets.durations``, an ``N x N`` array of seconds) into an ``(N, N)``
+    host (NumPy) ``float64`` matrix with a zeroed diagonal — drop-in compatible with
+    :func:`build_travel_time_matrix`.
+
+    Parameters mirror the other tiers:
+      * ``base_url`` — Valhalla base URL; defaults to ``$VALHALLA_URL`` then
+        ``http://localhost:8002``.
+      * ``costing`` — Valhalla costing model (``auto``, ``bicycle``, ``pedestrian`` ...).
+      * ``disruptions`` — road closures with >= 3-point geometries are forwarded as
+        ``exclude_polygons`` so Valhalla routes around them (see
+        :func:`_valhalla_exclude_polygons`); other kinds are left to the haversine seam.
+      * ``timeout_s`` — per-request HTTP timeout.
+
+    Robustness: any ``null`` duration Valhalla returns for an unreachable pair is filled
+    from the haversine baseline so the matrix is always finite. And on **any** failure
+    (HTTP client absent, connection refused, non-200, malformed/empty body) the function
+    degrades silently to ``build_travel_time_matrix(lats, lngs, disruptions=disruptions)``
+    — the always-available default — honouring the repo's fallback ladder.
+    """
+    # The haversine baseline doubles as both the universal fallback and the null-filler.
+    baseline = build_travel_time_matrix(lats, lngs, disruptions=disruptions)
+    try:
+        n = len(baseline)
+        url = (base_url or os.environ.get("VALHALLA_URL", "http://localhost:8002"))
+        url = url.rstrip("/") + "/sources_to_targets"
+
+        # Lazy, guarded import so importing this module never requires an HTTP client.
+        try:
+            import httpx as _http  # transitive FastAPI dep; preferred when available
+        except Exception:  # noqa: BLE001
+            import requests as _http  # declared in requirements.txt
+
+        stops = [{"lat": float(la), "lon": float(ln)} for la, ln in zip(lats, lngs)]
+        payload: dict = {
+            "sources": stops,
+            "targets": stops,
+            "costing": costing,
+            "verbose": False,
+        }
+        exclude = _valhalla_exclude_polygons(disruptions)
+        if exclude:
+            payload["exclude_polygons"] = exclude
+
+        resp = _http.post(url, json=payload, timeout=timeout_s)
+        if getattr(resp, "status_code", None) != 200:
+            raise ValueError(f"valhalla returned status {getattr(resp, 'status_code', '?')}")
+
+        durations = resp.json()["sources_to_targets"]["durations"]
+        if len(durations) != n:
+            raise ValueError("valhalla durations shape mismatch")
+
+        out = np.array(baseline, dtype=np.float64, copy=True)
+        for i, row in enumerate(durations):
+            if len(row) != n:
+                raise ValueError("valhalla durations row shape mismatch")
+            for j, val in enumerate(row):
+                if val is not None:  # None -> keep the haversine fallback already in out
+                    out[i, j] = float(val)
+        np.fill_diagonal(out, 0.0)
+        return out
+    except Exception:  # noqa: BLE001 - every component has a fallback
+        return baseline
+
+
+def travel_time_matrix(
+    lats: Sequence[float],
+    lngs: Sequence[float],
+    *,
+    disruptions: Iterable | None = None,
+) -> np.ndarray:
+    """Active travel-time matrix the solvers consume — the one place tier selection lives.
+
+    When ``$VALHALLA_URL`` is set, route over the real London road graph via
+    :func:`valhalla_matrix` (which itself degrades to haversine on any failure). Otherwise
+    use the always-available haversine baseline. This keeps the dev box / CI / benchmarks on
+    the deterministic haversine model by default, and lights up real roads on the GB10 demo
+    box simply by exporting ``VALHALLA_URL``.
+    """
+    if os.environ.get("VALHALLA_URL"):
+        return valhalla_matrix(lats, lngs, disruptions=disruptions)
+    return build_travel_time_matrix(lats, lngs, disruptions=disruptions)
 
 
 # =====================================================================================

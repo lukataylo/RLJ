@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from models import LatLng, Location, Objective, OptimizeRequest, Plan, Route, Stop
-from traveltime import build_travel_time_matrix
+from traveltime import build_travel_time_matrix, travel_time_matrix
 
 SERVICE_S = 120
 PRIORITY_LATE_PENALTY = {"stat": 2000, "urgent": 200, "routine": 20}  # per-second soft cost
@@ -48,7 +48,7 @@ def solve(req: OptimizeRequest, *, time_limit_s: int = 2) -> Optional[Plan]:
     for j in jobs:
         coords.append((j.origin.lat, j.origin.lng))
         coords.append((j.destination.lat, j.destination.lng))
-    T = build_travel_time_matrix([c[0] for c in coords], [c[1] for c in coords],
+    T = travel_time_matrix([c[0] for c in coords], [c[1] for c in coords],
                                  disruptions=req.disruptions)
     # dummy end is free to reach/leave (open routes)
     T[END, :] = 0.0

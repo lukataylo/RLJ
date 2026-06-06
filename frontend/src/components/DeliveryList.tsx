@@ -46,8 +46,9 @@ export default function DeliveryList() {
       const stops = [...(route.stops ?? [])].sort((a, b) => a.sequence - b.sequence);
       if (!stops.length) continue;
 
+      // Route-level fallback progress (stops whose ETA is already in the past).
       const done = stops.filter((s) => s.eta && new Date(s.eta).getTime() < now).length;
-      const progress = stops.length ? Math.min(1, done / stops.length) : 0;
+      const routeProgress = stops.length ? Math.min(1, done / stops.length) : 0;
 
       // Ordered unique place names along this courier's route (for the hover detail).
       const routePlaces: string[] = [];
@@ -72,6 +73,13 @@ export default function DeliveryList() {
           [...stops].reverse().find((s) => s.job_id === stop.job_id);
         const due = job.time_window?.due_by;
         const dueTs = due ? new Date(due).getTime() : null;
+        // Realistic progress = elapsed through the clinical window (ready→due), so it
+        // reads as "in flight", not stuck at 100%. Falls back to route-stop progress.
+        const readyTs = job.time_window?.ready_at ? new Date(job.time_window.ready_at).getTime() : null;
+        const progress =
+          readyTs != null && dueTs != null && dueTs > readyTs
+            ? Math.max(0.02, Math.min(0.98, (now - readyTs) / (dueTs - readyTs)))
+            : routeProgress;
 
         out.push({
           key: `${route.courier_id}:${job.id}`,

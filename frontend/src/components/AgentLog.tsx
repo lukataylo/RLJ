@@ -8,7 +8,7 @@
 // "nemotron" (plus a WS "agent_answer" event the store also surfaces here).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { askAgent } from "../api";
+import { askAgent, postIntake } from "../api";
 import { useStore } from "../store";
 import NemoFace from "./NemoFace";
 import { speechSupported, startListening, speak, type Listener } from "../lib/voice";
@@ -16,9 +16,19 @@ import { speechSupported, startListening, speak, type Listener } from "../lib/vo
 const MAX_LINES = 6;
 const LISTEN_SECONDS = 15;
 
+// Intent detection: treat the text as a delivery request when it has a
+// "from … to …" shape OR mentions a courier/sample verb. Otherwise it's a
+// question routed to the NemoClaw agent.
+const DELIVERY_FROM_TO = /\bfrom\b[\s\S]*\bto\b/i;
+const DELIVERY_VERBS =
+  /(deliver|pick[\s-]?up|collect|drop[\s-]?off|sample|transport|courier|bring|take)\b/i;
+const isDeliveryRequest = (text: string) =>
+  DELIVERY_FROM_TO.test(text) || DELIVERY_VERBS.test(text);
 export default function AgentLog() {
   const logs = useStore((s) => s.logs);
   const pushLog = useStore((s) => s.pushLog);
+  const setFocusJob = useStore((s) => s.setFocusJob);
+  const setFocusRoute = useStore((s) => s.setFocusRoute);
 
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
@@ -123,6 +133,50 @@ export default function AgentLog() {
     const text = q.trim();
     if (!text || sending) return;
     setSending(true);
+
+    // A delivery request ("… from X to Y", "deliver sample …") goes to /intake,
+    // which creates the job + re-plans; everything else is a question for the agent.
+    if (isDeliveryRequest(text)) {
+      try {
+        const res = await postIntake(text);
+        if (res.ok) {
+          const o = res.resolved?.origin?.name ?? res.job.origin?.name ?? "origin";
+          const d =
+            res.resolved?.destination?.name ?? res.job.destination?.name ?? "destination";
+          pushLog({
+            level: "info",
+            message: `✓ Created ${res.job.id}: ${o} → ${d}`,
+            source: "agent_log",
+          });
+          setFocusJob(res.job.id); // highlight the new job on the map
+          // Draw the delivery's OWN clean A→B blue road route (pickup→dropoff),
+          // not the courier's tangled multi-stop tour. [] if Valhalla was down.
+          setFocusRoute(res.route ?? []);
+          setQuestion("");
+        } else {
+          const suffix = res.suggestions?.length
+            ? ` Did you mean: ${res.suggestions.join(", ")}?`
+            : "";
+          pushLog({
+            level: "warn",
+            message: `${res.error || "Could not create that delivery."}${suffix}`,
+            source: "agent_log",
+          });
+          // keep the text so the user can edit and retry
+        }
+      } catch {
+        pushLog({
+          level: "warn",
+          message: "Could not reach the orchestrator — delivery not created.",
+          source: "system",
+        });
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    // Question → NemoClaw agent (unchanged path).
     pushLog({
       level: "info",
       message: `You → NemoClaw: ${text}`,
@@ -237,7 +291,7 @@ export default function AgentLog() {
           className="nemo-ask-input"
           data-testid="ask-input"
           type="text"
-          placeholder="Ask NemoClaw…"
+          placeholder="Ask NemoClaw, or 'deliver sample from Guy's to Moorfields'"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           disabled={sending}

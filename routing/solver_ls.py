@@ -23,7 +23,7 @@ from typing import Optional
 import numpy as np
 
 from models import LatLng, Location, Objective, OptimizeRequest, Plan, Route, Stop
-from traveltime import build_travel_time_matrix
+from traveltime import build_travel_time_matrix, travel_time_matrix
 
 SERVICE_S = 120.0
 PRIORITY_WEIGHT = {"stat": 100.0, "urgent": 10.0, "routine": 1.0}
@@ -44,7 +44,7 @@ class _P:
         coords += [(j.destination.lat, j.destination.lng) for j in self.jobs]
         lats = [c[0] for c in coords]
         lngs = [c[1] for c in coords]
-        self.T = build_travel_time_matrix(lats, lngs, disruptions=req.disruptions)
+        self.T = travel_time_matrix(lats, lngs, disruptions=req.disruptions)
 
         self.depot = {c.id: i for i, c in enumerate(self.couriers)}
         self.pick = {self.jobs[j].id: self.C + j for j in range(self.J)}

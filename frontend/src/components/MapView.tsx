@@ -40,6 +40,7 @@ import {
   DISRUPTION_CLASS_RGB,
   PRIORITY_RGB,
   ROUTE_CONGESTED_RGB,
+  ROUTE_HIGHLIGHT_RGB,
   ROUTE_NEUTRAL_RGB,
   congestionRGB,
   facilityRGB,
@@ -106,7 +107,7 @@ function courierOffset(id: string): number {
 
 // Seconds to traverse a full route once, by vehicle — slower = more realistic
 // (a bike shouldn't blur across London). Demo-compressed but believable.
-const TRAVERSE_SECONDS: Record<string, number> = { van: 150, scooter: 200, bike: 280 };
+const TRAVERSE_SECONDS: Record<string, number> = { van: 480, scooter: 660, bike: 900 };
 
 // Animated demo position: progress the courier along its road-following path at a
 // vehicle-appropriate pace. Ping-pongs (start→end→start) so there's no teleport
@@ -126,6 +127,11 @@ function courierAnimPos(
   return [c.location.lng, c.location.lat];
 }
 import { getTheme, onThemeChange, type Theme } from "../lib/theme";
+import {
+  getRouteSource,
+  onRouteSourceChange,
+  type RouteSource,
+} from "../lib/routeSource";
 import {
   mdiTrafficLight,
   mdiCarMultiple,
@@ -233,6 +239,10 @@ interface Snapshot {
   signalRecs: SignalRec[];
   cctv: CctvCamera[];
   selectedCourierId: string | null;
+  focusJobId: string | null;
+  // The just-created delivery's own pickup→dropoff road geometry, drawn as a
+  // dedicated clean blue A→B line (and dimming the fleet). null = not active.
+  focusRoute: { lat: number; lng: number }[] | null;
 }
 
 // Map viewport bounds [west, south, east, north]; null until the map first moves.
@@ -263,6 +273,8 @@ const EMPTY_SNAP: Snapshot = {
   signalRecs: [],
   cctv: [],
   selectedCourierId: null,
+  focusJobId: null,
+  focusRoute: null,
 };
 
 // Short uppercase glyph per signal action for the on-map label.
@@ -411,9 +423,23 @@ function buildLayers(
   bounds: Bounds,
   tSec: number,
 ): Layer[] {
-  const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId } = snap;
+  const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId, focusJobId, focusRoute } = snap;
   const layers: Layer[] = [];
+
+  // A dedicated delivery route is active when /intake handed us ≥2 road points.
+  // While active, the fleet routes dim hard and only the blue A→B line stands out.
+  const focusRouteActive = !!focusRoute && focusRoute.length >= 2;
   const courierById = new Map(couriers.map((c) => [c.id, c]));
+
+  // The courier whose route serves the just-created (focused) job, if any.
+  const focusedCourierId =
+    focusJobId != null
+      ? plan?.routes?.find((r) => (r.stops ?? []).some((s) => s.job_id === focusJobId))
+          ?.courier_id ?? null
+      : null;
+  // A route is "highlighted" (vivid blue) when it's the selected OR the focused one.
+  const isHighlighted = (courierId: string) =>
+    courierId === selectedCourierId || courierId === focusedCourierId;
 
   // 1. Congestion-as-roads — glowing Waze-style coloured network.
   if (vis.congestion && data.roads.length) {
@@ -449,10 +475,13 @@ function buildLayers(
 
   // 2. Routes — road-following geometry (Directions API) or straight fallback,
   //    coloured Google-Maps style: NEUTRAL grey-blue, RED through congestion.
+  // Click-to-select dimming (connectors / job nodes / courier markers below).
   const selActive = selectedCourierId != null;
+  // Any route in "highlighted" focus (a selected courier or a freshly-created job)?
+  const highlightActive = selectedCourierId != null || focusedCourierId != null;
   const congSources = congestionSources(data.roads, congestion.cells, congestion.generated_at ?? "static");
 
-  interface RouteLine { courier_id: string; selected: boolean; path: LngLat[]; congestion: number[] | null }
+  interface RouteLine { courier_id: string; highlighted: boolean; path: LngLat[]; congestion: number[] | null }
   const routeLines = (plan?.routes ?? [])
     .map((r): RouteLine | null => {
       const courier = courierById.get(r.courier_id);
@@ -464,7 +493,7 @@ function buildLayers(
       if (path.length < 2) return null;
       return {
         courier_id: r.courier_id,
-        selected: r.courier_id === selectedCourierId,
+        highlighted: isHighlighted(r.courier_id),
         path,
         congestion: onRoad ? road!.congestion : null,
       };
@@ -474,7 +503,7 @@ function buildLayers(
   // One record per drawn segment so each carries its own live-traffic colour.
   // `cong` is Mapbox congestion_numeric (0–100) when road-following, else -1 and we
   // fall back to our own congestion sources (binary neutral/red).
-  interface RouteSeg { courier_id: string; selected: boolean; cong: number; congested: boolean; path: LngLat[] }
+  interface RouteSeg { courier_id: string; highlighted: boolean; cong: number; congested: boolean; path: LngLat[] }
   const routeSegs: RouteSeg[] = [];
   for (const rl of routeLines) {
     for (let i = 0; i < rl.path.length - 1; i++) {
@@ -483,7 +512,7 @@ function buildLayers(
       const cong = rl.congestion ? (rl.congestion[i] ?? -1) : -1;
       routeSegs.push({
         courier_id: rl.courier_id,
-        selected: rl.selected,
+        highlighted: rl.highlighted,
         cong,
         congested: cong >= 0 ? cong >= 60 : segmentCongested(a, b, congSources),
         path: [a, b],
@@ -491,12 +520,20 @@ function buildLayers(
     }
   }
 
-  // Alpha ramps: when a route is selected, it brightens and the rest dim away.
-  const segGlowAlpha = (s: RouteSeg) => (!selActive ? 60 : s.selected ? 100 : 16);
-  const segMainAlpha = (s: RouteSeg) => (!selActive ? 215 : s.selected ? 255 : 55);
-  // Live Waze colour when we have Mapbox traffic; otherwise neutral/red fallback.
+  // Alpha ramps: when a route is highlighted, it brightens and the rest dim away.
+  // When a dedicated delivery (focus) route is active, ALL fleet segments dim
+  // hard so only the standalone blue A→B line reads.
+  const segGlowAlpha = (s: RouteSeg) =>
+    focusRouteActive ? 10 : !highlightActive ? 60 : s.highlighted ? 130 : 16;
+  const segMainAlpha = (s: RouteSeg) =>
+    focusRouteActive ? 28 : !highlightActive ? 215 : s.highlighted ? 255 : 55;
+  // Highlighted (focused/selected) routes render in vivid blue for clarity; every
+  // other route uses the live Waze traffic colour when available, else the
+  // neutral/red congestion fallback.
   const segColor = (s: RouteSeg): [number, number, number] =>
-    wazeRGB(s.cong) ?? (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB);
+    s.highlighted
+      ? (ROUTE_HIGHLIGHT_RGB as [number, number, number])
+      : (wazeRGB(s.cong) ?? (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB));
 
   if (vis.routes && routeSegs.length) {
     layers.push(
@@ -505,11 +542,14 @@ function buildLayers(
         data: routeSegs,
         getPath: (d) => d.path,
         getColor: (d) => [...segColor(d), segGlowAlpha(d)] as [number, number, number, number],
-        getWidth: (d) => (d.selected ? 16 : 10),
+        getWidth: (d) => (d.highlighted ? 18 : 10),
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
-        updateTriggers: { getColor: selectedCourierId, getWidth: selectedCourierId },
+        updateTriggers: {
+          getColor: [selectedCourierId, focusedCourierId, focusRouteActive],
+          getWidth: [selectedCourierId, focusedCourierId, focusRouteActive],
+        },
       }),
     );
     layers.push(
@@ -518,17 +558,54 @@ function buildLayers(
         data: routeSegs,
         getPath: (d) => d.path,
         getColor: (d) => [...segColor(d), segMainAlpha(d)] as [number, number, number, number],
-        getWidth: (d) => (d.selected ? 5.5 : 3.4),
+        getWidth: (d) => (d.highlighted ? 6.5 : 3.4),
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
         pickable: true,
-        updateTriggers: { getColor: selectedCourierId, getWidth: selectedCourierId },
+        updateTriggers: {
+          getColor: [selectedCourierId, focusedCourierId, focusRouteActive],
+          getWidth: [selectedCourierId, focusedCourierId, focusRouteActive],
+        },
       }),
     );
     // (Removed the animated "trip-head" dots that raced along every route — they read as
     // noise / made it look like nothing was settling. Routes are static lines; the courier
     // markers below show real position.)
+  }
+
+  // 2b. FOCUS ROUTE — the just-created delivery's OWN clean pickup→dropoff line,
+  //     traced along real London streets (from /intake). Drawn vivid blue, thick,
+  //     full alpha, ON TOP of the (dimmed) fleet routes so it's unmistakable.
+  if (vis.routes && focusRouteActive && focusRoute) {
+    const focusPath: LngLat[] = focusRoute.map((p) => [p.lng, p.lat] as LngLat);
+    const focusData = [{ path: focusPath }];
+    layers.push(
+      new PathLayer<(typeof focusData)[number]>({
+        id: "focus-route-glow",
+        data: focusData,
+        getPath: (d) => d.path,
+        getColor: [...ROUTE_HIGHLIGHT_RGB, 90] as [number, number, number, number],
+        getWidth: 18,
+        widthUnits: "pixels",
+        capRounded: true,
+        jointRounded: true,
+        updateTriggers: { getPath: focusRoute },
+      }),
+    );
+    layers.push(
+      new PathLayer<(typeof focusData)[number]>({
+        id: "focus-route",
+        data: focusData,
+        getPath: (d) => d.path,
+        getColor: [...ROUTE_HIGHLIGHT_RGB, 255] as [number, number, number, number],
+        getWidth: 6,
+        widthUnits: "pixels",
+        capRounded: true,
+        jointRounded: true,
+        updateTriggers: { getPath: focusRoute },
+      }),
+    );
   }
 
   // 3. Dashed connectors from each courier to its next stop (neutral; dimmed off-selection).
@@ -1020,6 +1097,7 @@ export default function MapView() {
   const dataRef = useRef<OptionalData>(EMPTY_OPTIONAL);
   const visRef = useRef<LayerVis>(DEFAULT_VIS);
   const roadPathsRef = useRef<Record<string, RoadGeom | null>>({});
+  const routeSourceRef = useRef<RouteSource>(getRouteSource());
   const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boundsRef = useRef<Bounds>(null);
   // Set by an effect; the once-created overlay onClick calls it to open the popover.
@@ -1058,6 +1136,13 @@ export default function MapView() {
   // land in roadPathsRef and are picked up by the imperative render loop.
   const resolveRoutes = useMemo(() => {
     const run = () => {
+      // In "valhalla" mode the ROUTES layer draws straight from each
+      // route.polyline (the backend road-following geometry) — no Mapbox calls.
+      // buildLayers falls back to that polyline when roadPaths has no entry.
+      if (routeSourceRef.current === "valhalla") {
+        roadPathsRef.current = {};
+        return;
+      }
       const snap = snapRef.current;
       const courierById = new Map(snap.couriers.map((c) => [c.id, c]));
       const next: Record<string, RoadGeom | null> = {};
@@ -1103,6 +1188,8 @@ export default function MapView() {
         signalRecs: s.signalRecs,
         cctv: s.cctv,
         selectedCourierId: s.selectedCourierId,
+        focusJobId: s.focusJobId,
+        focusRoute: s.focusRoute,
       };
       setCounts({
         jobs: jobs.length,
@@ -1129,6 +1216,54 @@ export default function MapView() {
   useEffect(() => {
     visRef.current = vis;
   }, [vis]);
+
+  // Re-resolve route geometry when the Mapbox/Valhalla source toggle changes.
+  // The RAF render loop reads roadPathsRef each frame, so the ROUTES layer
+  // re-draws from the new source on the next frame.
+  useEffect(() => {
+    routeSourceRef.current = getRouteSource();
+    resolveRoutes();
+    return onRouteSourceChange((source) => {
+      routeSourceRef.current = source;
+      resolveRoutes();
+    });
+  }, [resolveRoutes]);
+
+  // When a new delivery focus route arrives (from /intake), frame it so the clean
+  // blue A→B line is centred. Fits the route's bounds; no-op while none is active.
+  useEffect(() => {
+    let prev: { lat: number; lng: number }[] | null = null;
+    const fit = (pts: { lat: number; lng: number }[]) => {
+      const m = mapRef.current;
+      if (!m || pts.length < 2) return;
+      let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+      for (const p of pts) {
+        if (p.lng < w) w = p.lng;
+        if (p.lng > e) e = p.lng;
+        if (p.lat < s) s = p.lat;
+        if (p.lat > n) n = p.lat;
+      }
+      if (!Number.isFinite(w) || !Number.isFinite(n)) return;
+      try {
+        m.fitBounds(
+          [[w, s], [e, n]],
+          { padding: 120, duration: 900, maxZoom: 14.5 },
+        );
+      } catch {
+        /* map not ready — non-fatal */
+      }
+    };
+    const route = useStore.getState().focusRoute;
+    if (route && route.length >= 2) fit(route);
+    prev = route;
+    return useStore.subscribe(() => {
+      const next = useStore.getState().focusRoute;
+      if (next !== prev) {
+        prev = next;
+        if (next && next.length >= 2) fit(next);
+      }
+    });
+  }, []);
 
   // "View route" action (Inspector 〰) → fly the map to the selected courier.
   useEffect(() => {

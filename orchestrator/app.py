@@ -21,7 +21,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depe
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
+from models import (DeliveryJob, Location, Courier, DisruptionEvent, Notification,
                     Plan, OptimizeRequest, OptimizeResponse,
                     Driver, DriverPing, TelemetryBatch,
                     SignalRecommendation, SignalRecommendations,
@@ -29,16 +29,17 @@ from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
 from greedy import greedy_plan
 import congestion as congestion_mod
 import nemo_agent
+import geocode
+from nl_intake import parse_delivery
+import route_preview
+import config
+import llm
 import db
 import auth
 from auth import require_user, current_user, CurrentUser
 
 ROUTING_URL = os.getenv("ROUTING_URL", "http://localhost:8100")
-# LLM seam for NemoClaw operator Q&A (OpenAI-compatible: OpenAI / Nebius / local Ollama).
-# Unset → deterministic state-summary fallback so "Ask NemoClaw" always answers.
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").rstrip("/")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+# NemoClaw operator Q&A uses the shared llm.chat seam (config.py / llm.py).
 
 app = FastAPI(title="RLJ orchestrator")
 # CORS locked to an env allowlist (the PulseGo frontends). Dev default = local Vite ports.
@@ -265,6 +266,60 @@ async def create_job(job: DeliveryJob, _user: CurrentUser = Depends(require_user
     return job.model_dump(mode="json")
 
 
+class AgentIntake(BaseModel):
+    text: str
+
+
+@app.post("/intake")
+async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
+    """Offline natural-language delivery intake.
+
+    Free text -> parse (local Nemotron, regex fallback) -> resolve both places
+    against the offline London gazetteer -> create a job through the SAME path as
+    POST /jobs (so it re-optimizes and the route renders live).
+    """
+    text = (body.text or "").strip()
+    if not text:
+        return {"ok": False, "error": "empty request", "suggestions": []}
+
+    parsed = parse_delivery(text, geocode.place_names())
+    origin = geocode.resolve(parsed["origin"])
+    destination = geocode.resolve(parsed["destination"])
+
+    if origin is None or destination is None:
+        unresolved = parsed["origin"] if origin is None else parsed["destination"]
+        return {"ok": False,
+                "error": f"could not resolve {'origin' if origin is None else 'destination'}: "
+                         f"'{unresolved}'",
+                "suggestions": geocode.suggest(unresolved)}
+
+    job = DeliveryJob(
+        type=parsed["type"],
+        priority=parsed["priority"],
+        cold_chain=parsed["cold_chain"],
+        origin=Location(lat=origin["lat"], lng=origin["lng"], name=origin["name"]),
+        destination=Location(lat=destination["lat"], lng=destination["lng"],
+                             name=destination["name"]),
+        raw_text=text,
+    )
+    await HUB.emit("agent_log", {"level": "info", "source": "intake",
+                                 "message": f"Intake: \"{text[:100]}\" -> "
+                                            f"{job.priority.upper()} {job.type} "
+                                            f"{origin['name']} -> {destination['name']}."})
+    # Same path as POST /jobs: assigns id, emits job_created + agent_log, re-optimizes,
+    # then dispatch notification.
+    created = await create_job(job, _user)
+    job_id = created.get("id")
+    # This delivery's own clean pickup->dropoff road route (for the UI to draw/highlight
+    # in blue), instead of the courier's full multi-stop tour. [] if Valhalla is down.
+    route = route_preview.valhalla_route_shape(
+        [origin["lat"], destination["lat"]], [origin["lng"], destination["lng"]])
+    return {"ok": True, "job": created,
+            "resolved": {"origin": origin, "destination": destination},
+            "route": route,
+            "message": f"Created {job_id}: {origin['name']} → {destination['name']}"}
+
+
 @app.get("/couriers")
 async def list_couriers():
     return [c.model_dump(mode="json") for c in S.couriers.values()]
@@ -468,57 +523,62 @@ async def post_signal_recs(body: SignalRecommendations, _user: CurrentUser = Dep
 
 
 # ----------------------------------------------------------------------------- agent channel
-def _fleet_summary() -> str:
-    couriers = list(S.couriers.values())
-    jobs = list(S.jobs.values())
-    online = sum(1 for c in couriers if getattr(c, "status", "") != "offline")
-    stat = sum(1 for j in jobs
-               if getattr(j, "priority", "") == "stat" and getattr(j, "status", "") not in ("delivered", "failed"))
+async def _record_agent_answer(task_id: str, answer: str):
+    """Mark a queued task answered + emit the NemoClaw-feed events. Shared by the GB10
+    worker path (POST /agent/answer) and the direct answer path below."""
+    for t in S.agent_tasks:
+        if t["id"] == task_id:
+            t["status"] = "answered"
+            t["answer"] = answer
+            break
+    await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
+                                 "message": f"NemoClaw: {answer[:280]}"})
+    await HUB.emit("agent_answer", {"task_id": task_id, "answer": answer})
+
+
+def _fleet_context() -> str:
+    """A light fleet-context system prompt for the LLM (no heavy state dumps)."""
+    parts = [
+        "You are PulseGo's on-prem dispatch assistant for a time-critical medical "
+        "courier fleet in London, running locally on an NVIDIA DGX Spark (zero cloud "
+        "egress). Answer the operator's question concisely in 1-3 sentences.",
+        f"Fleet now: {len(S.couriers)} courier(s), {len(S.jobs)} job(s), "
+        f"{len(S.drivers)} signed-up driver(s).",
+    ]
+    if S.plan and S.plan.objective:
+        obj = S.plan.objective
+        parts.append(
+            f"Current plan ({obj.solver}): {obj.windows_met}/{obj.windows_total} "
+            f"time windows met across {len(S.plan.routes)} route(s).")
+    return " ".join(parts)
+
+
+def _fleet_brief() -> str:
+    """Deterministic one-liner used when no LLM answer is available."""
+    online = sum(1 for c in S.couriers.values() if getattr(c, "status", "") != "offline")
     routes = len(S.plan.routes) if S.plan else 0
     obj = S.plan.objective if S.plan else None
     met = getattr(obj, "windows_met", 0) if obj else 0
     tot = getattr(obj, "windows_total", 0) if obj else 0
-    disr = [d.kind for d in S.disruptions][-5:]
-    return (f"{online} couriers online, {len(jobs)} jobs, {stat} STAT in flight, "
-            f"{routes} active routes, {met}/{tot} delivery windows on-time. "
-            f"Active disruptions: {', '.join(disr) if disr else 'none'}.")
+    return (f"{online} couriers online, {len(S.jobs)} jobs, {routes} active routes, "
+            f"{met}/{tot} delivery windows on-time.")
 
 
-async def _llm_answer(question: str) -> str | None:
-    """Answer via the configured OpenAI-compatible LLM; None on no-config/failure."""
-    if not LLM_BASE_URL:
-        return None
-    system = (
-        "You are NemoClaw, the on-prem AI dispatcher for a London medical-courier fleet "
-        "running locally on an NVIDIA DGX Spark (zero cloud egress). Answer the operator "
-        "in 1-3 short, concrete, calm sentences. Live fleet state: " + _fleet_summary()
-    )
-    body = {
-        "model": LLM_MODEL,
-        "temperature": 0.3,
-        "max_tokens": 180,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": question},
-        ],
-    }
+async def _answer_question(question: str) -> str:
+    """LLM answer via the seam (OpenAI/Ollama per config); deterministic fallback so
+    Ask NemoClaw always responds, even with no model and no on-box worker."""
+    answer = None
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.post(
-                f"{LLM_BASE_URL}/chat/completions",
-                headers={"Authorization": f"Bearer {LLM_API_KEY}"},
-                json=body,
-            )
-            r.raise_for_status()
-            return r.json()["choices"][0]["message"]["content"].strip()
-    except Exception:  # noqa: BLE001 — fall back to the deterministic summary
-        return None
+        answer = await asyncio.to_thread(llm.chat, question, system=_fleet_context())
+    except Exception:  # noqa: BLE001 - never let the chat hang the request
+        answer = None
+    return answer or ("Local read — " + _fleet_brief())
 
 
 @app.post("/agent/ask")
 async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
-    """Answer an operator question directly (LLM seam; deterministic fallback). Also
-    leaves a record for the optional GB10 box agent."""
+    """Answer an operator question directly (LLM seam → deterministic fallback) so the
+    chat always responds. The answer is also recorded for the optional GB10 worker."""
     S._task_n += 1
     task = {"id": f"task-{S._task_n}", "question": body.question,
             "ts": _now_iso(), "status": "pending"}
@@ -526,15 +586,8 @@ async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
     S.agent_tasks = S.agent_tasks[-50:]
     await HUB.emit("agent_log", {"level": "info", "source": "operator",
                                  "message": f"Asked NemoClaw: {body.question[:120]}"})
-
-    answer = await _llm_answer(body.question)
-    if not answer:
-        answer = "Local read — " + _fleet_summary()
-    task["status"] = "answered"
-    task["answer"] = answer
-    await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
-                                 "message": f"NemoClaw: {answer[:280]}"})
-    await HUB.emit("agent_answer", {"task_id": task["id"], "answer": answer})
+    answer = await _answer_question(body.question)
+    await _record_agent_answer(task["id"], answer)
     return task
 
 
@@ -546,14 +599,7 @@ async def agent_tasks():
 @app.post("/agent/answer")
 async def agent_answer(body: AgentAnswer, _user: CurrentUser = Depends(require_user)):
     """The GB10 agent posts its Nemotron answer here; it lands in the NemoClaw feed."""
-    for t in S.agent_tasks:
-        if t["id"] == body.task_id:
-            t["status"] = "answered"
-            t["answer"] = body.answer
-            break
-    await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
-                                 "message": f"Nemotron@GB10: {body.answer[:240]}"})
-    await HUB.emit("agent_answer", {"task_id": body.task_id, "answer": body.answer})
+    await _record_agent_answer(body.task_id, body.answer)
     return {"ok": True}
 
 

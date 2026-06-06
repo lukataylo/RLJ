@@ -1498,6 +1498,120 @@ button {
   cursor: default;
 }
 
+/* ---- Natural-language delivery intake ("offline Google-Maps") ---- */
+.intake {
+  padding: 12px 14px;
+}
+.intake-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.intake-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+.intake-hint {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.intake-form {
+  display: flex;
+  gap: 6px;
+}
+.intake-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--fill);
+  border: 1px solid var(--hair);
+  border-radius: 9px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.intake-input::placeholder {
+  color: var(--faint);
+}
+.intake-input:focus {
+  outline: none;
+  border-color: rgba(255, 59, 48, 0.4);
+}
+.intake-send {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: 9px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.intake-send:disabled {
+  background: var(--accent-press);
+  color: #ffffff;
+  opacity: 0.7;
+  cursor: default;
+}
+.intake-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: intake-spin 0.7s linear infinite;
+}
+@keyframes intake-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.intake-ok {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #4ade80;
+}
+.intake-err {
+  margin-top: 8px;
+}
+.intake-err-msg {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--accent);
+}
+.intake-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+.intake-chip {
+  background: var(--fill);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.intake-chip:hover {
+  background: var(--accent-soft);
+  border-color: rgba(255, 59, 48, 0.3);
+  color: var(--text);
+}
+
 /* ---- NemoClaw agent character (dot-matrix eyes) + voice overlay ---- */
 .nemoclaw { position: absolute; }  /* anchor for the absolutely-positioned overlay */
 
@@ -2608,7 +2722,7 @@ button {
 /* ---- View toggle: LiDAR point cloud ⇄ operations map ---- */
 .view-toggle {
   position: absolute;
-  top: 104px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 40;
@@ -2975,3 +3089,50 @@ button {
 /* assessment pill colours when shown inline in the dc3 details */
 .dc-assess-pill.reroute_suggested { color: var(--bg); background: var(--amber); }
 .dc-assess-pill.at_risk { color: #fff; background: var(--red); }
+
+/* Route-source switch reuses the .theme-toggle pill but holds text labels. */
+.route-source-toggle button {
+  width: auto;
+  padding: 0 11px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ===== Navbar v3: merged brand+RTX pill (left) · account pill (right) ========= */
+.brand-pill {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 15px 8px 11px;
+}
+.brand-mark { width: 30px; height: 30px; display: block; flex: 0 0 auto; }
+.brand-lines { display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
+.brand-name { font-family: var(--head); font-weight: 800; font-size: 16px; letter-spacing: -0.01em; color: var(--text); }
+.brand-name b { color: var(--accent); font-weight: 800; }
+.brand-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.account-pill {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 42;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+}
+.account-sep { width: 1px; height: 24px; background: var(--hair); }
+.user-dd-rowctl { display: flex; padding: 2px 10px 6px; }

@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-06T17:27:48.354418+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T18:15:36.281747+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (73/73) · verified 83/83 · failing 0 · unverified 0
+**Must-pass gate: ❌ NOT GREEN** (73/75) · verified 83/86 · failing 2 · unverified 1
 
 ## impact
 
@@ -38,6 +38,9 @@ _Generated 2026-06-06T17:27:48.354418+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Synthetic demand is schema-valid with sane time windows | `test_demand_schema_and_windows` | verified |
 | ✅ ⭐ | App only loads datasets whose data-quality suite passed (dq_passed=true) | `test_only_verified_data_loadable` | verified |
 | ✅ | Road graph is connected and covers the London bbox | `test_graph_connected_and_bbox` | verified |
+| ✅ ⭐ | London open-data integrations normalize public API payloads into safe local records | `tests/data_quality/test_integrations.py` | verified |
+| ✅ ⭐ | Real NHS London facilities geocode to valid in-bbox pickup/dropoff nodes | `tests/data_quality/test_nhs_facilities.py` | verified |
+| ⏳ | Router plans over the real offline London road graph (Valhalla matrix), not straight-line | `tests/integration/test_valhalla_live.py` | unverified |
 | ✅ ⭐ | Tower Bridge + event timed-disruption feeds are schema-valid within London | `test_timed_events_valid` | verified |
 | ✅ ⭐ | Horizon disruptions are a superset of active (schedule sees imminent closures reaction can't) | `test_active_and_horizon_consistency` | verified |
 | ✅ ⭐ | London Air Quality (LAQN) feed is schema-valid and maps borough centroids | `test_airquality_sane` | verified |
@@ -56,8 +59,8 @@ _Generated 2026-06-06T17:27:48.354418+00:00 — machine output of `make verify`.
 |--|--|--|--|
 | ✅ ⭐ | Schedule-anticipation significantly beats live-only reactive routing (paired Wilcoxon p<0.05) | `test_anticipation_beats_reaction` | verified |
 | ✅ ⭐ | Schedule-anticipation significantly beats disruption-blind routing | `test_anticipation_beats_blind` | verified |
-| ✅ ⭐ | Anticipatory method significantly beats naive greedy dispatch | `test_beats_greedy_significantly` | verified |
-| ✅ ⭐ | Anticipatory method beats Google OR-Tools operating reactively (information advantage) | `test_beats_or_tools_reactive` | verified |
+| ❌ ⭐ | Anticipatory method significantly beats naive greedy dispatch | `test_beats_greedy_significantly` | failing |
+| ❌ ⭐ | Anticipatory method beats Google OR-Tools operating reactively (information advantage) | `test_beats_or_tools_reactive` | failing |
 | ✅ | Anticipation also helps OR-Tools (effect is the information, not our solver) | `test_anticipation_generalises_to_ortools` | verified |
 | ✅ ⭐ | Zero optimality gap vs Google OR-Tools on the clinical objective (static) | `test_optimality_gap_vs_ortools` | verified |
 | ✅ ⭐ | More contributing drivers significantly improve clinical STAT on-time (network effect) | `test_more_drivers_help` | verified |
