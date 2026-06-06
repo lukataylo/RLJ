@@ -9,7 +9,7 @@ from loader import DataNotVerifiedError, load_dataset, verified_datasets
 
 
 def test_only_verified_data_loadable(tmp_path):
-    manifest = build_mod.build()
+    manifest = build_mod.build(allow_network=False)
 
     # at least facilities + demand should have passed and be loadable.
     passed = [n for n, d in manifest["datasets"].items() if d["dq_passed"]]
@@ -47,7 +47,7 @@ def test_only_verified_data_loadable(tmp_path):
 
 def test_signal_datasets_gated(tmp_path):
     """The new signal datasets (towerbridge, events) are manifest-gated too."""
-    manifest = build_mod.build()
+    manifest = build_mod.build(allow_network=False)
     datasets = manifest["datasets"]
 
     # both new datasets exist, passed DQ, and are loadable
@@ -75,7 +75,7 @@ def test_signal_datasets_gated(tmp_path):
 
 def test_flywheel_datasets_gated(tmp_path):
     """The congestion-flywheel / green-wave datasets are manifest-gated too."""
-    manifest = build_mod.build()
+    manifest = build_mod.build(allow_network=False)
     datasets = manifest["datasets"]
 
     expected_suite = {

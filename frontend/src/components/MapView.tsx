@@ -59,6 +59,25 @@ import {
   type Facility,
 } from "../lib/datasets";
 import { getRoadRoute, routeSignature, type LngLat } from "../lib/routing";
+import {
+  mdiTrafficLight,
+  mdiCarMultiple,
+  mdiRoutes,
+  mdiAlertOutline,
+  mdiCctv,
+  mdiCrosshairsGps,
+  mdiPlus,
+  mdiMinus,
+} from "@mdi/js";
+
+// Inline Material Design icon (24×24 path data from @mdi/js).
+function McIcon({ path, size = 18 }: { path: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path fill="currentColor" d={path} />
+    </svg>
+  );
+}
 
 // Lower pitch than before (~0–30°, near top-down) so road-following routes read.
 const INITIAL_VIEW = {
@@ -775,12 +794,12 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
   return null;
 }
 
-const LEFT_LAYERS: { key: LayerKey; label: string; glyph: string; testid: string }[] = [
-  { key: "congestion", label: "Traffic", glyph: "🚦", testid: "layer-toggle-congestion" },
-  { key: "routes", label: "Routes", glyph: "〰", testid: "layer-toggle-routes" },
-  { key: "incidents", label: "Incidents", glyph: "⚠", testid: "layer-toggle-incidents" },
-  { key: "signals", label: "Signals", glyph: "◈", testid: "layer-toggle-signals" },
-  { key: "cctv", label: "CCTV", glyph: "▣", testid: "layer-toggle-cctv" },
+const LEFT_LAYERS: { key: LayerKey; label: string; icon: string; testid: string }[] = [
+  { key: "congestion", label: "Traffic", icon: mdiCarMultiple, testid: "layer-toggle-congestion" },
+  { key: "routes", label: "Routes", icon: mdiRoutes, testid: "layer-toggle-routes" },
+  { key: "incidents", label: "Incidents", icon: mdiAlertOutline, testid: "layer-toggle-incidents" },
+  { key: "signals", label: "Signals", icon: mdiTrafficLight, testid: "layer-toggle-signals" },
+  { key: "cctv", label: "CCTV", icon: mdiCctv, testid: "layer-toggle-cctv" },
 ];
 
 export default function MapView() {
@@ -1057,29 +1076,39 @@ export default function MapView() {
     <div className="map-wrap">
       <div ref={containerRef} className="map-root" />
 
-      {/* Left floating control stack */}
-      <div className="control-stack glass" data-testid="layers-panel">
+      {/* Left layer dock — slim icon rail that expands on hover (MD icons). */}
+      <div className="layer-dock glass" data-testid="layers-panel">
         {LEFT_LAYERS.map((l) => {
           const on = !!vis[l.key];
           return (
             <button
               key={l.key}
               type="button"
-              className={`cs-toggle ${on ? "on" : ""}`}
+              className={`ld-item ${on ? "on" : ""}`}
               data-testid={l.testid}
               data-on={on ? "true" : "false"}
+              title={l.label}
               onClick={() => toggle(l.key)}
             >
-              <span className="cs-glyph">{l.glyph}</span>
-              <span className="cs-label">{l.label}</span>
-              <span className={`cs-led ${on ? "on" : ""}`} />
+              <span className="ld-icon"><McIcon path={l.icon} /></span>
+              <span className="ld-label">{l.label}</span>
+              <span className={`ld-led ${on ? "on" : ""}`} />
             </button>
           );
         })}
-        <div className="cs-divider" />
-        <button type="button" className="cs-icon" title="Recenter" onClick={recenter}>◎</button>
-        <button type="button" className="cs-icon" title="Zoom in" onClick={() => zoomBy(0.6)}>+</button>
-        <button type="button" className="cs-icon" title="Zoom out" onClick={() => zoomBy(-0.6)}>−</button>
+        <div className="ld-divider" />
+        <button type="button" className="ld-item ctrl" title="Recenter" onClick={recenter}>
+          <span className="ld-icon"><McIcon path={mdiCrosshairsGps} /></span>
+          <span className="ld-label">Recenter</span>
+        </button>
+        <button type="button" className="ld-item ctrl" title="Zoom in" onClick={() => zoomBy(0.6)}>
+          <span className="ld-icon"><McIcon path={mdiPlus} /></span>
+          <span className="ld-label">Zoom in</span>
+        </button>
+        <button type="button" className="ld-item ctrl" title="Zoom out" onClick={() => zoomBy(-0.6)}>
+          <span className="ld-icon"><McIcon path={mdiMinus} /></span>
+          <span className="ld-label">Zoom out</span>
+        </button>
       </div>
 
       {/* Route/layer status — kept for tests + at-a-glance health */}

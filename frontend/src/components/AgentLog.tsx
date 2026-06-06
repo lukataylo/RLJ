@@ -7,11 +7,13 @@
 // to /agent/ask; the answer streams back into this feed as an agent_log line tagged
 // "nemotron" (plus a WS "agent_answer" event the store also surfaces here).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { askAgent } from "../api";
 import { useStore } from "../store";
+import NemoFace from "./NemoFace";
 
 const MAX_LINES = 5;
+const LISTEN_SECONDS = 15;
 
 const PRESET_MONITOR = "Monitor live conditions and flag any couriers at risk.";
 const PRESET_ASSESS = "Assess all active drivers and recommend reroutes where needed.";
@@ -22,6 +24,43 @@ export default function AgentLog() {
 
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
+
+  // Voice mock: a listening overlay with the dot-matrix face + a countdown.
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [secs, setSecs] = useState(LISTEN_SECONDS);
+  const timerRef = useRef<number | null>(null);
+
+  const closeVoice = () => {
+    setVoiceOpen(false);
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const openVoice = () => {
+    setSecs(LISTEN_SECONDS);
+    setVoiceOpen(true);
+  };
+
+  // Run the listening countdown while the overlay is open; auto-close at 0.
+  useEffect(() => {
+    if (!voiceOpen) return;
+    timerRef.current = window.setInterval(() => {
+      setSecs((s) => {
+        if (s <= 1) {
+          window.clearInterval(timerRef.current!);
+          timerRef.current = null;
+          setVoiceOpen(false);
+          return LISTEN_SECONDS;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+    };
+  }, [voiceOpen]);
 
   // Prefer the real agent narration (agent_log + notifications); fall back to all
   // lines so the feed is never empty before the first agent event arrives.
@@ -62,10 +101,52 @@ export default function AgentLog() {
         <span className="nemo-title">
           <span className="nemo-bars">❘❙</span> NEMOCLAW · LOCAL AGENT
         </span>
-        <span className="nemo-voice">
-          <span className="nemo-voice-dot" />VOICE LIVE
-        </span>
+        <button
+          type="button"
+          className="nemo-agent-btn"
+          data-testid="nemo-voice-open"
+          aria-label="Talk to NemoClaw"
+          title="Talk to NemoClaw"
+          onClick={openVoice}
+        >
+          <NemoFace variant="button" />
+        </button>
       </header>
+
+      {voiceOpen && (
+        <div className="nemo-voice-ov" data-testid="nemo-voice">
+          {/* eyes are part of a full-bleed background dot field (no frame) */}
+          <NemoFace variant="field" listening />
+          <button
+            type="button"
+            className="nvo-close"
+            data-testid="nemo-voice-close"
+            aria-label="Close voice"
+            onClick={closeVoice}
+          >
+            ✕
+          </button>
+          <div className="nvo-content">
+            <div className="nvo-top">
+              <div className="nvo-status">
+                <span className="nvo-rec" /> LISTENING · {secs}s
+              </div>
+              <div className="nvo-prompt">How can I help with the fleet?</div>
+            </div>
+            <div className="nvo-bottom">
+              <div className="nvo-hint">speak naturally</div>
+              <button
+                type="button"
+                className="nvo-cancel"
+                data-testid="nemo-voice-cancel"
+                onClick={closeVoice}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="nemo-sources">sources: TfL · London datastore · live ops</div>
       <div className="nemo-body" data-testid="nemoclaw-feed">
         {feed.length === 0 && <div className="nemo-empty">Awaiting agent activity…</div>}

@@ -7,6 +7,7 @@
 // Re-optimize) via the existing DemoControls component.
 
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
 import DemoControls from "./DemoControls";
@@ -16,11 +17,16 @@ interface Props {
   onOpenVerification: () => void;
 }
 
-const TABS = ["Live Map", "Fleet", "Routes", "Analytics", "Incidents"];
+const TABS = ["Live Map", "Routes", "Analytics", "Incidents"];
 
 export default function TopBar({ status, onOpenVerification }: Props) {
   const connected = useStore((s) => s.connected);
   const plan = useStore((s) => s.plan);
+  const token = useStore((s) => s.token);
+  const role = useStore((s) => s.role);
+  const authUser = useStore((s) => s.authUser);
+  const clearAuth = useStore((s) => s.clearAuth);
+  const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
   const [menuOpen, setMenuOpen] = useState(false);
   const [tab, setTab] = useState("Live Map");
@@ -46,6 +52,12 @@ export default function TopBar({ status, onOpenVerification }: Props) {
   const mpTotal = summary?.must_pass_total ?? 0;
   const solveMs = plan?.objective?.solve_ms;
   const clock = now.toLocaleTimeString("en-GB", { hour12: false });
+  const userLabel = authUser?.email ?? role ?? "signed in";
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate("/");
+  };
 
   return (
     <>
@@ -108,6 +120,21 @@ export default function TopBar({ status, onOpenVerification }: Props) {
         </button>
 
         <span className="nav-clock">{clock}</span>
+
+        {token && (
+          <div className="nav-user">
+            <span className="nav-user-name" title={userLabel}>{userLabel}</span>
+            <button
+              type="button"
+              className="nav-logout"
+              data-testid="btn-logout"
+              onClick={handleLogout}
+              title="Log out"
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </nav>
     </>
   );

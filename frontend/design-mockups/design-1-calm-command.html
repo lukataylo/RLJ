@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PulseGo — Design 1 · Calm Command</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* brand */
+    --red: #ff3b30;
+    --red-soft: rgba(255, 59, 48, 0.12);
+    --cream: #fff6ee;
+    --charcoal: #111111;
+    --white: #ffffff;
+    --green: #1fae6f;
+    --amber: #f59e0b;
+
+    --r-lg: 22px;
+    --r-md: 16px;
+    --r-sm: 11px;
+    --sans: "Inter", system-ui, sans-serif;
+    --head: "Poppins", var(--sans);
+    --shadow: 0 18px 40px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
+  }
+
+  /* ---------- DARK (charcoal) ---------- */
+  [data-theme="dark"] {
+    --bg: #0d0d0d;
+    --bg-grad: radial-gradient(1200px 700px at 70% -10%, #1a1614 0%, #0d0d0d 60%);
+    --surface: rgba(28, 27, 26, 0.82);
+    --surface-solid: #1a1918;
+    --elevated: #242220;
+    --text: #fff6ee;
+    --muted: #9a948c;
+    --faint: #5c5751;
+    --hair: rgba(255, 246, 238, 0.09);
+    --hair-strong: rgba(255, 246, 238, 0.16);
+    --map-land: #161513;
+    --map-road: #2b2926;
+    --map-road-major: #3a3733;
+    --map-water: #14202a;
+    --shadow: 0 18px 48px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.35);
+  }
+  /* ---------- LIGHT (cream) ---------- */
+  [data-theme="light"] {
+    --bg: #fbf3ea;
+    --bg-grad: radial-gradient(1200px 700px at 70% -10%, #fffaf4 0%, #f6ece0 60%);
+    --surface: rgba(255, 255, 255, 0.86);
+    --surface-solid: #ffffff;
+    --elevated: #fffaf4;
+    --text: #1a1410;
+    --muted: #7c736a;
+    --faint: #b6aa9d;
+    --hair: rgba(17, 17, 17, 0.08);
+    --hair-strong: rgba(17, 17, 17, 0.14);
+    --map-land: #efe6da;
+    --map-road: #ffffff;
+    --map-road-major: #ffffff;
+    --map-water: #cfe0e8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg-grad), var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    transition: background .4s ease, color .4s ease;
+  }
+
+  /* ===== MAP BACKGROUND ===== */
+  .map { position: fixed; inset: 0; z-index: 0; }
+  .map svg { width: 100%; height: 100%; display: block; }
+  .road { stroke: var(--map-road); fill: none; }
+  .road.major { stroke: var(--map-road-major); }
+  .route { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .water { fill: var(--map-water); }
+
+  .node { transition: r .2s; }
+  .map-label { font-family: var(--sans); font-size: 11px; font-weight: 600; fill: var(--muted); letter-spacing: .04em; text-transform: uppercase; opacity: .55; }
+
+  /* ===== SHELL ===== */
+  .app { position: relative; z-index: 2; height: 100vh; display: grid;
+         grid-template-columns: 1fr 372px; }
+
+  /* glass card base */
+  .card {
+    background: var(--surface);
+    -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
+    border: 1px solid var(--hair);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar { position: fixed; top: 18px; left: 18px; right: 408px; z-index: 5;
+            display: flex; align-items: center; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 11px; padding: 10px 16px 10px 12px; }
+  .logo { width: 34px; height: 34px; border-radius: 11px; background: var(--red);
+          display: grid; place-items: center; flex: none; box-shadow: 0 4px 12px rgba(255,59,48,.35); }
+  .logo svg { width: 20px; height: 20px; }
+  .brand .name { font-family: var(--head); font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+  .brand .name b { color: var(--red); }
+
+  .nav { display: flex; gap: 2px; padding: 6px; }
+  .nav a { font-family: var(--head); font-weight: 600; font-size: 13px; color: var(--muted);
+           padding: 8px 15px; border-radius: 11px; cursor: pointer; text-decoration: none; transition: .15s; white-space: nowrap; }
+  .nav a:hover { color: var(--text); }
+  .nav a.on { background: var(--text); color: var(--bg); }
+
+  .spacer { flex: 1; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px;
+          border-radius: 99px; font-size: 12.5px; font-weight: 600; }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px rgba(31,174,111,.18); }
+  .status-pill { background: var(--surface); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
+                 border: 1px solid var(--hair); color: var(--muted); }
+  .status-pill b { color: var(--text); }
+
+  .icon-btn { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+              border: 1px solid var(--hair); background: var(--surface); color: var(--muted); cursor: pointer;
+              -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); transition: .15s; }
+  .icon-btn:hover { color: var(--text); border-color: var(--hair-strong); }
+  .icon-btn svg { width: 18px; height: 18px; }
+
+  /* ===== LEFT FLOATING CONTROLS ===== */
+  .viewtoggle { position: fixed; top: 80px; left: 50%; transform: translateX(-220px); z-index: 5;
+                display: flex; gap: 4px; padding: 5px; border-radius: 99px; }
+  .viewtoggle button { font-family: var(--head); font-weight: 600; font-size: 12.5px; border: none; cursor: pointer;
+                       padding: 8px 16px; border-radius: 99px; background: transparent; color: var(--muted); }
+  .viewtoggle button.on { background: var(--red); color: #fff; }
+
+  .dock { position: fixed; left: 18px; top: 50%; transform: translateY(-50%); z-index: 5;
+          display: flex; flex-direction: column; gap: 4px; padding: 8px; }
+  .dock button { width: 40px; height: 40px; border-radius: 12px; border: none; background: transparent;
+                 color: var(--muted); cursor: pointer; display: grid; place-items: center; transition: .15s; }
+  .dock button:hover { background: var(--hair); color: var(--text); }
+  .dock button.on { color: var(--red); background: var(--red-soft); }
+  .dock button svg { width: 19px; height: 19px; }
+  .dock .sep { height: 1px; background: var(--hair); margin: 4px 6px; }
+
+  /* ===== AGENT (bottom-left) ===== */
+  .agent { position: fixed; left: 18px; bottom: 18px; z-index: 5; width: 340px; padding: 16px; }
+  .agent-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .agent-face { width: 30px; height: 30px; border-radius: 10px; background: var(--charcoal);
+                display: grid; place-items: center; flex: none; }
+  [data-theme="light"] .agent-face { background: var(--charcoal); }
+  .agent-face .eyes { display: flex; gap: 4px; }
+  .agent-face .eyes i { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: blink 4s infinite; }
+  @keyframes blink { 0%,92%,100%{transform:scaleY(1)} 96%{transform:scaleY(.1)} }
+  .agent-head .t { font-family: var(--head); font-weight: 700; font-size: 14px; }
+  .agent-head .s { font-size: 11px; color: var(--faint); }
+  .agent-feed { display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; }
+  .agent-msg { font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+  .agent-msg time { color: var(--red); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .agent-input { display: flex; gap: 8px; }
+  .agent-input input { flex: 1; background: var(--hair); border: 1px solid transparent; border-radius: 11px;
+                       padding: 10px 13px; color: var(--text); font-family: var(--sans); font-size: 13px; outline: none; }
+  .agent-input input::placeholder { color: var(--faint); }
+  .agent-input button { background: var(--red); border: none; color: #fff; font-family: var(--head); font-weight: 600;
+                        font-size: 13px; padding: 0 16px; border-radius: 11px; cursor: pointer; }
+
+  /* ===== RIGHT SIDEBAR ===== */
+  .side { z-index: 4; height: 100vh; padding: 18px 18px 18px 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .side > .card { padding: 18px; }
+
+  /* KPI hero */
+  .kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .kpi-top h2 { font-family: var(--head); font-weight: 600; font-size: 13px; letter-spacing: .02em; color: var(--muted); }
+  .delta { font-size: 12px; font-weight: 600; color: var(--green); background: rgba(31,174,111,.12); padding: 5px 9px; border-radius: 8px; }
+  .gauge { display: flex; align-items: center; gap: 18px; }
+  .ring { width: 92px; height: 92px; flex: none; position: relative; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .val { position: absolute; inset: 0; display: grid; place-items: center; flex-direction: column; }
+  .ring .val b { font-family: var(--head); font-weight: 800; font-size: 26px; line-height: 1; }
+  .ring .val span { font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+  .statgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; flex: 1; }
+  .stat b { font-family: var(--head); font-weight: 700; font-size: 19px; display: block; line-height: 1.1; }
+  .stat span { font-size: 10.5px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+  .stat.danger b { color: var(--red); }
+
+  /* delivery list */
+  .list { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .list-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 12px; }
+  .list-head h2 { font-family: var(--head); font-weight: 600; font-size: 13px; letter-spacing: .02em; color: var(--muted); }
+  .list-head .count { font-size: 12px; color: var(--faint); font-weight: 600; }
+  .scroll { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+  .scroll::-webkit-scrollbar { width: 5px; }
+  .scroll::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 99px; }
+
+  .job { background: var(--surface-solid); border: 1px solid var(--hair); border-radius: var(--r-md);
+         padding: 14px; transition: .15s; cursor: pointer; }
+  .job:hover { border-color: var(--hair-strong); transform: translateY(-1px); }
+  .job.alert { border-color: rgba(255,59,48,.4); }
+  .job-top { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+  .job-ico { width: 30px; height: 30px; border-radius: 9px; background: var(--hair); display: grid; place-items: center; flex: none; color: var(--muted); }
+  .job-ico svg { width: 17px; height: 17px; }
+  .job-route { font-size: 13.5px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job-route .arr { color: var(--faint); margin: 0 5px; }
+  .tag { font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 7px; letter-spacing: .02em; flex: none; }
+  .tag.late { background: var(--red-soft); color: var(--red); }
+  .tag.ontime { background: rgba(31,174,111,.13); color: var(--green); }
+  .tag.risk { background: rgba(245,158,11,.14); color: var(--amber); }
+  .prog { height: 5px; border-radius: 99px; background: var(--hair); overflow: hidden; margin-bottom: 10px; }
+  .prog i { display: block; height: 100%; border-radius: 99px; background: var(--text); }
+  .job.alert .prog i { background: var(--red); }
+  .job-bot { display: flex; align-items: center; justify-content: space-between; }
+  .job-bot .pct { font-size: 11.5px; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .redirect { font-family: var(--head); font-weight: 600; font-size: 11.5px; color: var(--text); background: transparent;
+              border: 1px solid var(--hair-strong); border-radius: 8px; padding: 6px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: .15s; }
+  .redirect:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+  /* theme toggle */
+  .theme-toggle { display: inline-flex; padding: 4px; gap: 2px; border-radius: 99px; border: 1px solid var(--hair); background: var(--surface);
+                  -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); }
+  .theme-toggle button { width: 32px; height: 32px; border-radius: 99px; border: none; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+  .theme-toggle button.on { background: var(--red); color: #fff; }
+  .theme-toggle button svg { width: 16px; height: 16px; }
+</style>
+</head>
+<body>
+  <!-- MAP -->
+  <div class="map">
+    <svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice">
+      <rect width="1400" height="900" fill="var(--map-land)"/>
+      <!-- river -->
+      <path class="water" d="M-50,560 C250,520 400,640 650,610 C880,585 1000,690 1250,650 L1450,690 L1450,900 L-50,900 Z" opacity=".9"/>
+      <path class="water" d="M-50,560 C250,520 400,640 650,610 C880,585 1000,690 1250,650" fill="none" stroke="var(--map-water)" stroke-width="46"/>
+      <!-- grid roads -->
+      <g class="road" stroke-width="2" opacity=".9">
+        <path d="M0,160 H1400"/><path d="M0,330 H1400"/><path d="M0,720 H1400"/>
+        <path d="M220,0 V900"/><path d="M560,0 V900"/><path d="M900,0 V900"/><path d="M1180,0 V900"/>
+      </g>
+      <g class="road major" stroke-width="3.5">
+        <path d="M120,0 C300,250 250,500 500,640 C760,780 900,500 1150,560"/>
+        <path d="M0,440 C300,400 520,470 780,420 C1050,370 1250,460 1400,420"/>
+      </g>
+      <!-- active route -->
+      <path class="route" stroke="var(--red)" stroke-width="3.5" opacity=".85"
+            d="M340,300 C420,360 470,300 560,360 C690,450 720,560 860,540 C980,524 1010,610 1120,590"/>
+      <path class="route" stroke="var(--green)" stroke-width="3" opacity=".7"
+            d="M300,560 C420,600 520,520 640,560 C760,600 840,680 980,640"/>
+      <!-- nodes -->
+      <g>
+        <circle class="node" cx="340" cy="300" r="9" fill="var(--red)"/>
+        <circle class="node" cx="560" cy="360" r="7" fill="var(--amber)"/>
+        <circle class="node" cx="860" cy="540" r="8" fill="var(--green)"/>
+        <circle class="node" cx="1120" cy="590" r="7" fill="var(--green)"/>
+        <circle class="node" cx="640" cy="560" r="6" fill="var(--amber)"/>
+        <circle class="node" cx="980" cy="640" r="9" fill="var(--red)"/>
+        <circle class="node" cx="460" cy="640" r="6" fill="var(--green)"/>
+        <circle class="node" cx="760" cy="240" r="6" fill="var(--amber)"/>
+      </g>
+      <text class="map-label" x="300" y="250">Camden</text>
+      <text class="map-label" x="820" y="490">City of London</text>
+      <text class="map-label" x="540" y="700">Westminster</text>
+      <text class="map-label" x="1040" y="560">Shoreditch</text>
+    </svg>
+  </div>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="brand card">
+      <span class="logo">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 13h4l2-7 4 14 2-7h6" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="name">Pulse<b>Go</b></span>
+    </div>
+    <nav class="nav card">
+      <a class="on">Live Map</a>
+      <a>Routes</a>
+      <a>Analytics</a>
+      <a>Incidents</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="pill status-pill"><span class="dot"></span> Local · <b>GB10</b></span>
+    <div class="theme-toggle">
+      <button onclick="setTheme('light')" id="tl" aria-label="Light">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" stroke-linecap="round"/></svg>
+      </button>
+      <button onclick="setTheme('dark')" id="td" class="on" aria-label="Dark">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- VIEW TOGGLE -->
+  <div class="viewtoggle card">
+    <button class="on">Map</button>
+    <button>LiDAR 3D</button>
+  </div>
+
+  <!-- LAYER DOCK -->
+  <div class="dock card">
+    <button class="on" title="Routes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h7" stroke-linecap="round"/></svg></button>
+    <button title="Traffic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="20" rx="3"/><circle cx="12" cy="7" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="17" r="1.3" fill="currentColor"/></svg></button>
+    <button title="Incidents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3Z" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke-linecap="round"/></svg></button>
+    <button title="CCTV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 8 14-4 1.5 5L4 13 3 8Z" stroke-linejoin="round"/><path d="M5 13v5h4" stroke-linecap="round"/></svg></button>
+    <div class="sep"></div>
+    <button title="Recenter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/></svg></button>
+  </div>
+
+  <!-- AGENT -->
+  <div class="agent card">
+    <div class="agent-head">
+      <span class="agent-face"><span class="eyes"><i></i><i></i></span></span>
+      <div><div class="t">NemoClaw</div><div class="s">Local agent · live ops</div></div>
+    </div>
+    <div class="agent-feed">
+      <div class="agent-msg"><time>13:42</time> · 3 signal recs — green-wave at Tower Bridge, prioritising southbound medical routes.</div>
+      <div class="agent-msg"><time>13:40</time> · Islington clinic run flagged late; reroute available via City Rd.</div>
+    </div>
+    <div class="agent-input">
+      <input placeholder="Ask NemoClaw…" />
+      <button>Send</button>
+    </div>
+  </div>
+
+  <!-- APP GRID -->
+  <div class="app">
+    <div></div>
+    <aside class="side">
+      <!-- KPI -->
+      <div class="card">
+        <div class="kpi-top">
+          <h2>Operational efficiency</h2>
+          <span class="delta">▲ 0.8× vs naive</span>
+        </div>
+        <div class="gauge">
+          <div class="ring">
+            <svg width="92" height="92" viewBox="0 0 92 92">
+              <circle cx="46" cy="46" r="40" fill="none" stroke="var(--hair)" stroke-width="8"/>
+              <circle cx="46" cy="46" r="40" fill="none" stroke="var(--red)" stroke-width="8" stroke-linecap="round"
+                      stroke-dasharray="251" stroke-dashoffset="143"/>
+            </svg>
+            <div class="val"><b>43%</b><span>Compliance</span></div>
+          </div>
+          <div class="statgrid">
+            <div class="stat"><b>3/7</b><span>On time</span></div>
+            <div class="stat danger"><b>1</b><span>STAT</span></div>
+            <div class="stat"><b>135</b><span>Re-plan ms</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIST -->
+      <div class="card list">
+        <div class="list-head"><h2>Active deliveries</h2><span class="count">7 routes</span></div>
+        <div class="scroll">
+          <div class="job alert">
+            <div class="job-top">
+              <span class="job-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></span>
+              <span class="job-route">Islington clinic <span class="arr">→</span> St Thomas' lab</span>
+              <span class="tag late">Late</span>
+            </div>
+            <div class="prog"><i style="width:8%"></i></div>
+            <div class="job-bot"><span class="pct">8% complete</span><button class="redirect">Redirect →</button></div>
+          </div>
+
+          <div class="job">
+            <div class="job-top">
+              <span class="job-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></span>
+              <span class="job-route">Clerkenwell pharmacy <span class="arr">→</span> Guy's lab</span>
+              <span class="tag risk">At risk</span>
+            </div>
+            <div class="prog"><i style="width:38%"></i></div>
+            <div class="job-bot"><span class="pct">38% complete</span><button class="redirect">Redirect →</button></div>
+          </div>
+
+          <div class="job">
+            <div class="job-top">
+              <span class="job-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></span>
+              <span class="job-route">Bethnal Green surgery <span class="arr">→</span> St Thomas' lab</span>
+              <span class="tag ontime">On time</span>
+            </div>
+            <div class="prog"><i style="width:62%"></i></div>
+            <div class="job-bot"><span class="pct">62% complete</span><button class="redirect">Redirect →</button></div>
+          </div>
+
+          <div class="job">
+            <div class="job-top">
+              <span class="job-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5.5" cy="17" r="2.5"/><circle cx="18.5" cy="17" r="2.5"/><path d="M8 17h6l3-7M14 10l-3-3M11 7H8"/></svg></span>
+              <span class="job-route">Oval health centre <span class="arr">→</span> Guy's lab</span>
+              <span class="tag ontime">On time</span>
+            </div>
+            <div class="prog"><i style="width:80%"></i></div>
+            <div class="job-bot"><span class="pct">80% complete</span><button class="redirect">Redirect →</button></div>
+          </div>
+
+          <div class="job">
+            <div class="job-top">
+              <span class="job-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></span>
+              <span class="job-route">Pimlico surgery <span class="arr">→</span> UCLH lab</span>
+              <span class="tag risk">At risk</span>
+            </div>
+            <div class="prog"><i style="width:24%"></i></div>
+            <div class="job-bot"><span class="pct">24% complete</span><button class="redirect">Redirect →</button></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+<script>
+  function setTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('tl').classList.toggle('on', t==='light');
+    document.getElementById('td').classList.toggle('on', t==='dark');
+  }
+</script>
+</body>
+</html>

@@ -90,24 +90,18 @@ export default function DeliveryList() {
   }, [jobsMap, couriersMap, plan]);
 
   return (
-    <section className="delivery-panel glass">
-      <div className="dl-cap">
-        <span>ACTIVE DELIVERIES</span>
-        <span className="dl-count">{items.length}</span>
-      </div>
-      <div className="dl-scroll" data-testid="delivery-list">
-        {items.length === 0 && <div className="dl-empty">No active deliveries.</div>}
-        {items.map((it) => (
-          <DeliveryCard
-            key={it.key}
-            item={it}
-            selected={selectedId === it.courierId}
-            assessment={fleetAssessments[it.courierId]}
-            onSelect={() => selectCourier(selectedId === it.courierId ? null : it.courierId)}
-            onClear={() => selectCourier(null)}
-          />
-        ))}
-      </div>
-    </section>
+    <div className="delivery-stack" data-testid="delivery-list">
+      {items.length === 0 && <div className="dl-empty glass">No active deliveries.</div>}
+      {items.map((it) => (
+        <DeliveryCard
+          key={it.key}
+          item={it}
+          selected={selectedId === it.courierId}
+          assessment={fleetAssessments[it.courierId]}
+          onSelect={() => selectCourier(selectedId === it.courierId ? null : it.courierId)}
+          onClear={() => selectCourier(null)}
+        />
+      ))}
+    </div>
   );
 }

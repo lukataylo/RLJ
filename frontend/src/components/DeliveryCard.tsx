@@ -81,7 +81,7 @@ export default function DeliveryCard({
         ? "✓ redirected"
         : redirectState === "error"
           ? "✕ failed"
-          : "Redirect";
+          : "Redirect →";
 
   return (
     <div
@@ -110,12 +110,8 @@ export default function DeliveryCard({
             <span className="dc-arrow">→</span>
             <span className="dc-to">{item.toName}</span>
           </div>
-          <div className="dc-sub">
-            {item.courierName} · {item.jobId}
-          </div>
         </div>
 
-        <span className={`dc-dot ${item.priority}`} title={item.priority.toUpperCase()} />
         {selected && (
           <button
             type="button"
@@ -131,13 +127,8 @@ export default function DeliveryCard({
         )}
       </div>
 
-      <div className="dc-prog-track">
+      <div className="dc-prog-track grad">
         <div className="dc-prog-fill" style={{ width: `${pct}%` }} />
-      </div>
-
-      <div className="dc-foot">
-        <span className={`dc-pill ${item.onTime}`}>{PILL_LABEL[item.onTime]}</span>
-        <span className="dc-pct">{pct}%</span>
       </div>
 
       {showAssessment && assessment && (
@@ -151,20 +142,24 @@ export default function DeliveryCard({
         </div>
       )}
 
-      <div className="dc-actions">
-        <button
-          type="button"
-          className={`dc-redirect ${redirectState}`}
-          data-testid="btn-redirect"
-          disabled={redirectState === "redirecting"}
-          aria-busy={redirectState === "redirecting"}
-          onClick={(e) => {
-            e.stopPropagation();
-            void doRedirect();
-          }}
-        >
-          {redirectLabel}
-        </button>
+      <div className="dc-foot">
+        <span className={`dc-pill ${item.onTime}`}>{PILL_LABEL[item.onTime]}</span>
+        <div className="dc-foot-right">
+          <span className="dc-pct">{pct}%</span>
+          <button
+            type="button"
+            className={`dc-redirect ${redirectState}`}
+            data-testid="btn-redirect"
+            disabled={redirectState === "redirecting"}
+            aria-busy={redirectState === "redirecting"}
+            onClick={(e) => {
+              e.stopPropagation();
+              void doRedirect();
+            }}
+          >
+            {redirectLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

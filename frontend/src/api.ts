@@ -30,6 +30,69 @@ async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+// ----------------------------------------------------------------- auth/token
+// JWT lives in localStorage so it survives reloads. It is the single source of
+// truth read by every write request below; the store mirrors it for the UI.
+const TOKEN_KEY = "pulsego_token";
+
+export function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // storage unavailable (private mode / SSR) — degrade silently
+  }
+}
+
+/** Merge an `Authorization: Bearer <token>` header onto write requests when a
+ * token is present. Dev runs AUTH_REQUIRED=false so a missing token still works. */
+function authHeaders(base: Record<string, string> = {}): Record<string, string> {
+  const t = getToken();
+  return t ? { ...base, authorization: `Bearer ${t}` } : base;
+}
+
+export interface AuthUser {
+  id?: string;
+  email?: string;
+  role?: string;
+  [k: string]: unknown;
+}
+
+export interface LoginResult {
+  access_token: string;
+  token_type: string;
+  role: string;
+}
+
+/** POST /auth/login — exchange credentials for a JWT. Throws on 401. */
+export async function login(email: string, password: string): Promise<LoginResult> {
+  return json<LoginResult>(
+    await fetch(`${BASE}/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }),
+  );
+}
+
+/** GET /auth/me — validate the current token and return the logged-in user. */
+export async function me(): Promise<AuthUser> {
+  return json<AuthUser>(await fetch(`${BASE}/auth/me`, { headers: authHeaders() }));
+}
+
+/** Clear the persisted token (client-side logout). */
+export function logout(): void {
+  setToken(null);
+}
+
 // ----------------------------------------------------------------- REST helpers
 
 /** GET /state — full snapshot used to hydrate on load / after a WS drop. */
@@ -42,7 +105,7 @@ export async function postJob(job: Partial<DeliveryJob>): Promise<DeliveryJob> {
   return json<DeliveryJob>(
     await fetch(`${BASE}/jobs`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       body: JSON.stringify(job),
     }),
   );
@@ -55,7 +118,7 @@ export async function postDisruption(
   return json<DisruptionEvent>(
     await fetch(`${BASE}/disruptions`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       body: JSON.stringify(d),
     }),
   );
@@ -63,7 +126,9 @@ export async function postDisruption(
 
 /** POST /optimize — force a re-plan. Returns the new Plan. */
 export async function optimize(): Promise<Plan> {
-  return json<Plan>(await fetch(`${BASE}/optimize`, { method: "POST" }));
+  return json<Plan>(
+    await fetch(`${BASE}/optimize`, { method: "POST", headers: authHeaders() }),
+  );
 }
 
 /** POST /notifications — dispatch a courier/clinic notification (voice_call etc.).
@@ -74,7 +139,7 @@ export async function postNotification(n: {
   return json(
     await fetch(`${BASE}/notifications`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       body: JSON.stringify(n),
     }),
   );
@@ -120,7 +185,7 @@ export async function askAgent(question: string): Promise<unknown> {
   return json(
     await fetch(`${BASE}/agent/ask`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       body: JSON.stringify({ question }),
     }),
   );
@@ -144,7 +209,7 @@ export async function redirectCourier(id: string): Promise<{ ok: boolean } & Rec
   return json(
     await fetch(`${BASE}/couriers/${encodeURIComponent(id)}/redirect`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
     }),
   );
 }

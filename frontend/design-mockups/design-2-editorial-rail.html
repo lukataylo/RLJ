@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PulseGo — Design 2 · Editorial Rail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --red: #ff3b30;
+    --red-soft: rgba(255,59,48,.12);
+    --green: #1fae6f;
+    --amber: #f59e0b;
+    --sans: "Inter", system-ui, sans-serif;
+    --head: "Poppins", var(--sans);
+    --r: 16px; --r-sm: 10px;
+  }
+  [data-theme="dark"] {
+    --bg: #0c0c0c; --rail: #141312; --surface: #181716; --elevated: #201e1c;
+    --text: #fff6ee; --muted: #978f87; --faint: #5a544e;
+    --hair: rgba(255,246,238,.08); --hair-strong: rgba(255,246,238,.15);
+    --map-land:#151412; --map-road:#262320; --map-water:#16222b;
+    --shadow: 0 12px 30px rgba(0,0,0,.4);
+  }
+  [data-theme="light"] {
+    --bg: #f6ece0; --rail: #ffffff; --surface: #ffffff; --elevated: #fffaf4;
+    --text: #1a1410; --muted: #7c736a; --faint: #b6aa9d;
+    --hair: rgba(17,17,17,.08); --hair-strong: rgba(17,17,17,.13);
+    --map-land:#ece2d5; --map-road:#ffffff; --map-water:#cfe0e8;
+    --shadow: 0 12px 30px rgba(120,90,60,.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); overflow: hidden;
+         -webkit-font-smoothing: antialiased; transition: background .4s, color .4s; }
+
+  .layout { display: grid; grid-template-columns: 84px 1fr 380px; height: 100vh; }
+
+  /* ===== LEFT RAIL ===== */
+  .rail { background: var(--rail); border-right: 1px solid var(--hair); display: flex; flex-direction: column;
+          align-items: center; padding: 20px 0; gap: 6px; }
+  .rail .logo { width: 44px; height: 44px; border-radius: 14px; background: var(--red); display: grid; place-items: center;
+                margin-bottom: 22px; box-shadow: 0 6px 16px rgba(255,59,48,.4); }
+  .rail .logo svg { width: 26px; height: 26px; }
+  .rail-btn { width: 48px; height: 48px; border-radius: 13px; border: none; background: transparent; color: var(--muted);
+              cursor: pointer; display: grid; place-items: center; position: relative; transition: .15s; }
+  .rail-btn:hover { background: var(--hair); color: var(--text); }
+  .rail-btn.on { color: var(--red); background: var(--red-soft); }
+  .rail-btn.on::before { content:""; position:absolute; left:-20px; top:50%; transform:translateY(-50%); width:3px; height:22px; background:var(--red); border-radius:0 3px 3px 0; }
+  .rail-btn svg { width: 22px; height: 22px; }
+  .rail .grow { flex: 1; }
+  .rail .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg,var(--red),#ff7a52); }
+
+  /* ===== CENTER ===== */
+  .center { position: relative; overflow: hidden; }
+  .map { position: absolute; inset: 0; }
+  .map svg { width: 100%; height: 100%; }
+  .road { stroke: var(--map-road); fill: none; }
+  .water { fill: var(--map-water); }
+  .route { fill: none; stroke-linecap: round; }
+  .map-label { font-family: var(--sans); font-size: 12px; font-weight: 600; fill: var(--muted); text-transform: uppercase; letter-spacing:.05em; opacity:.5; }
+
+  /* floating header over map */
+  .toprow { position: absolute; top: 20px; left: 20px; right: 20px; z-index: 3; display: flex; align-items: center; gap: 14px; }
+  .h-title h1 { font-family: var(--head); font-weight: 700; font-size: 22px; letter-spacing: -.02em; }
+  .h-title p { font-size: 12.5px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 7px; }
+  .h-title p .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px rgba(31,174,111,.2); }
+  .grow { flex: 1; }
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--hair); border-radius: 12px; padding: 4px; box-shadow: var(--shadow); }
+  .seg button { font-family: var(--head); font-weight: 600; font-size: 13px; border: none; cursor: pointer; padding: 8px 16px; border-radius: 9px; background: transparent; color: var(--muted); }
+  .seg button.on { background: var(--red); color: #fff; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 12px; font-size: 12.5px; font-weight: 600;
+          background: var(--surface); border: 1px solid var(--hair); color: var(--muted); box-shadow: var(--shadow); }
+  .chip b { color: var(--text); }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+
+  .theme-toggle { display: inline-flex; padding: 4px; gap: 2px; border-radius: 12px; border: 1px solid var(--hair); background: var(--surface); box-shadow: var(--shadow); }
+  .theme-toggle button { width: 32px; height: 32px; border-radius: 9px; border: none; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+  .theme-toggle button.on { background: var(--red); color: #fff; }
+  .theme-toggle button svg { width: 16px; height: 16px; }
+
+  /* layer chips bottom */
+  .layers { position: absolute; bottom: 20px; left: 20px; z-index: 3; display: flex; gap: 8px; }
+  .layers button { font-family: var(--head); font-weight: 600; font-size: 12px; padding: 8px 14px; border-radius: 99px;
+                   background: var(--surface); border: 1px solid var(--hair); color: var(--muted); cursor: pointer; box-shadow: var(--shadow); display:inline-flex; align-items:center; gap:7px; }
+  .layers button.on { color: var(--text); border-color: var(--hair-strong); }
+  .layers button.on .d { background: var(--red); }
+  .layers .d { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+
+  /* agent bubble */
+  .agent { position: absolute; bottom: 20px; right: 20px; z-index: 3; width: 320px; background: var(--surface);
+           border: 1px solid var(--hair); border-radius: var(--r); padding: 15px; box-shadow: var(--shadow); }
+  .agent-head { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }
+  .agent-face { width: 28px; height: 28px; border-radius: 9px; background: #111; display: grid; place-items: center; }
+  .agent-face .eyes { display: flex; gap: 4px; } .agent-face i { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+  .agent-head .t { font-family: var(--head); font-weight: 700; font-size: 13.5px; }
+  .agent-msg { font-size: 12.5px; line-height: 1.45; color: var(--muted); margin-bottom: 10px; }
+  .agent-msg time { color: var(--red); font-weight: 600; }
+  .agent-input { display: flex; gap: 7px; }
+  .agent-input input { flex: 1; background: var(--bg); border: 1px solid var(--hair); border-radius: 10px; padding: 9px 12px; color: var(--text); font-family: var(--sans); font-size: 12.5px; outline: none; }
+  .agent-input button { background: var(--red); border: none; color: #fff; font-family: var(--head); font-weight: 600; font-size: 12.5px; padding: 0 14px; border-radius: 10px; cursor: pointer; }
+
+  /* ===== RIGHT PANEL ===== */
+  .panel { background: var(--rail); border-left: 1px solid var(--hair); display: flex; flex-direction: column; overflow: hidden; }
+  .panel-pad { padding: 24px 22px 16px; border-bottom: 1px solid var(--hair); }
+  .eyebrow { font-family: var(--head); font-weight: 600; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .big-num { display: flex; align-items: baseline; gap: 10px; }
+  .big-num b { font-family: var(--head); font-weight: 800; font-size: 56px; line-height: .9; letter-spacing: -.02em; }
+  .big-num .u { font-family: var(--head); font-weight: 700; font-size: 20px; color: var(--muted); }
+  .big-num .delta { font-size: 12px; font-weight: 600; color: var(--green); background: rgba(31,174,111,.12); padding: 5px 9px; border-radius: 8px; margin-left: auto; align-self: center; }
+  .sub { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .bar { height: 7px; border-radius: 99px; background: var(--hair); margin-top: 16px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 43%; background: var(--red); border-radius: 99px; }
+  .mini { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 18px; }
+  .mini div { text-align: center; }
+  .mini b { font-family: var(--head); font-weight: 700; font-size: 20px; display: block; }
+  .mini b.r { color: var(--red); }
+  .mini span { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+
+  .list-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 12px; }
+  .list-head h2 { font-family: var(--head); font-weight: 600; font-size: 13px; color: var(--muted); }
+  .list-head .count { font-size: 12px; color: var(--faint); font-weight: 600; }
+  .scroll { overflow-y: auto; padding: 0 16px 18px; display: flex; flex-direction: column; }
+  .scroll::-webkit-scrollbar { width: 5px; } .scroll::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 99px; }
+
+  .job { padding: 15px 12px; border-bottom: 1px solid var(--hair); cursor: pointer; border-radius: 10px; transition: .12s; }
+  .job:hover { background: var(--surface); }
+  .job-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .dotmark { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dotmark.late { background: var(--red); } .dotmark.risk { background: var(--amber); } .dotmark.ontime { background: var(--green); }
+  .job-route { font-size: 13.5px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job-route .arr { color: var(--faint); margin: 0 4px; }
+  .state { font-size: 11px; font-weight: 600; }
+  .state.late { color: var(--red); } .state.risk { color: var(--amber); } .state.ontime { color: var(--green); }
+  .job-bot { display: flex; align-items: center; gap: 12px; }
+  .prog { height: 4px; border-radius: 99px; background: var(--hair); overflow: hidden; flex: 1; }
+  .prog i { display: block; height: 100%; background: var(--text); border-radius: 99px; }
+  .job-bot .pct { font-size: 11px; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; width: 34px; text-align: right; }
+  .redirect { font-family: var(--head); font-weight: 600; font-size: 11px; color: var(--red); background: transparent; border: none; cursor: pointer; padding: 4px; }
+</style>
+</head>
+<body>
+  <div class="layout">
+    <!-- LEFT RAIL -->
+    <nav class="rail">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M3 13h4l2-7 4 14 2-7h6" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <button class="rail-btn on" title="Live Map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 4 6 2 6-2v14l-6 2-6-2-6 2V6l6-2Zm0 0v14m6-12v14" stroke-linejoin="round"/></svg></button>
+      <button class="rail-btn" title="Routes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h6a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6" stroke-linecap="round"/></svg></button>
+      <button class="rail-btn" title="Analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-6" stroke-linecap="round"/></svg></button>
+      <button class="rail-btn" title="Incidents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 20h20L12 3Z" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke-linecap="round"/></svg></button>
+      <div class="grow"></div>
+      <button class="rail-btn" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.4-2.6h-4l-.4 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.06-.33.1-.66.1-1Z" stroke-linejoin="round"/></svg></button>
+      <div class="avatar"></div>
+    </nav>
+
+    <!-- CENTER MAP -->
+    <main class="center">
+      <div class="map">
+        <svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice">
+          <rect width="1400" height="900" fill="var(--map-land)"/>
+          <path class="water" d="M-50,560 C250,520 400,640 650,610 C880,585 1000,690 1250,650 L1450,690 L1450,900 L-50,900 Z" opacity=".9"/>
+          <g class="road" stroke-width="2" opacity=".9"><path d="M0,160 H1400"/><path d="M0,330 H1400"/><path d="M0,720 H1400"/><path d="M220,0 V900"/><path d="M560,0 V900"/><path d="M900,0 V900"/><path d="M1180,0 V900"/></g>
+          <g class="road" stroke-width="3.5"><path d="M120,0 C300,250 250,500 500,640 C760,780 900,500 1150,560"/><path d="M0,440 C300,400 520,470 780,420 C1050,370 1250,460 1400,420"/></g>
+          <path class="route" stroke="var(--red)" stroke-width="3.5" opacity=".85" d="M340,300 C420,360 470,300 560,360 C690,450 720,560 860,540 C980,524 1010,610 1120,590"/>
+          <path class="route" stroke="var(--green)" stroke-width="3" opacity=".7" d="M300,560 C420,600 520,520 640,560 C760,600 840,680 980,640"/>
+          <circle cx="340" cy="300" r="9" fill="var(--red)"/><circle cx="560" cy="360" r="7" fill="var(--amber)"/><circle cx="860" cy="540" r="8" fill="var(--green)"/><circle cx="1120" cy="590" r="7" fill="var(--green)"/><circle cx="640" cy="560" r="6" fill="var(--amber)"/><circle cx="980" cy="640" r="9" fill="var(--red)"/><circle cx="460" cy="640" r="6" fill="var(--green)"/><circle cx="760" cy="240" r="6" fill="var(--amber)"/>
+          <text class="map-label" x="300" y="250">Camden</text><text class="map-label" x="820" y="490">City of London</text><text class="map-label" x="540" y="700">Westminster</text><text class="map-label" x="1040" y="560">Shoreditch</text>
+        </svg>
+      </div>
+
+      <div class="toprow">
+        <div class="h-title">
+          <h1>Live Map</h1>
+          <p><span class="dot"></span> Running local · DGX Spark GB10 · zero egress</p>
+        </div>
+        <div class="grow"></div>
+        <div class="seg"><button class="on">Map</button><button>LiDAR 3D</button></div>
+        <span class="chip"><span class="dot"></span> 60/60 <b>verified</b></span>
+        <div class="theme-toggle">
+          <button onclick="setTheme('light')" id="tl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" stroke-linecap="round"/></svg></button>
+          <button onclick="setTheme('dark')" id="td" class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
+        </div>
+      </div>
+
+      <div class="layers">
+        <button class="on"><span class="d"></span> Routes</button>
+        <button><span class="d"></span> Traffic</button>
+        <button class="on"><span class="d"></span> Incidents</button>
+        <button><span class="d"></span> Signals</button>
+        <button><span class="d"></span> CCTV</button>
+      </div>
+
+      <div class="agent">
+        <div class="agent-head"><span class="agent-face"><span class="eyes"><i></i><i></i></span></span><span class="t">NemoClaw</span></div>
+        <div class="agent-msg"><time>13:42</time> · Green-wave at Tower Bridge — prioritising southbound medical routes.</div>
+        <div class="agent-input"><input placeholder="Ask NemoClaw…" /><button>Send</button></div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="panel">
+      <div class="panel-pad">
+        <div class="eyebrow">Operational efficiency</div>
+        <div class="big-num"><b>43</b><span class="u">%</span><span class="delta">▲ 0.8× vs naive</span></div>
+        <div class="sub">Window compliance, live</div>
+        <div class="bar"><i></i></div>
+        <div class="mini">
+          <div><b>3/7</b><span>On time</span></div>
+          <div><b class="r">1</b><span>STAT</span></div>
+          <div><b>135</b><span>Re-plan ms</span></div>
+        </div>
+      </div>
+
+      <div class="list-head"><h2>Active deliveries</h2><span class="count">7 routes</span></div>
+      <div class="scroll">
+        <div class="job">
+          <div class="job-top"><span class="dotmark late"></span><span class="job-route">Islington clinic <span class="arr">→</span> St Thomas' lab</span><span class="state late">Late</span></div>
+          <div class="job-bot"><div class="prog"><i style="width:8%"></i></div><span class="pct">8%</span><button class="redirect">Redirect</button></div>
+        </div>
+        <div class="job">
+          <div class="job-top"><span class="dotmark risk"></span><span class="job-route">Clerkenwell pharmacy <span class="arr">→</span> Guy's lab</span><span class="state risk">At risk</span></div>
+          <div class="job-bot"><div class="prog"><i style="width:38%"></i></div><span class="pct">38%</span><button class="redirect">Redirect</button></div>
+        </div>
+        <div class="job">
+          <div class="job-top"><span class="dotmark risk"></span><span class="job-route">Royal London <span class="arr">→</span> Guy's lab</span><span class="state risk">At risk</span></div>
+          <div class="job-bot"><div class="prog"><i style="width:30%"></i></div><span class="pct">30%</span><button class="redirect">Redirect</button></div>
+        </div>
+        <div class="job">
+          <div class="job-top"><span class="dotmark late"></span><span class="job-route">Pimlico surgery <span class="arr">→</span> UCLH lab</span><span class="state late">Late</span></div>
+          <div class="job-bot"><div class="prog"><i style="width:24%"></i></div><span class="pct">24%</span><button class="redirect">Redirect</button></div>
+        </div>
+        <div class="job">
+          <div class="job-top"><span class="dotmark ontime"></span><span class="job-route">Bethnal Green <span class="arr">→</span> St Thomas' lab</span><span class="state ontime">On time</span></div>
+          <div class="job-bot"><div class="prog"><i style="width:62%"></i></div><span class="pct">62%</span><button class="redirect">Redirect</button></div>
+        </div>
+        <div class="job">
+          <div class="job-top"><span class="dotmark ontime"></span><span class="job-route">Oval health centre <span class="arr">→</span> Guy's lab</span><span class="state ontime">On time</span></div>
+          <div class="job-bot"><div class="prog"><i style="width:80%"></i></div><span class="pct">80%</span><button class="redirect">Redirect</button></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+<script>
+  function setTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('tl').classList.toggle('on', t==='light');
+    document.getElementById('td').classList.toggle('on', t==='dark');
+  }
+</script>
+</body>
+</html>

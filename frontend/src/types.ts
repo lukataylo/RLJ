@@ -198,16 +198,10 @@ export interface AgentLog {
   source?: string;
 }
 
-export interface CourierMoved {
-  courier_id: string;
-  location: Location;
-}
-
 export type WsEvent =
   | { type: "state"; payload: StateSnapshot; ts: string }
   | { type: "job_created"; payload: DeliveryJob; ts: string }
   | { type: "plan_updated"; payload: Plan; ts: string }
-  | { type: "courier_moved"; payload: CourierMoved; ts: string }
   | { type: "disruption"; payload: DisruptionEvent; ts: string }
   | { type: "agent_log"; payload: AgentLog; ts: string }
   | { type: "notification"; payload: Notification; ts: string }

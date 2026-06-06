@@ -267,6 +267,18 @@ claims:
     must_pass: false
     test: "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights"
 
+  - id: brand-landing
+    statement: "Landing page is on-brand: mascot mark, Poppins display, Cream surface, Pulse Red CTA -> /login (browser e2e)"
+    category: e2e
+    must_pass: false
+    test: "tests/e2e/test_brand_site_e2e.py::test_landing_is_on_brand"
+
+  - id: brand-login
+    statement: "Login page is on-brand (Cream/Pulse Red/Poppins) and rejects bad credentials with an inline error (browser e2e)"
+    category: e2e
+    must_pass: false
+    test: "tests/e2e/test_brand_site_e2e.py::test_login_is_on_brand_and_rejects_bad_creds"
+
   # ---- GB10 Nemotron traffic-signal agent ---------------------------------
   - id: signals-roundtrip
     statement: "Signal recommendations POST/GET round-trip and appear in /state"

@@ -20,6 +20,26 @@ import type {
   WsEvent,
 } from "./types";
 import { sampleMetrics } from "./lib/format";
+import { getToken, setToken, type AuthUser } from "./api";
+
+const ROLE_KEY = "pulsego_role";
+
+function readRole(): string | null {
+  try {
+    return localStorage.getItem(ROLE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function persistRole(role: string | null): void {
+  try {
+    if (role) localStorage.setItem(ROLE_KEY, role);
+    else localStorage.removeItem(ROLE_KEY);
+  } catch {
+    // storage unavailable — degrade silently
+  }
+}
 
 export interface LogLine {
   ts: string;
@@ -46,6 +66,14 @@ interface OpsState {
   fleetAssessments: Record<string, FleetAssessment>;
   cctv: CctvCamera[];
   lastAgentAnswer: AgentAnswer | null;
+
+  // --- auth ---
+  token: string | null;
+  role: string | null;
+  authUser: AuthUser | null;
+  setAuth: (token: string, role: string | null) => void;
+  setAuthUser: (user: AuthUser | null) => void;
+  clearAuth: () => void;
 
   setConnected: (v: boolean) => void;
   hydrate: (snap: StateSnapshot) => void;
@@ -81,6 +109,25 @@ export const useStore = create<OpsState>((set, get) => ({
   fleetAssessments: {},
   cctv: [],
   lastAgentAnswer: null,
+
+  // Hydrate auth from localStorage so a logged-in session survives reloads.
+  token: getToken(),
+  role: readRole(),
+  authUser: null,
+
+  setAuth: (token, role) => {
+    setToken(token);
+    persistRole(role);
+    set({ token, role });
+  },
+
+  setAuthUser: (user) => set({ authUser: user }),
+
+  clearAuth: () => {
+    setToken(null);
+    persistRole(null);
+    set({ token: null, role: null, authUser: null });
+  },
 
   setConnected: (v) => set({ connected: v }),
 
@@ -132,20 +179,6 @@ export const useStore = create<OpsState>((set, get) => ({
       case "plan_updated": {
         set({ plan: e.payload as Plan });
         recordSample(get, set);
-        break;
-      }
-      case "courier_moved": {
-        const { courier_id, location } = e.payload;
-        set((s) => {
-          const c = s.couriers[courier_id];
-          if (!c) return {};
-          return {
-            couriers: {
-              ...s.couriers,
-              [courier_id]: { ...c, location: { ...c.location, ...location } },
-            },
-          };
-        });
         break;
       }
       case "disruption": {

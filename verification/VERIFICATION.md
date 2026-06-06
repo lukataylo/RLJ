@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-06T10:51:34.985594+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T12:56:19.475779+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (60/60) · verified 68/68 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (60/60) · verified 70/70 · failing 0 · unverified 0
 
 ## impact
 
@@ -89,6 +89,8 @@ _Generated 2026-06-06T10:51:34.985594+00:00 — machine output of `make verify`.
 | ✅ ⭐ | NemoClaw narration is observable by a client connecting after boot (history replay) | `test_nemoclaw_online_narration` | verified |
 | ✅ | Right delivery list renders cards with van/scooter icons (browser e2e) | `test_delivery_list_and_cards` | verified |
 | ✅ | Clicking a delivery selects it and opens the inspector (browser e2e) | `test_click_delivery_highlights` | verified |
+| ✅ | Landing page is on-brand: mascot mark, Poppins display, Cream surface, Pulse Red CTA -> /login (browser e2e) | `test_landing_is_on_brand` | verified |
+| ✅ | Login page is on-brand (Cream/Pulse Red/Poppins) and rejects bad credentials with an inline error (browser e2e) | `test_login_is_on_brand_and_rejects_bad_creds` | verified |
 | ✅ ⭐ | Signal recommendations POST/GET round-trip and appear in /state | `test_signals_post_get_roundtrip` | verified |
 | ✅ ⭐ | Posted signal recommendations broadcast to the map (WS + narration) | `test_signals_broadcast` | verified |
 | ✅ ⭐ | Operator can ask the GB10 agent; question queues, is answered, broadcasts | `test_ask_tasks_answer_flow` | verified |
