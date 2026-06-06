@@ -39,6 +39,7 @@ class Courier(BaseModel):
     location: Location
     capacity: float = 6
     cold_capable: bool = True
+    vehicle_type: Literal["van", "scooter", "bike"] = "van"
     status: Literal["idle", "enroute", "offline"] = "idle"
     assigned_route_id: Optional[str] = None
     phone: Optional[str] = None

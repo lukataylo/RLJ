@@ -30,9 +30,14 @@ MIX = ["stat", "urgent", "routine", "routine", "urgent", "routine", "stat", "rou
 def main():
     now = datetime.now(timezone.utc)
     with httpx.Client(base_url=BASE, timeout=10) as c:
+        # mix of vans (cold-capable, higher capacity) and scooters (faster, no fridge)
+        fleet = [("van", 6, True), ("scooter", 3, False), ("van", 6, True)]
         for i, (la, lo, n) in enumerate(DEPOTS):
-            c.post("/couriers", json={"id": f"crt-{i+1}", "name": f"Van {chr(65+i)}",
-                                      "capacity": 6, "cold_capable": i != 2, "status": "idle",
+            vt, cap, cold = fleet[i % len(fleet)]
+            label = "Van" if vt == "van" else "Scooter"
+            c.post("/couriers", json={"id": f"crt-{i+1}", "name": f"{label} {chr(65+i)}",
+                                      "capacity": cap, "cold_capable": cold,
+                                      "vehicle_type": vt, "status": "idle",
                                       "location": {"lat": la, "lng": lo, "name": n},
                                       "phone": f"+44700900{i:03d}"})
         for i in range(8):

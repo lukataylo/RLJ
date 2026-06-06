@@ -23,6 +23,7 @@ from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
                     Driver, DriverPing, TelemetryBatch)
 from greedy import greedy_plan
 import congestion as congestion_mod
+import nemo_agent
 
 ROUTING_URL = os.getenv("ROUTING_URL", "http://localhost:8100")
 
@@ -343,9 +344,15 @@ async def courier_mover():
                 await HUB.emit("courier_moved", {"courier_id": route.courier_id, "location": pos})
 
 
+async def _nemo_inject(d: dict):
+    """Adapter so the NemoClaw agent can post a disruption (and trigger a re-plan)."""
+    await add_disruption(DisruptionEvent(**d))
+
+
 @app.on_event("startup")
 async def _start_background():
     asyncio.create_task(courier_mover())
+    asyncio.create_task(nemo_agent.run(HUB.emit, _nemo_inject))
 
 
 # ----------------------------------------------------------------------------- WS
