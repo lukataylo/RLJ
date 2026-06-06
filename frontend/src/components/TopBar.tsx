@@ -12,6 +12,7 @@ import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
 import DemoControls from "./DemoControls";
 import ThemeToggle from "./ThemeToggle";
+import RouteSourceToggle from "./RouteSourceToggle";
 
 interface Props {
   status: UseStatus;
@@ -121,6 +122,8 @@ export default function TopBar({ status, onOpenVerification }: Props) {
         </button>
 
         <span className="nav-clock">{clock}</span>
+
+        <RouteSourceToggle />
 
         <ThemeToggle />
 

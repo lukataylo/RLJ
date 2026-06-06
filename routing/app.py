@@ -19,13 +19,15 @@ Test:
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import FastAPI
 
 import solver
 import solver_aco
 import solver_baseline
-from models import OptimizeRequest, OptimizeResponse, Plan
+from models import LatLng, OptimizeRequest, OptimizeResponse, Plan
+from route_geometry import valhalla_route_shape
 
 log = logging.getLogger("routing")
 logging.basicConfig(level=logging.INFO)
@@ -70,6 +72,32 @@ def _solve(req: OptimizeRequest) -> Plan:
     return solver_baseline.greedy_plan(req)
 
 
+def _enrich_polylines(plan: Plan) -> None:
+    """Replace each route's straight-line polyline with the real road shape.
+
+    Only active when ``$VALHALLA_URL`` is set (the GB10 demo box / a local Valhalla);
+    on the dev box / CI the deterministic straight-line polylines from the solvers are
+    left untouched. For each route we ask Valhalla for the road path through the stops
+    in sequence order; we only overwrite the polyline when Valhalla returns a usable
+    (non-empty) shape. Wrapped so it can never break ``/optimize`` — on any failure the
+    existing polylines stand.
+    """
+    if not os.environ.get("VALHALLA_URL"):
+        return
+    try:
+        for route in plan.routes:
+            stops = sorted(route.stops, key=lambda s: s.sequence)
+            lats = [s.location.lat for s in stops]
+            lngs = [s.location.lng for s in stops]
+            if len(lats) < 2:
+                continue
+            shape = valhalla_route_shape(lats, lngs)
+            if shape:
+                route.polyline = [LatLng(lat=p["lat"], lng=p["lng"]) for p in shape]
+    except Exception:  # noqa: BLE001 - enrichment must never break /optimize
+        log.exception("polyline enrichment failed; keeping straight-line polylines")
+
+
 @app.get("/healthz")
 def healthz() -> dict:
     return {"status": "ok", "solver": SELECTED_SOLVER}
@@ -82,6 +110,7 @@ def optimize(req: OptimizeRequest) -> OptimizeResponse:
     # types those fields as non-nullable-when-present, so omission keeps us valid while
     # still "strict in what we emit".
     plan = _solve(req)
+    _enrich_polylines(plan)
     # Build the response from a dict, not the Plan instance directly: under some test
     # import orders the orchestrator and routing `models` modules both bind to the name
     # `models`, so a solver may return a Plan from the *other* module object and pydantic

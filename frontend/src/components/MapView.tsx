@@ -61,6 +61,11 @@ import {
 import { getRoadRoute, routeSignature, type LngLat } from "../lib/routing";
 import { getTheme, onThemeChange, type Theme } from "../lib/theme";
 import {
+  getRouteSource,
+  onRouteSourceChange,
+  type RouteSource,
+} from "../lib/routeSource";
+import {
   mdiTrafficLight,
   mdiCarMultiple,
   mdiRoutes,
@@ -819,6 +824,7 @@ export default function MapView() {
   const dataRef = useRef<OptionalData>({ roads: [], facilities: [], venues: [] });
   const visRef = useRef<LayerVis>(DEFAULT_VIS);
   const roadPathsRef = useRef<Record<string, LngLat[] | null>>({});
+  const routeSourceRef = useRef<RouteSource>(getRouteSource());
   const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boundsRef = useRef<Bounds>(null);
   // Set by an effect; the once-created overlay onClick calls it to open the popover.
@@ -857,6 +863,13 @@ export default function MapView() {
   // land in roadPathsRef and are picked up by the imperative render loop.
   const resolveRoutes = useMemo(() => {
     const run = () => {
+      // In "valhalla" mode the ROUTES layer draws straight from each
+      // route.polyline (the backend road-following geometry) — no Mapbox calls.
+      // buildLayers falls back to that polyline when roadPaths has no entry.
+      if (routeSourceRef.current === "valhalla") {
+        roadPathsRef.current = {};
+        return;
+      }
       const snap = snapRef.current;
       const courierById = new Map(snap.couriers.map((c) => [c.id, c]));
       const next: Record<string, LngLat[] | null> = {};
@@ -918,6 +931,18 @@ export default function MapView() {
   useEffect(() => {
     visRef.current = vis;
   }, [vis]);
+
+  // Re-resolve route geometry when the Mapbox/Valhalla source toggle changes.
+  // The RAF render loop reads roadPathsRef each frame, so the ROUTES layer
+  // re-draws from the new source on the next frame.
+  useEffect(() => {
+    routeSourceRef.current = getRouteSource();
+    resolveRoutes();
+    return onRouteSourceChange((source) => {
+      routeSourceRef.current = source;
+      resolveRoutes();
+    });
+  }, [resolveRoutes]);
 
   // "View route" action (Inspector 〰) → fly the map to the selected courier.
   useEffect(() => {
