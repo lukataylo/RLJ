@@ -107,6 +107,25 @@ export function getCouriers(): Promise<ApiResult<Courier[]>> {
   return call<Courier[]>("/couriers");
 }
 
+/** POST /demo/seed — hydrate the orchestrator with enroute couriers + jobs. */
+export function seedDemo(): Promise<
+  ApiResult<{ couriers: number; jobs: number; routes: number }>
+> {
+  return call<{ couriers: number; jobs: number; routes: number }>("/demo/seed", {
+    method: "POST",
+  });
+}
+
+/** POST /couriers/{id}/redirect — trigger a live dispatch reroute. */
+export function redirectCourier(
+  id: string,
+): Promise<ApiResult<{ ok: boolean; courier_id: string; windows_met?: number; solver?: string }>> {
+  return call<{ ok: boolean; courier_id: string; windows_met?: number; solver?: string }>(
+    `/couriers/${encodeURIComponent(id)}/redirect`,
+    { method: "POST" },
+  );
+}
+
 /** GET /driver/{id}/guidance — route + green-wave + contribution. */
 export function getGuidance(id: string): Promise<ApiResult<DriverGuidance>> {
   return call<DriverGuidance>(`/driver/${encodeURIComponent(id)}/guidance`);

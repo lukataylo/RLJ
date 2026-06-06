@@ -21,9 +21,12 @@ import {
   getCongestion,
   getGuidance,
   getGeoFix,
+  getCouriers,
   getSignalAdvice,
   health,
   postTelemetry,
+  redirectCourier,
+  seedDemo,
   simulateGps,
 } from "./api";
 import { demoCongestion, demoGuidance } from "./lib/demo";
@@ -73,6 +76,11 @@ function DriverHome() {
   const params = new URLSearchParams(window.location.search);
   const [tab, setTab] = useState<Tab>(params.get("tab") === "impact" ? "impact" : "drive");
   const [voiceOpen, setVoiceOpen] = useState(params.has("voice"));
+  const [redirectState, setRedirectState] = useState<{
+    status: "idle" | "running" | "sent" | "demo" | "error";
+    courier?: string;
+    detail?: string;
+  }>({ status: "idle" });
 
   // -- health probe (and re-probe periodically) -----------------------------
   useEffect(() => {
@@ -217,6 +225,64 @@ function DriverHome() {
     };
   }, [sharing]);
 
+  const runRedirectDemo = async () => {
+    setRedirectState({ status: "running", detail: "Finding an enroute courier..." });
+    const live = await health();
+    if (!live) {
+      setSharing(true);
+      setRedirectState({
+        status: "demo",
+        courier: "Scooter B",
+        detail: "Demo reroute shown locally. Start the orchestrator for a live redirect.",
+      });
+      return;
+    }
+
+    const rosterBefore = await getCouriers();
+    let couriers = rosterBefore.data ?? [];
+    if (!rosterBefore.ok || couriers.length === 0) {
+      const seeded = await seedDemo();
+      if (!seeded.ok) {
+        setRedirectState({
+          status: "error",
+          detail: `Could not seed demo couriers (${seeded.status || "network"}).`,
+        });
+        return;
+      }
+      const rosterAfter = await getCouriers();
+      couriers = rosterAfter.data ?? [];
+    }
+
+    const courier = couriers.find((c) => c.status === "enroute") ?? couriers[0];
+    if (!courier) {
+      setRedirectState({
+        status: "error",
+        detail: "No courier is available to redirect.",
+      });
+      return;
+    }
+
+    const redirected = await redirectCourier(courier.id);
+    if (!redirected.ok || !redirected.data?.ok) {
+      setRedirectState({
+        status: "error",
+        courier: courier.name ?? courier.id,
+        detail:
+          redirected.status === 404
+            ? "The selected courier was not found."
+            : `Redirect failed (${redirected.status || "network"}).`,
+      });
+      return;
+    }
+
+    setSharing(true);
+    setRedirectState({
+      status: "sent",
+      courier: courier.name ?? courier.id,
+      detail: `New route sent. Windows protected: ${redirected.data.windows_met ?? "n/a"} via ${redirected.data.solver ?? "router"}.`,
+    });
+  };
+
   return (
     <div className="app">
       <header className="topbar">
@@ -275,6 +341,46 @@ function DriverHome() {
           <>
             <DriverMap />
             <div className="cards">
+              <section className={`glass card redirect-card ${redirectState.status}`}>
+                <header className="card-head">
+                  <h2 className="card-title">
+                    <span className="pulse-dot orange" /> Live redirect
+                  </h2>
+                  <span className={`src-badge ${online ? "live" : "demo"}`}>
+                    {online ? "orchestrator" : "demo"}
+                  </span>
+                </header>
+
+                <div className="redirect-body">
+                  <div>
+                    <p className="redirect-kicker">Enroute driver handoff</p>
+                    <p className="redirect-msg" data-testid="redirect-status">
+                      {redirectState.status === "sent"
+                        ? `${redirectState.courier} has been redirected.`
+                        : redirectState.status === "running"
+                          ? redirectState.detail
+                          : redirectState.status === "demo"
+                            ? "Offline reroute preview ready."
+                            : redirectState.status === "error"
+                              ? "Redirect needs attention."
+                              : "Trigger a courier reroute while this PWA is sharing location."}
+                    </p>
+                    {redirectState.detail && redirectState.status !== "running" && (
+                      <p className="redirect-detail">{redirectState.detail}</p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="redirect-btn"
+                    data-testid="btn-driver-redirect"
+                    disabled={redirectState.status === "running"}
+                    onClick={runRedirectDemo}
+                  >
+                    {redirectState.status === "running" ? "Redirecting..." : "Redirect now"}
+                  </button>
+                </div>
+              </section>
               <GreenWaveCard />
               {congestionSource === "demo" && (
                 <p className="demo-foot">

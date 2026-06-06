@@ -59,7 +59,10 @@ app = FastAPI(title="RLJ orchestrator")
 # CORS locked to an env allowlist (the PulseGo frontends). Dev default = local Vite ports.
 # In prod set CORS_ORIGINS=https://app.pulsego.org,https://drive.pulsego.org,https://pulsego.org
 _CORS_ORIGINS = [o.strip() for o in os.environ.get(
-    "CORS_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",") if o.strip()]
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:5174,"
+    "http://127.0.0.1:5173,http://127.0.0.1:5174",
+).split(",") if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 

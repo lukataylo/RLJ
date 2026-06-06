@@ -54,11 +54,15 @@ no GPS** — everything degrades gracefully to live-looking demo data.
 3. **Green wave** — the headline card shows the big advice line
    (*"Ease to 28 km/h to catch the next green"*), a **speedometer** gauge
    (current speed vs the orange target tick) and a **seconds-to-green** countdown.
-4. **Your impact** — gamified contribution: pings sent, couriers helped, points,
+4. **Live redirect** — tap **Redirect now** in the driver PWA. If the orchestrator
+   has no scenario yet, the PWA seeds enroute medical couriers, picks one, posts
+   `/couriers/{id}/redirect`, and shows the route handoff while location sharing
+   turns on.
+5. **Your impact** — gamified contribution: pings sent, couriers helped, points,
    and the **"you made London faster"** hero number that counts up.
-5. **Ask** — the prominent orange voice FAB (deep-link placeholder for the driver
+6. **Ask** — the prominent orange voice FAB (deep-link placeholder for the driver
    voice assistant) pulses while "listening".
-6. **The flywheel story** — congestion heat on the map is the data drivers
+7. **The flywheel story** — congestion heat on the map is the data drivers
    produce; the green-wave guidance is what they get back. Point at the ops
    console (`frontend/`) to show the medical fleet re-routing around the same
    congestion.
@@ -82,11 +86,15 @@ no GPS** — everything degrades gracefully to live-looking demo data.
 | GET  | `/congestion` | congestion heat layer |
 | GET  | `/driver/{id}/guidance` | route + green-wave + contribution |
 | GET  | `/signals/advice` | green-wave advice (fallback when guidance 404s) |
+| GET  | `/couriers` | find an enroute courier for the redirect demo |
+| POST | `/demo/seed` | hydrate demo couriers + jobs if the fleet is empty |
+| POST | `/couriers/{id}/redirect` | dispatch the enroute reroute handoff |
 
 `GET /healthz` (core orchestrator) is used to distinguish "offline → demo" from
 "endpoint missing → hide card".
 
 ## Test hooks (`data-testid`)
 
-`signup-form`, `btn-consent`, `btn-share-toggle`, `greenwave-advice`,
+`signup-form`, `btn-consent`, `btn-share-toggle`, `btn-driver-redirect`,
+`redirect-status`, `greenwave-advice`,
 `contribution-pings`, `ask-voice`.

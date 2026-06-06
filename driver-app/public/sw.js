@@ -1,7 +1,7 @@
-// Minimal offline shell service worker for the RLJ Driver PWA.
-// Cache-first for the app shell; network passthrough (never caches) for the
-// orchestrator API and map tiles so live data / telemetry are always fresh.
-const CACHE = "rlj-driver-v1";
+// Minimal offline shell service worker for the PulseGo Driver PWA.
+// App-shell + static assets are cached after first load; API calls and map tiles
+// pass through so telemetry, reroutes and live guidance never go stale.
+const CACHE = "rlj-driver-v2";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -24,7 +24,19 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   // Never intercept cross-origin (tiles, fonts CDN) or API calls.
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/api/")) return;
   e.respondWith(
-    caches.match(req).then((hit) => hit || fetch(req).catch(() => caches.match("/index.html"))),
+    caches.match(req).then((hit) => {
+      if (hit) return hit;
+      return fetch(req)
+        .then((res) => {
+          if (res.ok && res.type === "basic") {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match("/index.html"));
+    }),
   );
 });
