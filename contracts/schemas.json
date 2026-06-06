@@ -59,6 +59,7 @@
         "location": { "$ref": "#/$defs/Location" },
         "capacity": { "type": "number", "default": 6 },
         "cold_capable": { "type": "boolean", "default": true, "description": "can carry cold-chain loads (fridge/cooler equipped)" },
+        "vehicle_type": { "type": "string", "enum": ["van", "scooter", "bike"], "default": "van", "description": "drives the van/scooter icon in the UI" },
         "status":   { "type": "string", "enum": ["idle", "enroute", "offline"], "default": "idle" },
         "assigned_route_id": { "type": ["string", "null"] },
         "phone":    { "type": "string", "description": "for outbound voice ETA calls" }

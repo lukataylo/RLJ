@@ -1,16 +1,17 @@
 // App shell: wires the WebSocket to the store, hydrates on (re)connect, and lays
-// out the command-center grid (TopBar / FleetRail / Map+KPIs / Ops rail).
+// out the "Direction C" command center — a full-screen map with glass panels
+// floating over it (provenance pill, nav, efficiency, active-delivery list,
+// inspector, NEMOCLAW log, verification drawer).
 
 import { useEffect, useState } from "react";
 import MapView from "./components/MapView";
 import TopBar from "./components/TopBar";
-import FleetRail from "./components/FleetRail";
-import KpiCards from "./components/KpiCards";
-import DemoControls from "./components/DemoControls";
+import EfficiencyPanel from "./components/EfficiencyPanel";
+import Inspector from "./components/Inspector";
+import DeliveryList from "./components/DeliveryList";
 import AgentLog from "./components/AgentLog";
 import VerificationPanel from "./components/VerificationPanel";
-import BottomStrip from "./components/BottomStrip";
-import { connectWs, getState } from "./api";
+import { connectWs, getCctv, getFleetAssessments, getSignalRecs, getState } from "./api";
 import { useStore } from "./store";
 import { useStatus } from "./hooks/useStatus";
 
@@ -19,7 +20,27 @@ export default function App() {
   const [verifyOpen, setVerifyOpen] = useState(false);
 
   useEffect(() => {
-    const { applyEvent, setConnected, hydrate, pushLog } = useStore.getState();
+    const { applyEvent, setConnected, hydrate, pushLog, setFleetAssessments, setCctv } =
+      useStore.getState();
+
+    // Pull the dedicated signal-recs endpoint too — covers orchestrators whose
+    // /state omits signal_recs. Graceful (empty) on 404/error.
+    const hydrateSignalRecs = () =>
+      getSignalRecs()
+        .then((recs) => {
+          if (recs.length) applyEvent({ type: "signal_recs", payload: recs, ts: new Date().toISOString() });
+        })
+        .catch(() => {});
+
+    // Per-courier fleet assessments + live CCTV cameras (both graceful on error).
+    const hydrateFleet = () =>
+      getFleetAssessments()
+        .then((list) => setFleetAssessments(list))
+        .catch(() => {});
+    const hydrateCctv = () =>
+      getCctv()
+        .then((cams) => setCctv(cams))
+        .catch(() => {});
 
     getState()
       .then((snap) => hydrate(snap))
@@ -30,6 +51,9 @@ export default function App() {
           source: "system",
         }),
       );
+    hydrateSignalRecs();
+    hydrateFleet();
+    hydrateCctv();
 
     const disconnect = connectWs({
       onEvent: (e) => applyEvent(e),
@@ -38,6 +62,9 @@ export default function App() {
         getState()
           .then((snap) => hydrate(snap))
           .catch(() => {});
+        hydrateSignalRecs();
+        hydrateFleet();
+        hydrateCctv();
       },
       onClose: () => {
         setConnected(false);
@@ -53,27 +80,18 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app">
+    <div className="cc">
+      <MapView />
+
       <TopBar status={status} onOpenVerification={() => setVerifyOpen(true)} />
 
-      <div className="app-body">
-        <FleetRail />
-
-        <main className="main">
-          <MapView />
-          <div className="main-overlay-top">
-            <KpiCards status={status} />
-          </div>
-          <div className="main-overlay-bottom">
-            <BottomStrip />
-          </div>
-        </main>
-
-        <aside className="ops-rail">
-          <DemoControls />
-          <AgentLog />
-        </aside>
+      <div className="right-stack">
+        <EfficiencyPanel />
+        <DeliveryList />
+        <Inspector />
       </div>
+
+      <AgentLog />
 
       <VerificationPanel status={status} open={verifyOpen} onClose={() => setVerifyOpen(false)} />
     </div>

@@ -236,6 +236,136 @@ claims:
     must_pass: true
     test: "tests/voice/test_driver_assistant.py::test_driver_assistant_answers"
 
+  # ---- NemoClaw agent + delivery UI (latest features) ---------------------
+  - id: nemoclaw-narration
+    statement: "NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic)"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_nemo_agent.py::test_nemo_agent_offline_narrates_and_injects"
+
+  - id: nemoclaw-online
+    statement: "NemoClaw narration is observable by a client connecting after boot (history replay)"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration"
+
+  - id: courier-vehicle-type
+    statement: "Courier vehicle_type round-trips (van/scooter) and defaults to van"
+    category: contract
+    must_pass: true
+    test: "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips"
+
+  - id: ui-delivery-list
+    statement: "Right delivery list renders cards with van/scooter icons (browser e2e)"
+    category: e2e
+    must_pass: false
+    test: "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards"
+
+  - id: ui-click-highlights-route
+    statement: "Clicking a delivery selects it and opens the inspector (browser e2e)"
+    category: e2e
+    must_pass: false
+    test: "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights"
+
+  # ---- GB10 Nemotron traffic-signal agent ---------------------------------
+  - id: signals-roundtrip
+    statement: "Signal recommendations POST/GET round-trip and appear in /state"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_signals_e2e.py::test_signals_post_get_roundtrip"
+
+  - id: signals-broadcast
+    statement: "Posted signal recommendations broadcast to the map (WS + narration)"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_signals_e2e.py::test_signals_broadcast"
+
+  - id: signals-malformed
+    statement: "A malformed signal recommendation is rejected (422), system stays healthy"
+    category: unhappy
+    must_pass: true
+    test: "tests/e2e/test_signals_e2e.py::test_signals_malformed_422"
+
+  - id: signal-agent-parse
+    statement: "GB10 signal agent parses Nemotron JSON and keeps only well-formed recs"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_signal_agent.py::test_ask_nemotron_parses_and_filters"
+
+  - id: signal-agent-robust
+    statement: "GB10 signal agent handles non-JSON model output gracefully"
+    category: autonomy
+    must_pass: false
+    test: "tests/unit/test_signal_agent.py::test_ask_nemotron_handles_non_json"
+
+  # ---- two-way agent: ask / assess / redirect / CCTV ----------------------
+  - id: agent-ask-flow
+    statement: "Operator can ask the GB10 agent; question queues, is answered, broadcasts"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_agent_channel_e2e.py::test_ask_tasks_answer_flow"
+
+  - id: fleet-assessments
+    statement: "Per-driver assessments round-trip and broadcast to the map"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_agent_channel_e2e.py::test_fleet_assessments_roundtrip_and_broadcast"
+
+  - id: courier-redirect
+    statement: "Redirect a courier (200) re-optimises; unknown courier is 404"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_agent_channel_e2e.py::test_redirect_known_and_unknown"
+
+  - id: cctv-cameras
+    statement: "Live London CCTV (TfL JamCams) endpoint returns curated cameras"
+    category: data
+    must_pass: true
+    test: "tests/e2e/test_agent_channel_e2e.py::test_cctv_cameras_shape"
+
+  - id: agent-answers-tasks
+    statement: "Box agent answers queued operator questions via local Nemotron"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_signal_agent_tasks.py::test_answer_pending_tasks_posts_answer"
+
+  - id: agent-assesses-drivers
+    statement: "Box agent assesses each driver and filters invalid statuses"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_signal_agent_tasks.py::test_assess_drivers_parses_and_filters"
+
+  # ---- auth (email+password+JWT, env-gated enforcement) -------------------
+  - id: auth-login
+    statement: "Register -> login returns a JWT and /auth/me works with it"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_register_then_login_returns_jwt_and_me_works"
+
+  - id: auth-protects-writes
+    statement: "With auth on, a protected write requires a valid token (401 without, ok with)"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_protected_write_with_token_succeeds"
+
+  - id: auth-rejects-no-token
+    statement: "With auth on, a protected write without a token is 401"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_protected_write_without_token_returns_401"
+
+  - id: auth-wrong-password
+    statement: "Login with the wrong password is rejected (401)"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_login_with_wrong_password_returns_401"
+
+  - id: auth-backward-compat
+    statement: "With auth off (dev/test default), writes work without a token"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_post_jobs_works_without_token_when_auth_off"
+
   # ---- completeness (no stubs / unwired buttons / dead endpoints) ---------
   - id: completeness-no-stubs
     statement: "No unimplemented stubs in source outside the documented GB10 seams"

@@ -1,90 +1,76 @@
-// The live operations map: token-less MapLibre dark basemap (or Mapbox dark-v11
-// when VITE_MAPBOX_TOKEN is set) + a deck.gl overlay.
+// The live operations map — "Direction C" clean dark mission-control basemap.
 //
-// Toggleable layers (overlaid via MapboxOverlay), all with hover tooltips:
-//   - 3D BUILDINGS        — extruded polygons from /data/buildings.geojson
-//   - CONGESTION FIELD    — GridCellLayer (green→amber→red) from the live /congestion
-//                           flywheel; updates on WS congestion_updated
-//   - TRAFFIC FLOW        — roads coloured by congestion + animated flow dashes
-//   - JOBS                — origin→destination arcs + endpoints, colour by priority
-//   - ROUTES              — courier plan polylines + animated trip heads
-//   - NHS FACILITIES      — hospital/lab/GP/pharmacy markers (/data/facilities.json)
-//   - SIGNAL JUNCTIONS    — green-wave junctions (/data/junctions.json), live phase
-//   - DRIVER PROBES       — crowdsourced fleet dots, animated, grows as drivers join
-//   - COURIERS            — medical couriers, status colour
-//   - DISRUPTIONS         — pulsing icons, classified bridge / event / congestion / road
+// Token-less MapLibre dark basemap (or Mapbox dark-v11 when VITE_MAPBOX_TOKEN is
+// set) + a deck.gl overlay. NO grid / no 3D terrain — the map is a clean dark
+// canvas with a soft glowing Thames.
+//
+// Layers (deck.gl, via MapboxOverlay):
+//   - CONGESTION ROADS  — roads.geojson LineStrings coloured by congestion
+//                         (lime→amber→red), Waze-style glowing lines; segments near
+//                         live /congestion hotspots are thickened/reddened.
+//   - ROUTES            — courier plans that FOLLOW THE ROAD NETWORK via the Mapbox
+//                         Directions API (falls back to the straight stop polyline);
+//                         drawn Google-Maps style: NEUTRAL grey-blue for free-flowing
+//                         segments, RED where the path passes live congestion. The
+//                         selected courier's route is brightened; others are dimmed.
+//   - JOB NODES         — pickup (priority colour, ring) + dropoff (lime) glowing dots.
+//   - COURIERS          — glowing markers, status colour, moving along the road path.
+//   - DISRUPTIONS       — pulsing markers; a red ✕ glyph for road closures.
+//   - DISTRICT LABELS   — static muted London place names for atmosphere.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import mapboxgl from "mapbox-gl";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { Layer, PickingInfo } from "@deck.gl/core";
-import {
-  ScatterplotLayer,
-  PathLayer,
-  ArcLayer,
-  PolygonLayer,
-  GridCellLayer,
-  TextLayer,
-} from "@deck.gl/layers";
+import { ScatterplotLayer, PathLayer, TextLayer } from "@deck.gl/layers";
 import { useStore } from "../store";
 import type {
+  CctvCamera,
   CongestionCell,
   CongestionField,
   Courier,
   DeliveryJob,
   DisruptionEvent,
-  Driver,
   Plan,
-  Priority,
+  SignalRec,
 } from "../types";
 import {
   COURIER_RGB,
   DISRUPTION_CLASS_RGB,
-  DRIVER_RGB,
   PRIORITY_RGB,
-  SIGNAL_GREEN_RGB,
-  SIGNAL_RED_RGB,
+  ROUTE_CONGESTED_RGB,
+  ROUTE_NEUTRAL_RGB,
   congestionRGB,
   facilityRGB,
+  signalActionRGB,
 } from "../lib/palette";
-import { pointAlong, pointAlongPath } from "../lib/geo";
 import {
   fetchOptionalJson,
-  parseBuildings,
   parseRoads,
-  type BuildingPoly,
   type RoadPath,
 } from "../lib/geojson";
 import {
   classifyDisruption,
   fetchOptional,
-  parseBridgeCentre,
   parseEventVenues,
   parseFacilities,
-  parseJunctions,
-  signalPhase,
   type EventVenue,
   type Facility,
-  type Junction,
 } from "../lib/datasets";
-import LayersPanel, { type LayerDef } from "./LayersPanel";
-import DataSourcePanel, { type SourceDef } from "./DataSourcePanel";
-import MapLegend from "./MapLegend";
+import { getRoadRoute, routeSignature, type LngLat } from "../lib/routing";
 
+// Lower pitch than before (~0–30°, near top-down) so road-following routes read.
 const INITIAL_VIEW = {
-  center: [-0.118, 51.503] as [number, number],
-  zoom: 11.4,
-  pitch: 50,
-  bearing: -14,
+  center: [-0.095, 51.508] as [number, number],
+  zoom: 12.1,
+  pitch: 24,
+  bearing: 0,
 };
 
 const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN ?? "").trim();
 const USE_MAPBOX = MAPBOX_TOKEN.length > 0;
 const MAPBOX_STYLE = "mapbox://styles/mapbox/dark-v11";
-
-// Congestion grid cell size (matches the orchestrator's ~400 m aggregation grid).
-const CONG_GRID = 0.004;
 
 const MAP_STYLE: maplibregl.StyleSpecification = {
   version: 8,
@@ -101,56 +87,75 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
     },
   },
   layers: [
-    { id: "bg", type: "background", paint: { "background-color": "#0a0e16" } },
+    { id: "bg", type: "background", paint: { "background-color": "#05090b" } },
     { id: "carto", type: "raster", source: "carto" },
   ],
 };
 
-// Visibility flags for every toggleable layer.
-type LayerKey =
-  | "buildings"
-  | "congestion"
-  | "traffic"
-  | "jobs"
-  | "routes"
-  | "facilities"
-  | "junctions"
-  | "drivers"
-  | "couriers"
-  | "disruptions";
+// Static London district labels — atmosphere, drawn muted/uppercase.
+const DISTRICTS: { name: string; lng: number; lat: number }[] = [
+  { name: "ISLINGTON", lng: -0.103, lat: 51.538 },
+  { name: "SHOREDITCH", lng: -0.078, lat: 51.526 },
+  { name: "THE CITY", lng: -0.092, lat: 51.5155 },
+  { name: "WESTMINSTER", lng: -0.135, lat: 51.4995 },
+  { name: "SOUTHWARK", lng: -0.09, lat: 51.5015 },
+  { name: "CANARY WHARF", lng: -0.019, lat: 51.505 },
+  { name: "GREENWICH", lng: -0.0095, lat: 51.4825 },
+];
 
+// Toggleable layers shown in the left control stack.
+type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
-  buildings: false,
-  congestion: true,
-  traffic: true,
-  jobs: true,
+  congestion: true, // "Traffic"
   routes: true,
-  facilities: true,
-  junctions: false,
-  drivers: true,
-  couriers: true,
-  disruptions: true,
+  incidents: true,
+  signals: true, // GB10 Nemotron signal recs — default ON
+  cctv: false, // live CCTV cameras — default OFF to keep the map clean
 };
+
+// Cap on simultaneously rendered camera icons so a dense viewport never clutters.
+const CCTV_RENDER_CAP = 80;
 
 interface Snapshot {
   jobs: DeliveryJob[];
   couriers: Courier[];
   plan: Plan | null;
   disruptions: DisruptionEvent[];
-  drivers: Driver[];
   congestion: CongestionField;
+  signalRecs: SignalRec[];
+  cctv: CctvCamera[];
   selectedCourierId: string | null;
 }
 
+// Map viewport bounds [west, south, east, north]; null until the map first moves.
+type Bounds = [number, number, number, number] | null;
+
 interface OptionalData {
   roads: RoadPath[];
-  buildings: BuildingPoly[];
   facilities: Facility[];
-  junctions: Junction[];
   venues: EventVenue[];
 }
+
+const EMPTY_SNAP: Snapshot = {
+  jobs: [],
+  couriers: [],
+  plan: null,
+  disruptions: [],
+  congestion: { cells: [] },
+  signalRecs: [],
+  cctv: [],
+  selectedCourierId: null,
+};
+
+// Short uppercase glyph per signal action for the on-map label.
+const SIGNAL_ACTION_LABEL: Record<string, string> = {
+  green_wave: "GREEN WAVE",
+  retime: "RETIME",
+  hold: "HOLD",
+  clear: "CLEAR",
+};
 
 const FACILITY_GLYPH: Record<string, string> = {
   hospital: "H",
@@ -160,62 +165,125 @@ const FACILITY_GLYPH: Record<string, string> = {
   pharmacy: "P",
 };
 
-// Highest-priority job served by a route -> route colour.
-function routePriority(plan: Plan | null, courierId: string, jobs: DeliveryJob[]): Priority {
+// Ordered stop coords for a route (courier start + stops in sequence), de-duped.
+function routeStopCoords(plan: Plan | null, courier: Courier | undefined, courierId: string): LngLat[] {
   const route = plan?.routes?.find((r) => r.courier_id === courierId);
-  if (!route) return "routine";
-  const jobById = new Map(jobs.map((j) => [j.id, j]));
-  const order: Priority[] = ["stat", "urgent", "routine"];
-  let best: Priority = "routine";
-  for (const s of route.stops ?? []) {
-    const p = jobById.get(s.job_id)?.priority;
-    if (p && order.indexOf(p) < order.indexOf(best)) best = p;
+  if (!route) return [];
+  const stops = [...(route.stops ?? [])].sort((a, b) => a.sequence - b.sequence);
+  const coords: LngLat[] = [];
+  if (courier?.location) coords.push([courier.location.lng, courier.location.lat]);
+  for (const s of stops) {
+    if (s.location) coords.push([s.location.lng, s.location.lat]);
   }
-  return best;
-}
-
-// Stable 0..1 hash from a string (FNV-1a) — for deterministic driver drift.
-function hash01(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+  // de-dup consecutive identical points
+  const out: LngLat[] = [];
+  for (const c of coords) {
+    const last = out[out.length - 1];
+    if (!last || last[0] !== c[0] || last[1] !== c[1]) out.push(c);
   }
-  return ((h >>> 0) % 100000) / 100000;
+  return out;
 }
 
-// SW corner of a congestion grid cell (from its encoded "lat_lng" id).
-function cellCorner(c: CongestionCell): [number, number] {
-  const parts = (c.cell ?? "").split("_");
-  const clat = parseFloat(parts[0]);
-  const clng = parseFloat(parts[1]);
-  const lat = Number.isFinite(clat) ? clat : c.lat;
-  const lng = Number.isFinite(clng) ? clng : c.lng;
-  return [lng - CONG_GRID / 2, lat - CONG_GRID / 2];
+// Straight fallback path from the plan's decoded polyline, else the raw stop coords.
+function fallbackPath(plan: Plan | null, courierId: string, stopCoords: LngLat[]): LngLat[] {
+  const route = plan?.routes?.find((r) => r.courier_id === courierId);
+  if (route?.polyline && route.polyline.length >= 2) {
+    return route.polyline.map((p) => [p.lng, p.lat] as LngLat);
+  }
+  return stopCoords;
 }
 
-// Drivers carry no GPS in the roster, so we animate probe dots drifting around the
-// congestion hotspots they feed (or central London when the field is empty).
-interface DriverDot {
-  _t: "driver";
-  driver: Driver;
-  pos: [number, number];
+// Congestion "source" points used to colour route segments red: live hotspot
+// cells plus the midpoints of high-congestion road segments (roads.geojson). A
+// route segment whose midpoint sits within ~SEG_RADIUS of any source reads as
+// congested; everything else stays neutral grey-blue.
+const SEG_RADIUS = 0.0032; // ~320 m in lng/lat degrees near London
+const SEG_R2 = SEG_RADIUS * SEG_RADIUS;
+
+let _srcCache: { key: string; pts: [number, number][] } | null = null;
+function congestionSources(roads: RoadPath[], cells: CongestionCell[], stamp: string): [number, number][] {
+  const key = `${stamp}:${roads.length}:${cells.length}`;
+  if (_srcCache && _srcCache.key === key) return _srcCache.pts;
+  const pts: [number, number][] = [];
+  for (const c of cells) if (c.congestion >= 0.55) pts.push([c.lng, c.lat]);
+  for (const r of roads) {
+    if (r.congestion >= 0.75) {
+      const mid = r.path[Math.floor(r.path.length / 2)] ?? r.path[0];
+      pts.push(mid);
+    }
+  }
+  _srcCache = { key, pts };
+  return pts;
 }
-function driverDots(drivers: Driver[], cells: CongestionCell[], phase: number): DriverDot[] {
-  const anchors: [number, number][] = cells.length
-    ? cells.map((c) => [c.lng, c.lat])
-    : [[-0.118, 51.503]];
-  return drivers.map((d, i) => {
-    const a = anchors[i % anchors.length];
-    const r = hash01(d.id || String(i));
-    const ang = r * Math.PI * 2 + phase * Math.PI * 2 * (0.4 + r * 0.6);
-    const rad = 0.0016 + r * 0.0028;
-    return {
-      _t: "driver" as const,
-      driver: d,
-      pos: [a[0] + Math.cos(ang) * rad, a[1] + Math.sin(ang) * rad * 0.7],
-    };
+
+// True when a segment a→b passes through congestion (midpoint near a source).
+function segmentCongested(a: LngLat, b: LngLat, sources: [number, number][]): boolean {
+  const mx = (a[0] + b[0]) / 2;
+  const my = (a[1] + b[1]) / 2;
+  for (const s of sources) {
+    const dx = mx - s[0];
+    const dy = my - s[1];
+    if (dx * dx + dy * dy < SEG_R2) return true;
+  }
+  return false;
+}
+
+// Boost road congestion near live hotspot cells (Waze-style "live" colouring).
+// Memoised by the congestion stamp so the per-frame render loop reuses a stable
+// array reference (deck.gl then skips re-uploading 586 paths every frame).
+let _enhCache: { key: string; roads: RoadPath[] } | null = null;
+function enhanceRoadsMemo(roads: RoadPath[], cells: CongestionCell[], stamp: string): RoadPath[] {
+  const key = `${stamp}:${roads.length}:${cells.length}`;
+  if (_enhCache && _enhCache.key === key) return _enhCache.roads;
+  const out = enhanceRoads(roads, cells);
+  _enhCache = { key, roads: out };
+  return out;
+}
+function enhanceRoads(roads: RoadPath[], cells: CongestionCell[]): RoadPath[] {
+  const hotspots = cells.filter((c) => c.congestion >= 0.55).slice(0, 48);
+  if (!hotspots.length) return roads;
+  const R2 = 0.0035 * 0.0035; // ~350 m
+  return roads.map((r) => {
+    const mid = r.path[Math.floor(r.path.length / 2)] ?? r.path[0];
+    let boost = 0;
+    for (const h of hotspots) {
+      const dx = mid[0] - h.lng;
+      const dy = mid[1] - h.lat;
+      if (dx * dx + dy * dy < R2) boost = Math.max(boost, h.congestion);
+    }
+    return boost > r.congestion ? { ...r, congestion: r.congestion * 0.4 + boost * 0.6 } : r;
   });
+}
+
+// Build short dash segments along a→b so a connector reads as a dashed line.
+function dashSegments(a: LngLat, b: LngLat, dash = 0.0009, gap = 0.0007): LngLat[][] {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return [];
+  const ux = dx / len;
+  const uy = dy / len;
+  const segs: LngLat[][] = [];
+  let t = 0;
+  while (t < len) {
+    const s: LngLat = [a[0] + ux * t, a[1] + uy * t];
+    const e = Math.min(t + dash, len);
+    const f: LngLat = [a[0] + ux * e, a[1] + uy * e];
+    segs.push([s, f]);
+    t += dash + gap;
+  }
+  return segs;
+}
+
+// Cameras inside the current viewport (bounds), capped so a dense area never clutters.
+function visibleCams(cams: CctvCamera[], bounds: Bounds): CctvCamera[] {
+  if (!cams.length) return [];
+  let inView = cams;
+  if (bounds) {
+    const [w, s, e, n] = bounds;
+    inView = cams.filter((c) => c.lng >= w && c.lng <= e && c.lat >= s && c.lat <= n);
+  }
+  return inView.length > CCTV_RENDER_CAP ? inView.slice(0, CCTV_RENDER_CAP) : inView;
 }
 
 function buildLayers(
@@ -223,140 +291,91 @@ function buildLayers(
   data: OptionalData,
   vis: LayerVis,
   phase: number,
-  nowMs: number,
+  roadPaths: Record<string, LngLat[] | null>,
+  bounds: Bounds,
 ): Layer[] {
-  const { jobs, couriers, plan, disruptions, drivers, congestion, selectedCourierId } = snap;
+  const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId } = snap;
   const layers: Layer[] = [];
+  const courierById = new Map(couriers.map((c) => [c.id, c]));
 
-  // 0a. 3D buildings (under everything).
-  if (vis.buildings && data.buildings.length) {
-    layers.push(
-      new PolygonLayer<BuildingPoly>({
-        id: "buildings",
-        data: data.buildings,
-        extruded: true,
-        getPolygon: (d) => d.polygon,
-        getElevation: (d) => d.height,
-        getFillColor: [14, 28, 48, 225],
-        getLineColor: [24, 240, 255, 70],
-        lineWidthMinPixels: 1,
-        material: { ambient: 0.55, diffuse: 0.7, shininess: 48, specularColor: [40, 120, 150] },
-      }),
-    );
-  }
-
-  // 0b. Congestion field — live flywheel made visible (GridCellLayer, flat heat).
-  if (vis.congestion && congestion.cells.length) {
-    layers.push(
-      new GridCellLayer<CongestionCell>({
-        id: "congestion-field",
-        data: congestion.cells,
-        cellSize: 400,
-        extruded: false,
-        getPosition: (c) => cellCorner(c),
-        getFillColor: (c) =>
-          [...congestionRGB(c.congestion), Math.round(70 + c.congestion * 130)] as [
-            number,
-            number,
-            number,
-            number,
-          ],
-        pickable: true,
-        updateTriggers: { getFillColor: congestion.generated_at },
-      }),
-    );
-  }
-
-  // 0c. Traffic flow — roads coloured by congestion + animated flow dashes.
-  if (vis.traffic && data.roads.length) {
+  // 1. Congestion-as-roads — glowing Waze-style coloured network.
+  if (vis.congestion && data.roads.length) {
+    const roads = enhanceRoadsMemo(data.roads, congestion.cells, congestion.generated_at ?? "static");
     layers.push(
       new PathLayer<RoadPath>({
-        id: "traffic-roads",
-        data: data.roads,
+        id: "congestion-roads-glow",
+        data: roads,
         getPath: (d) => d.path,
-        getColor: (d) => [...congestionRGB(d.congestion), 150] as [number, number, number, number],
-        getWidth: (d) => 2 + d.congestion * 3,
+        getColor: (d) => [...congestionRGB(d.congestion), 70] as [number, number, number, number],
+        getWidth: (d) => 3 + d.congestion * 5,
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
+        updateTriggers: { getColor: congestion.generated_at, getWidth: congestion.generated_at },
       }),
     );
-    const flow: { pos: [number, number]; congestion: number }[] = [];
-    for (const r of data.roads) {
-      const pos = pointAlongPath(r.path, (phase * 1.7) % 1);
-      if (pos) flow.push({ pos, congestion: r.congestion });
+    layers.push(
+      new PathLayer<RoadPath>({
+        id: "congestion-roads",
+        data: roads,
+        getPath: (d) => d.path,
+        getColor: (d) => [...congestionRGB(d.congestion), 205] as [number, number, number, number],
+        getWidth: (d) => 1.2 + d.congestion * 2.4,
+        widthUnits: "pixels",
+        capRounded: true,
+        jointRounded: true,
+        pickable: true,
+        updateTriggers: { getColor: congestion.generated_at, getWidth: congestion.generated_at },
+      }),
+    );
+  }
+
+  // 2. Routes — road-following geometry (Directions API) or straight fallback,
+  //    coloured Google-Maps style: NEUTRAL grey-blue, RED through congestion.
+  const selActive = selectedCourierId != null;
+  const congSources = congestionSources(data.roads, congestion.cells, congestion.generated_at ?? "static");
+
+  const routeLines = (plan?.routes ?? [])
+    .map((r) => {
+      const courier = courierById.get(r.courier_id);
+      const stopCoords = routeStopCoords(plan, courier, r.courier_id);
+      if (stopCoords.length < 2) return null;
+      const road = roadPaths[r.courier_id];
+      const path = road && road.length >= 2 ? road : fallbackPath(plan, r.courier_id, stopCoords);
+      if (path.length < 2) return null;
+      return { courier_id: r.courier_id, selected: r.courier_id === selectedCourierId, path };
+    })
+    .filter((r): r is { courier_id: string; selected: boolean; path: LngLat[] } => r !== null);
+
+  // One record per drawn segment so each can be neutral or red independently.
+  interface RouteSeg { courier_id: string; selected: boolean; congested: boolean; path: LngLat[] }
+  const routeSegs: RouteSeg[] = [];
+  for (const rl of routeLines) {
+    for (let i = 0; i < rl.path.length - 1; i++) {
+      const a = rl.path[i];
+      const b = rl.path[i + 1];
+      routeSegs.push({
+        courier_id: rl.courier_id,
+        selected: rl.selected,
+        congested: segmentCongested(a, b, congSources),
+        path: [a, b],
+      });
     }
-    layers.push(
-      new ScatterplotLayer<{ pos: [number, number]; congestion: number }>({
-        id: "traffic-flow",
-        data: flow,
-        getPosition: (d) => d.pos,
-        getRadius: 2,
-        radiusUnits: "pixels",
-        radiusMinPixels: 1.5,
-        radiusMaxPixels: 4,
-        getFillColor: (d) => [...congestionRGB(d.congestion), 230] as [number, number, number, number],
-        updateTriggers: { getPosition: phase },
-      }),
-    );
   }
 
-  // 1. Job origin -> destination arcs + endpoints, colour by priority.
-  if (vis.jobs) {
-    layers.push(
-      new ArcLayer<DeliveryJob>({
-        id: "job-arcs",
-        data: jobs,
-        getSourcePosition: (j) => [j.origin.lng, j.origin.lat],
-        getTargetPosition: (j) => [j.destination.lng, j.destination.lat],
-        getSourceColor: (j) => [...PRIORITY_RGB[j.priority], 90] as [number, number, number, number],
-        getTargetColor: (j) => [...PRIORITY_RGB[j.priority], 220] as [number, number, number, number],
-        getWidth: (j) => (j.priority === "stat" ? 3 : j.priority === "urgent" ? 2 : 1.4),
-        getHeight: 0.3,
-        widthUnits: "pixels",
-        pickable: true,
-      }),
-    );
-    const endpoints = jobs.flatMap((j) => [
-      { job: j, loc: j.origin, kind: "origin" as const },
-      { job: j, loc: j.destination, kind: "dest" as const },
-    ]);
-    layers.push(
-      new ScatterplotLayer<(typeof endpoints)[number]>({
-        id: "job-endpoints",
-        data: endpoints,
-        getPosition: (d) => [d.loc.lng, d.loc.lat],
-        getRadius: (d) => (d.kind === "dest" ? 90 : 70),
-        radiusUnits: "meters",
-        radiusMinPixels: 4,
-        radiusMaxPixels: 15,
-        stroked: true,
-        lineWidthMinPixels: 1.5,
-        getLineColor: [255, 255, 255, 210],
-        getFillColor: (d) =>
-          [...PRIORITY_RGB[d.job.priority], d.kind === "dest" ? 230 : 110] as [number, number, number, number],
-        pickable: true,
-      }),
-    );
-  }
+  // Alpha ramps: when a route is selected, it brightens and the rest dim away.
+  const segGlowAlpha = (s: RouteSeg) => (!selActive ? 60 : s.selected ? 100 : 16);
+  const segMainAlpha = (s: RouteSeg) => (!selActive ? 215 : s.selected ? 255 : 55);
+  const segColor = (s: RouteSeg) => (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB);
 
-  // 2. Plan routes + animated trip heads.
-  const routePaths = (plan?.routes ?? [])
-    .filter((r) => r.polyline && r.polyline.length >= 2)
-    .map((r) => ({
-      courier_id: r.courier_id,
-      priority: routePriority(plan, r.courier_id, jobs),
-      path: r.polyline!.map((p) => [p.lng, p.lat] as [number, number]),
-    }));
-  if (vis.routes) {
+  if (vis.routes && routeSegs.length) {
     layers.push(
-      new PathLayer<(typeof routePaths)[number]>({
+      new PathLayer<RouteSeg>({
         id: "routes-glow",
-        data: routePaths,
+        data: routeSegs,
         getPath: (d) => d.path,
-        getColor: (d) =>
-          [...PRIORITY_RGB[d.priority], d.courier_id === selectedCourierId ? 90 : 55] as [number, number, number, number],
-        getWidth: (d) => (d.courier_id === selectedCourierId ? 22 : 16),
+        getColor: (d) => [...segColor(d), segGlowAlpha(d)] as [number, number, number, number],
+        getWidth: (d) => (d.selected ? 16 : 10),
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
@@ -364,13 +383,12 @@ function buildLayers(
       }),
     );
     layers.push(
-      new PathLayer<(typeof routePaths)[number]>({
+      new PathLayer<RouteSeg>({
         id: "routes",
-        data: routePaths,
+        data: routeSegs,
         getPath: (d) => d.path,
-        getColor: (d) =>
-          [...PRIORITY_RGB[d.priority], d.courier_id === selectedCourierId ? 255 : 200] as [number, number, number, number],
-        getWidth: (d) => (d.courier_id === selectedCourierId ? 6 : 4),
+        getColor: (d) => [...segColor(d), segMainAlpha(d)] as [number, number, number, number],
+        getWidth: (d) => (d.selected ? 5.5 : 3.4),
         widthUnits: "pixels",
         capRounded: true,
         jointRounded: true,
@@ -378,56 +396,101 @@ function buildLayers(
         updateTriggers: { getColor: selectedCourierId, getWidth: selectedCourierId },
       }),
     );
-    const heads = (plan?.routes ?? [])
-      .filter((r) => r.polyline && r.polyline.length >= 2)
-      .map((r) => ({
-        courier_id: r.courier_id,
-        priority: routePriority(plan, r.courier_id, jobs),
-        pos: pointAlong(r.polyline!, phase),
-      }))
-      .filter((h) => h.pos) as { courier_id: string; priority: Priority; pos: [number, number] }[];
+    // (Removed the animated "trip-head" dots that raced along every route — they read as
+    // noise / made it look like nothing was settling. Routes are static lines; the courier
+    // markers below show real position.)
+  }
+
+  // 3. Dashed connectors from each courier to its next stop (neutral; dimmed off-selection).
+  if (vis.routes) {
+    const connectors: { path: LngLat[]; selected: boolean }[] = [];
+    for (const r of plan?.routes ?? []) {
+      const courier = courierById.get(r.courier_id);
+      if (!courier?.location) continue;
+      const next = [...(r.stops ?? [])].sort((a, b) => a.sequence - b.sequence)[0];
+      if (!next?.location) continue;
+      const a: LngLat = [courier.location.lng, courier.location.lat];
+      const b: LngLat = [next.location.lng, next.location.lat];
+      const selected = r.courier_id === selectedCourierId;
+      for (const seg of dashSegments(a, b)) connectors.push({ path: seg, selected });
+    }
+    if (connectors.length) {
+      layers.push(
+        new PathLayer<(typeof connectors)[number]>({
+          id: "courier-connectors",
+          data: connectors,
+          getPath: (d) => d.path,
+          getColor: (d) =>
+            [...ROUTE_NEUTRAL_RGB, !selActive ? 150 : d.selected ? 190 : 30] as [number, number, number, number],
+          getWidth: 1.4,
+          widthUnits: "pixels",
+          updateTriggers: { getColor: selectedCourierId },
+        }),
+      );
+    }
+  }
+
+  // 4. Job nodes — pickup (priority colour + ring) and dropoff (lime) glowing dots.
+  //    Jobs not served by the selected courier dim away while a route is selected.
+  if (vis.routes) {
+    const selectedJobIds = new Set<string>();
+    if (selActive) {
+      const selRoute = plan?.routes?.find((r) => r.courier_id === selectedCourierId);
+      for (const s of selRoute?.stops ?? []) selectedJobIds.add(s.job_id);
+    }
+    const dimA = (jobId: string, base: number) =>
+      !selActive || selectedJobIds.has(jobId) ? base : Math.round(base * 0.18);
+    const pickups = jobs.map((j) => ({ job: j, loc: j.origin }));
+    const drops = jobs.map((j) => ({ job: j, loc: j.destination }));
     layers.push(
-      new ScatterplotLayer<(typeof heads)[number]>({
-        id: "trip-heads-glow",
-        data: heads,
-        getPosition: (d) => d.pos,
-        getRadius: 26,
+      new ScatterplotLayer<(typeof pickups)[number]>({
+        id: "job-pickups",
+        data: pickups,
+        getPosition: (d) => [d.loc.lng, d.loc.lat],
+        getRadius: 7,
         radiusUnits: "pixels",
-        getFillColor: (d) => [...PRIORITY_RGB[d.priority], 70] as [number, number, number, number],
-        updateTriggers: { getPosition: phase },
-      }),
-    );
-    layers.push(
-      new ScatterplotLayer<(typeof heads)[number]>({
-        id: "trip-heads",
-        data: heads,
-        getPosition: (d) => d.pos,
-        getRadius: 9,
-        radiusUnits: "pixels",
+        radiusMinPixels: 5,
         stroked: true,
         lineWidthMinPixels: 2,
-        getLineColor: [255, 255, 255, 255],
-        getFillColor: (d) => [...PRIORITY_RGB[d.priority], 255] as [number, number, number, number],
-        updateTriggers: { getPosition: phase },
+        getLineColor: (d) => [...PRIORITY_RGB[d.job.priority], dimA(d.job.id, 230)] as [number, number, number, number],
+        getFillColor: (d) => [...PRIORITY_RGB[d.job.priority], dimA(d.job.id, 90)] as [number, number, number, number],
+        pickable: true,
+        updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
+      }),
+    );
+    layers.push(
+      new ScatterplotLayer<(typeof drops)[number]>({
+        id: "job-drops",
+        data: drops,
+        getPosition: (d) => [d.loc.lng, d.loc.lat],
+        getRadius: 6,
+        radiusUnits: "pixels",
+        radiusMinPixels: 4,
+        stroked: true,
+        lineWidthMinPixels: 1,
+        getLineColor: (d) => [5, 9, 11, dimA(d.job.id, 220)] as [number, number, number, number],
+        getFillColor: (d) => [191, 227, 107, dimA(d.job.id, 235)] as [number, number, number, number],
+        pickable: true,
+        updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
       }),
     );
   }
 
-  // 3. NHS facilities — coloured markers + letter glyphs.
-  if (vis.facilities && data.facilities.length) {
+  // 5. NHS facilities — subtle markers + glyph (atmosphere / context).
+  if (data.facilities.length) {
     layers.push(
       new ScatterplotLayer<Facility>({
         id: "facilities",
         data: data.facilities,
         getPosition: (f) => [f.lng, f.lat],
-        getRadius: 120,
+        getRadius: 90,
         radiusUnits: "meters",
-        radiusMinPixels: 7,
-        radiusMaxPixels: 16,
+        radiusMinPixels: 5,
+        radiusMaxPixels: 12,
         stroked: true,
-        lineWidthMinPixels: 1.5,
-        getLineColor: [5, 10, 18, 230],
-        getFillColor: (f) => [...facilityRGB(f.type), 235] as [number, number, number, number],
+        lineWidthMinPixels: 1,
+        getLineColor: [5, 9, 11, 220],
+        getFillColor: (f) => [...facilityRGB(f.type), 200] as [number, number, number, number],
         pickable: true,
       }),
     );
@@ -437,116 +500,57 @@ function buildLayers(
         data: data.facilities,
         getPosition: (f) => [f.lng, f.lat],
         getText: (f) => FACILITY_GLYPH[f.type] ?? "•",
-        getSize: 12,
-        getColor: [5, 10, 18, 255],
+        getSize: 10,
+        getColor: [5, 9, 11, 255],
         fontWeight: 700,
         getTextAnchor: "middle",
         getAlignmentBaseline: "center",
-        pickable: false,
       }),
     );
   }
 
-  // 4. Signal junctions — live green-wave phase.
-  if (vis.junctions && data.junctions.length) {
-    const jdots = data.junctions.map((j) => {
-      const ph = signalPhase(j, nowMs);
-      return { ...j, _t: "junction" as const, green: ph.green, secsToGreen: ph.secsToGreen, secsLeft: ph.secsLeft };
-    });
-    layers.push(
-      new ScatterplotLayer<(typeof jdots)[number]>({
-        id: "junctions",
-        data: jdots,
-        getPosition: (j) => [j.lng, j.lat],
-        getRadius: 60,
-        radiusUnits: "meters",
-        radiusMinPixels: 4,
-        radiusMaxPixels: 9,
-        stroked: true,
-        lineWidthMinPixels: 1,
-        getLineColor: [5, 10, 18, 220],
-        getFillColor: (j) =>
-          [...(j.green ? SIGNAL_GREEN_RGB : SIGNAL_RED_RGB), 235] as [number, number, number, number],
-        pickable: true,
-        updateTriggers: { getFillColor: Math.floor(nowMs / 1000) },
-      }),
-    );
-  }
+  // 6. (Random driver/probe dots removed — drivers still feed congestion server-side.)
 
-  // 5. Driver probes / fleet — animated dots that grow as drivers join.
-  if (vis.drivers && drivers.length) {
-    const dots = driverDots(drivers, congestion.cells, phase);
-    layers.push(
-      new ScatterplotLayer<DriverDot>({
-        id: "drivers-glow",
-        data: dots,
-        getPosition: (d) => d.pos,
-        getRadius: 8,
-        radiusUnits: "pixels",
-        getFillColor: [...DRIVER_RGB, 60] as [number, number, number, number],
-        updateTriggers: { getPosition: phase },
-      }),
-    );
-    layers.push(
-      new ScatterplotLayer<DriverDot>({
-        id: "drivers",
-        data: dots,
-        getPosition: (d) => d.pos,
-        getRadius: 3.4,
-        radiusUnits: "pixels",
-        radiusMinPixels: 2,
-        stroked: true,
-        lineWidthMinPixels: 0.6,
-        getLineColor: [5, 10, 18, 200],
-        getFillColor: [...DRIVER_RGB, 235] as [number, number, number, number],
-        pickable: true,
-        updateTriggers: { getPosition: phase },
-      }),
-    );
-  }
+  // 7. Couriers — glowing markers, colour by status; selected gets a halo.
+  layers.push(
+    new ScatterplotLayer<Courier>({
+      id: "couriers-glow",
+      data: couriers,
+      getPosition: (c) => [c.location.lng, c.location.lat],
+      getRadius: 280,
+      radiusUnits: "meters",
+      radiusMinPixels: 12,
+      radiusMaxPixels: 38,
+      getFillColor: (c) =>
+        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), c.id === selectedCourierId ? 90 : selActive ? 14 : 45] as [number, number, number, number],
+      updateTriggers: { getFillColor: selectedCourierId },
+    }),
+  );
+  layers.push(
+    new ScatterplotLayer<Courier>({
+      id: "couriers",
+      data: couriers,
+      getPosition: (c) => [c.location.lng, c.location.lat],
+      getRadius: 110,
+      radiusUnits: "meters",
+      radiusMinPixels: 6,
+      radiusMaxPixels: 16,
+      stroked: true,
+      lineWidthMinPixels: 2,
+      getLineColor: (c) => (c.id === selectedCourierId ? [232, 237, 230, 255] : [5, 9, 11, 255]),
+      getFillColor: (c) =>
+        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), selActive && c.id !== selectedCourierId ? 70 : 255] as [number, number, number, number],
+      pickable: true,
+      updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
+    }),
+  );
 
-  // 6. Couriers, colour by status; selected gets a halo.
-  if (vis.couriers) {
-    layers.push(
-      new ScatterplotLayer<Courier>({
-        id: "couriers-glow",
-        data: couriers,
-        getPosition: (c) => [c.location.lng, c.location.lat],
-        getRadius: 320,
-        radiusUnits: "meters",
-        radiusMinPixels: 14,
-        radiusMaxPixels: 44,
-        getFillColor: (c) =>
-          [...(COURIER_RGB[c.status] ?? [200, 200, 200]), c.id === selectedCourierId ? 80 : 45] as [number, number, number, number],
-        updateTriggers: { getFillColor: selectedCourierId },
-      }),
-    );
-    layers.push(
-      new ScatterplotLayer<Courier>({
-        id: "couriers",
-        data: couriers,
-        getPosition: (c) => [c.location.lng, c.location.lat],
-        getRadius: 130,
-        radiusUnits: "meters",
-        radiusMinPixels: 7,
-        radiusMaxPixels: 20,
-        stroked: true,
-        lineWidthMinPixels: 2,
-        getLineColor: (c) => (c.id === selectedCourierId ? [255, 255, 255, 255] : [5, 7, 13, 255]),
-        getFillColor: (c) =>
-          [...(COURIER_RGB[c.status] ?? [200, 200, 200]), 255] as [number, number, number, number],
-        pickable: true,
-        updateTriggers: { getLineColor: selectedCourierId },
-      }),
-    );
-  }
-
-  // 7. Disruptions — pulsing markers, classified bridge / event / congestion / road.
-  if (vis.disruptions) {
+  // 8. Disruptions — pulsing markers; red ✕ glyph for road closures.
+  if (vis.incidents) {
     const disrPts = disruptions
-      .map((d) => classifyDisruption(d, data.venues))
-      .filter((d): d is NonNullable<typeof d> => d !== null)
-      .map((d) => ({ ...d, _t: "disr" as const }));
+      .map((d) => ({ ev: d, c: classifyDisruption(d, data.venues) }))
+      .filter((x): x is { ev: DisruptionEvent; c: NonNullable<ReturnType<typeof classifyDisruption>> } => x.c !== null)
+      .map((x) => ({ ...x.c, _t: "disr" as const, isClosure: x.ev.kind === "road_closure" }));
     if (disrPts.length) {
       const pulse = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);
       layers.push(
@@ -554,206 +558,373 @@ function buildLayers(
           id: "disruptions-pulse",
           data: disrPts,
           getPosition: (d) => [d.lng, d.lat],
-          getRadius: 180 + pulse * 220,
+          getRadius: 160 + pulse * 200,
           radiusUnits: "meters",
-          radiusMinPixels: 10,
-          radiusMaxPixels: 48,
+          radiusMinPixels: 9,
+          radiusMaxPixels: 44,
           getFillColor: (d) =>
-            [...(DISRUPTION_CLASS_RGB[d.cls] ?? DISRUPTION_CLASS_RGB.manual), Math.round(40 + pulse * 60)] as [number, number, number, number],
+            [...(DISRUPTION_CLASS_RGB[d.cls] ?? DISRUPTION_CLASS_RGB.manual), Math.round(35 + pulse * 55)] as [number, number, number, number],
           updateTriggers: { getRadius: phase, getFillColor: phase },
         }),
       );
+      const closures = disrPts.filter((d) => d.isClosure);
+      const others = disrPts.filter((d) => !d.isClosure);
+      if (others.length) {
+        layers.push(
+          new ScatterplotLayer<(typeof others)[number]>({
+            id: "disruptions",
+            data: others,
+            getPosition: (d) => [d.lng, d.lat],
+            getRadius: 120,
+            radiusUnits: "meters",
+            radiusMinPixels: 6,
+            radiusMaxPixels: 18,
+            stroked: true,
+            lineWidthMinPixels: 2,
+            getLineColor: [232, 237, 230, 230],
+            getFillColor: (d) =>
+              [...(DISRUPTION_CLASS_RGB[d.cls] ?? DISRUPTION_CLASS_RGB.manual), 190] as [number, number, number, number],
+            pickable: true,
+          }),
+        );
+      }
+      if (closures.length) {
+        layers.push(
+          new TextLayer<(typeof closures)[number]>({
+            id: "disruptions-closure",
+            data: closures,
+            getPosition: (d) => [d.lng, d.lat],
+            getText: () => "✕",
+            getSize: 22,
+            getColor: [255, 77, 77, 255],
+            fontWeight: 700,
+            getTextAnchor: "middle",
+            getAlignmentBaseline: "center",
+            pickable: true,
+          }),
+        );
+      }
+    }
+  }
+
+  // 8b. Signal recs — GB10 Nemotron traffic-signal recommendations. A pulsing
+  //     halo + solid ring marker at each junction, coloured by action, with a
+  //     small uppercase action label. Toggleable via the "Signals" control.
+  if (vis.signals && signalRecs.length) {
+    const sigPts = signalRecs.map((r) => ({ ...r, _t: "signal" as const }));
+    const pulse = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);
+    layers.push(
+      new ScatterplotLayer<(typeof sigPts)[number]>({
+        id: "signal-recs-glow",
+        data: sigPts,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 150 + pulse * 150,
+        radiusUnits: "meters",
+        radiusMinPixels: 10,
+        radiusMaxPixels: 40,
+        getFillColor: (d) =>
+          [...signalActionRGB(d.action), Math.round(30 + pulse * 50)] as [number, number, number, number],
+        updateTriggers: { getRadius: phase, getFillColor: phase },
+      }),
+    );
+    layers.push(
+      new ScatterplotLayer<(typeof sigPts)[number]>({
+        id: "signal-recs",
+        data: sigPts,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 9,
+        radiusUnits: "pixels",
+        radiusMinPixels: 7,
+        stroked: true,
+        lineWidthMinPixels: 2.5,
+        getLineColor: (d) => [...signalActionRGB(d.action), 255] as [number, number, number, number],
+        getFillColor: (d) => [...signalActionRGB(d.action), 70] as [number, number, number, number],
+        pickable: true,
+      }),
+    );
+    layers.push(
+      new TextLayer<(typeof sigPts)[number]>({
+        id: "signal-recs-label",
+        data: sigPts,
+        getPosition: (d) => [d.lng, d.lat],
+        getText: (d) => SIGNAL_ACTION_LABEL[d.action] ?? d.action.toUpperCase(),
+        getSize: 10,
+        getColor: (d) => [...signalActionRGB(d.action), 255] as [number, number, number, number],
+        fontWeight: 700,
+        getTextAnchor: "middle",
+        getAlignmentBaseline: "top",
+        getPixelOffset: [0, 12],
+        characterSet: "auto",
+        fontSettings: { sdf: true },
+        outlineWidth: 2,
+        outlineColor: [5, 9, 11, 220],
+        pickable: true,
+      }),
+    );
+  }
+
+  // 8c. Live CCTV cameras — small clickable markers (default OFF). Only the cams in
+  //     the current viewport are drawn, capped, so a dense area never clutters.
+  if (vis.cctv && cctv.length) {
+    const cams = visibleCams(cctv, bounds).map((c) => ({ ...c, _t: "cctv" as const }));
+    if (cams.length) {
       layers.push(
-        new ScatterplotLayer<(typeof disrPts)[number]>({
-          id: "disruptions",
-          data: disrPts,
+        new ScatterplotLayer<(typeof cams)[number]>({
+          id: "cctv-cams",
+          data: cams,
           getPosition: (d) => [d.lng, d.lat],
-          getRadius: 140,
-          radiusUnits: "meters",
-          radiusMinPixels: 7,
-          radiusMaxPixels: 22,
+          getRadius: 7,
+          radiusUnits: "pixels",
+          radiusMinPixels: 6,
+          radiusMaxPixels: 10,
           stroked: true,
-          lineWidthMinPixels: 2,
-          getLineColor: [255, 255, 255, 230],
-          getFillColor: (d) =>
-            [...(DISRUPTION_CLASS_RGB[d.cls] ?? DISRUPTION_CLASS_RGB.manual), 190] as [number, number, number, number],
+          lineWidthMinPixels: 1.5,
+          getLineColor: [232, 237, 230, 235],
+          getFillColor: [100, 210, 255, 150],
+          pickable: true,
+        }),
+      );
+      layers.push(
+        new TextLayer<(typeof cams)[number]>({
+          id: "cctv-cams-glyph",
+          data: cams,
+          getPosition: (d) => [d.lng, d.lat],
+          getText: () => "▣",
+          getSize: 11,
+          getColor: [5, 9, 11, 255],
+          fontWeight: 700,
+          getTextAnchor: "middle",
+          getAlignmentBaseline: "center",
+          characterSet: "auto",
+          fontSettings: { sdf: true },
           pickable: true,
         }),
       );
     }
   }
 
+  // 9. District labels — static muted atmosphere.
+  layers.push(
+    new TextLayer<(typeof DISTRICTS)[number]>({
+      id: "district-labels",
+      data: DISTRICTS,
+      getPosition: (d) => [d.lng, d.lat],
+      getText: (d) => d.name,
+      getSize: 11,
+      getColor: [126, 138, 130, 150],
+      fontWeight: 600,
+      getTextAnchor: "middle",
+      getAlignmentBaseline: "center",
+      characterSet: "auto",
+      fontSettings: { sdf: true },
+      outlineWidth: 2,
+      outlineColor: [5, 9, 11, 200],
+    }),
+  );
+
   return layers;
 }
 
-// Tooltip dispatcher — every pickable layer resolves to a readable card.
+// Tooltip dispatcher.
 function tooltipFor({ object }: PickingInfo): { html: string; className: string } | null {
   if (!object) return null;
   const o = object as Record<string, unknown>;
-
-  if (o._t === "driver") {
-    const d = (object as DriverDot).driver;
-    return {
-      className: "deck-tip",
-      html: `<b>${d.name ?? d.id}</b><br/>${d.vehicle_type} probe · ${d.points ?? 0} pts<br/><span class="tip-dim">crowdsourced driver</span>`,
-    };
-  }
-  if (o._t === "cong" || ("cell" in o && "congestion" in o && "n_probes" in o)) {
-    const c = object as CongestionCell;
-    return {
-      className: "deck-tip",
-      html: `<b>Congestion ${(c.congestion * 100).toFixed(0)}%</b><br/>${(c.speed_mps ?? 0).toFixed(1)} m/s · ${c.n_probes ?? 0} probes<br/><span class="tip-dim">live flywheel cell</span>`,
-    };
-  }
-  if (o._t === "junction") {
-    const j = object as Junction & { green: boolean; secsToGreen: number; secsLeft: number };
-    const state = j.green
-      ? `GREEN — ${j.secsLeft}s left`
-      : `RED — green in ${j.secsToGreen}s`;
-    return {
-      className: "deck-tip",
-      html: `<b>${j.name}</b><br/>${state}<br/><span class="tip-dim">cycle ${j.cycle_s}s · green ${j.green_s}s</span>`,
-    };
-  }
   if (o._t === "disr") {
     const d = object as { label: string; cls: string };
+    return { className: "deck-tip", html: `<b>${d.label}</b><br/><span class="tip-dim">${d.cls} disruption</span>` };
+  }
+  if (o._t === "signal") {
+    const s = object as SignalRec;
+    const conf = `${Math.round((s.confidence ?? 0) * 100)}%`;
+    const act = (SIGNAL_ACTION_LABEL[s.action] ?? s.action).toUpperCase();
     return {
       className: "deck-tip",
-      html: `<b>${d.label}</b><br/><span class="tip-dim">${d.cls} disruption</span>`,
+      html: `<b>${s.name} <span style="text-transform:uppercase">[${act}]</span></b><br/>${s.detail ?? ""}<br/><span class="tip-dim">Nemotron@GB10 · conf ${conf}</span>`,
     };
+  }
+  if (o._t === "cctv") {
+    const c = object as CctvCamera;
+    return { className: "deck-tip", html: `<b>${c.name}</b><br/><span class="tip-dim">live CCTV · click to view</span>` };
+  }
+  if ("congestion" in o && "path" in o) {
+    const r = object as RoadPath;
+    return { className: "deck-tip", html: `<b>Traffic ${(r.congestion * 100).toFixed(0)}%</b><br/><span class="tip-dim">road segment</span>` };
   }
   if ("type" in o && "lat" in o && "lng" in o && "name" in o && !("status" in o)) {
     const f = object as Facility;
-    return {
-      className: "deck-tip",
-      html: `<b>${f.name}</b><br/><span class="tip-dim">${f.type} · ${f.id}</span>`,
-    };
+    return { className: "deck-tip", html: `<b>${f.name}</b><br/><span class="tip-dim">${f.type} · ${f.id}</span>` };
   }
   if ("status" in o && "location" in o) {
     const c = object as Courier;
     return { className: "deck-tip", html: `<b>${c.name ?? c.id}</b><br/><span class="tip-dim">courier · ${c.status}</span>` };
   }
-  if ("priority" in o && "origin" in o) {
-    const j = object as DeliveryJob;
+  if ("job" in o) {
+    const e = object as { job: DeliveryJob; loc: { name?: string } };
     return {
       className: "deck-tip",
-      html: `<b>${j.id} <span style="text-transform:uppercase">[${j.priority}]</span></b><br/>${j.origin.name ?? "?"} → ${j.destination.name ?? "?"}`,
+      html: `<b>${e.job.id} <span style="text-transform:uppercase">[${e.job.priority}]</span></b><br/>${e.loc?.name ?? e.job.origin.name ?? "?"}`,
     };
   }
-  if ("job" in o) {
-    const e = object as { job: DeliveryJob; kind: string };
-    return { className: "deck-tip", html: `<b>${e.kind}</b><br/>${e.job.id} · ${e.job.priority}` };
-  }
   if ("courier_id" in o && "path" in o) {
-    return { className: "deck-tip", html: `<b>route</b><br/>${(object as { courier_id: string }).courier_id}` };
+    const seg = object as { courier_id: string; congested?: boolean };
+    return {
+      className: "deck-tip",
+      html: `<b>route · ${seg.courier_id}</b><br/><span class="tip-dim">${seg.congested ? "congested stretch" : "free-flowing"}</span>`,
+    };
   }
   return null;
 }
 
+const LEFT_LAYERS: { key: LayerKey; label: string; glyph: string; testid: string }[] = [
+  { key: "congestion", label: "Traffic", glyph: "🚦", testid: "layer-toggle-congestion" },
+  { key: "routes", label: "Routes", glyph: "〰", testid: "layer-toggle-routes" },
+  { key: "incidents", label: "Incidents", glyph: "⚠", testid: "layer-toggle-incidents" },
+  { key: "signals", label: "Signals", glyph: "◈", testid: "layer-toggle-signals" },
+  { key: "cctv", label: "CCTV", glyph: "▣", testid: "layer-toggle-cctv" },
+];
+
 export default function MapView() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<maplibregl.Map | mapboxgl.Map | null>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const phaseRef = useRef(0);
   const rafRef = useRef<number | null>(null);
-  const snapRef = useRef<Snapshot>({
-    jobs: [],
-    couriers: [],
-    plan: null,
-    disruptions: [],
-    drivers: [],
-    congestion: { cells: [] },
-    selectedCourierId: null,
-  });
-  const dataRef = useRef<OptionalData>({ roads: [], buildings: [], facilities: [], junctions: [], venues: [] });
+  const snapRef = useRef<Snapshot>(EMPTY_SNAP);
+  const dataRef = useRef<OptionalData>({ roads: [], facilities: [], venues: [] });
   const visRef = useRef<LayerVis>(DEFAULT_VIS);
+  const roadPathsRef = useRef<Record<string, LngLat[] | null>>({});
+  const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const boundsRef = useRef<Bounds>(null);
+  // Set by an effect; the once-created overlay onClick calls it to open the popover.
+  const selectCamRef = useRef<((cam: CctvCamera, x: number, y: number) => void) | null>(null);
 
-  const [optional, setOptional] = useState<OptionalData>({
-    roads: [],
-    buildings: [],
-    facilities: [],
-    junctions: [],
-    venues: [],
-  });
+  const [optional, setOptional] = useState<OptionalData>({ roads: [], facilities: [], venues: [] });
   const [vis, setVis] = useState<LayerVis>(DEFAULT_VIS);
-  const [counts, setCounts] = useState({
-    jobs: 0,
-    couriers: 0,
-    routes: 0,
-    drivers: 0,
-    congestion: 0,
-    disruptions: 0,
-  });
+  const [counts, setCounts] = useState({ jobs: 0, couriers: 0, routes: 0, congestion: 0, disruptions: 0, signals: 0 });
+  // Open CCTV popover: the picked camera + its on-screen pixel position + a refresh tick.
+  const [activeCam, setActiveCam] = useState<{ cam: CctvCamera; x: number; y: number } | null>(null);
+  const [imgTick, setImgTick] = useState(0);
 
   const selectCourier = useStore((s) => s.selectCourier);
 
-  const toggle = (key: string) =>
-    setVis((v) => ({ ...v, [key as LayerKey]: !v[key as LayerKey] }));
-
-  // Keep refs in sync with store + counts for the imperative render loop / panels.
+  // Bridge the imperative overlay click → React state for the CCTV popover.
   useEffect(() => {
+    selectCamRef.current = (cam, x, y) => {
+      setActiveCam({ cam, x, y });
+      setImgTick(0);
+    };
+    return () => {
+      selectCamRef.current = null;
+    };
+  }, []);
+
+  // While the popover is open, cache-bust the live still every ~10s.
+  useEffect(() => {
+    if (!activeCam) return;
+    const t = window.setInterval(() => setImgTick((n) => n + 1), 10000);
+    return () => window.clearInterval(t);
+  }, [activeCam]);
+
+  const toggle = (key: LayerKey) => setVis((v) => ({ ...v, [key]: !v[key] }));
+
+  // Debounced road-route resolver: signature-cached Directions API calls; results
+  // land in roadPathsRef and are picked up by the imperative render loop.
+  const resolveRoutes = useMemo(() => {
+    const run = () => {
+      const snap = snapRef.current;
+      const courierById = new Map(snap.couriers.map((c) => [c.id, c]));
+      const next: Record<string, LngLat[] | null> = {};
+      for (const r of snap.plan?.routes ?? []) {
+        const coords = routeStopCoords(snap.plan, courierById.get(r.courier_id), r.courier_id);
+        if (coords.length < 2) continue;
+        const sig = routeSignature(r.courier_id, coords);
+        // getRoadRoute returns cached geometry or kicks off a fetch (re-resolve on done).
+        next[r.courier_id] = getRoadRoute(sig, coords, schedule);
+      }
+      roadPathsRef.current = next;
+    };
+    const schedule = () => {
+      if (resolveTimer.current) clearTimeout(resolveTimer.current);
+      resolveTimer.current = setTimeout(run, 450);
+    };
+    return schedule;
+  }, []);
+
+  // Keep refs in sync with the store; trigger route resolution when the plan changes.
+  useEffect(() => {
+    let lastPlanAt = "";
     const update = () => {
       const s = useStore.getState();
       const jobs = Object.values(s.jobs);
       const couriers = Object.values(s.couriers);
-      const drivers = Object.values(s.drivers);
       snapRef.current = {
         jobs,
         couriers,
         plan: s.plan,
         disruptions: s.disruptions,
-        drivers,
         congestion: s.congestion,
+        signalRecs: s.signalRecs,
+        cctv: s.cctv,
         selectedCourierId: s.selectedCourierId,
       };
       setCounts({
         jobs: jobs.length,
         couriers: couriers.length,
-        routes: s.plan?.routes?.filter((r) => (r.polyline?.length ?? 0) >= 2).length ?? 0,
-        drivers: drivers.length,
+        routes: s.plan?.routes?.length ?? 0,
         congestion: s.congestion.cells.length,
         disruptions: s.disruptions.length,
+        signals: s.signalRecs.length,
       });
+      const planAt = s.plan?.generated_at ?? "";
+      if (planAt !== lastPlanAt) {
+        lastPlanAt = planAt;
+        resolveRoutes();
+      }
     };
     update();
     return useStore.subscribe(update);
-  }, []);
+  }, [resolveRoutes]);
 
   useEffect(() => {
     dataRef.current = optional;
-  }, [optional]);
+    resolveRoutes();
+  }, [optional, resolveRoutes]);
   useEffect(() => {
     visRef.current = vis;
   }, [vis]);
+
+  // "View route" action (Inspector 〰) → fly the map to the selected courier.
+  useEffect(() => {
+    const onFocus = (e: Event) => {
+      const id = (e as CustomEvent).detail as string;
+      const c = useStore.getState().couriers[id];
+      const m = mapRef.current;
+      if (c?.location && m) {
+        m.flyTo({ center: [c.location.lng, c.location.lat], zoom: 13.5, duration: 800 });
+      }
+    };
+    window.addEventListener("rlj:focus-courier", onFocus);
+    return () => window.removeEventListener("rlj:focus-courier", onFocus);
+  }, []);
 
   // Load optional datasets once (each degrades gracefully on 404 / empty).
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [roadsGj, buildingsGj, facRaw, jctRaw, evtRaw, twrRaw] = await Promise.all([
+      const [roadsGj, facRaw, evtRaw] = await Promise.all([
         fetchOptionalJson("/data/roads.geojson"),
-        fetchOptionalJson("/data/buildings.geojson"),
         fetchOptional<unknown>("/data/facilities.json"),
-        fetchOptional<unknown>("/data/junctions.json"),
         fetchOptional<unknown>("/data/events.json"),
-        fetchOptional<unknown>("/data/towerbridge.json"),
       ]);
       if (cancelled) return;
       const roads = parseRoads(roadsGj);
-      const buildings = parseBuildings(buildingsGj);
       const facilities = parseFacilities(facRaw);
-      const junctions = parseJunctions(jctRaw);
       const venues = parseEventVenues(evtRaw);
-      // bridge centre folds into the venue heuristic only via id-prefix; parse for log.
-      const bridge = parseBridgeCentre(twrRaw);
-      setOptional({ roads, buildings, facilities, junctions, venues });
-      if (buildings.length) setVis((v) => ({ ...v, buildings: true }));
+      setOptional({ roads, facilities, venues });
       const loaded: string[] = [];
       if (roads.length) loaded.push(`${roads.length} roads`);
-      if (buildings.length) loaded.push(`${buildings.length} buildings`);
       if (facilities.length) loaded.push(`${facilities.length} facilities`);
-      if (junctions.length) loaded.push(`${junctions.length} junctions`);
       if (venues.length) loaded.push(`${venues.length} event venues`);
-      if (bridge) loaded.push("Tower Bridge");
       if (loaded.length) {
         useStore.getState().pushLog({
           level: "info",
@@ -784,7 +955,6 @@ export default function MapView() {
         attributionControl: true,
         antialias: true,
       });
-      map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "bottom-left");
     } else {
       map = new maplibregl.Map({
         container: containerRef.current,
@@ -795,13 +965,34 @@ export default function MapView() {
         bearing: INITIAL_VIEW.bearing,
         attributionControl: { compact: true },
       });
-      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-left");
     }
+    mapRef.current = map;
 
     const m = map as maplibregl.Map;
 
+    // Keep the viewport bounds current so the CCTV layer only draws cams in view.
+    const syncBounds = () => {
+      const b = m.getBounds();
+      boundsRef.current = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+    };
+    m.on("move", syncBounds);
+
     m.on("load", () => {
-      m.easeTo({ zoom: INITIAL_VIEW.zoom + 0.3, duration: 2200, pitch: INITIAL_VIEW.pitch });
+      syncBounds();
+      // Tint the Thames into a soft glowing blue ribbon (mapbox dark-v11 has water).
+      if (USE_MAPBOX) {
+        try {
+          const style = m.getStyle();
+          for (const lyr of style?.layers ?? []) {
+            if (lyr.id === "water" || lyr.id.startsWith("water")) {
+              if (lyr.type === "fill") m.setPaintProperty(lyr.id, "fill-color", "#12324a");
+            }
+          }
+        } catch {
+          /* style not ready / layer absent — non-fatal */
+        }
+      }
+      m.easeTo({ zoom: INITIAL_VIEW.zoom + 0.25, duration: 1800, pitch: INITIAL_VIEW.pitch });
     });
 
     const overlay = new MapboxOverlay({
@@ -809,6 +1000,10 @@ export default function MapView() {
       layers: [],
       onClick: (info: PickingInfo) => {
         const o = info.object as Record<string, unknown> | null;
+        if (o && o._t === "cctv") {
+          selectCamRef.current?.(o as unknown as CctvCamera, info.x ?? 0, info.y ?? 0);
+          return;
+        }
         if (o && "status" in o && "location" in o) {
           selectCourier((o as unknown as Courier).id);
         }
@@ -819,13 +1014,20 @@ export default function MapView() {
     overlayRef.current = overlay;
 
     let last = performance.now();
-    const LOOP_SECONDS = 12;
+    const LOOP_SECONDS = 14;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
       phaseRef.current = (phaseRef.current + dt / LOOP_SECONDS) % 1;
       overlay.setProps({
-        layers: buildLayers(snapRef.current, dataRef.current, visRef.current, phaseRef.current, Date.now()),
+        layers: buildLayers(
+          snapRef.current,
+          dataRef.current,
+          visRef.current,
+          phaseRef.current,
+          roadPathsRef.current,
+          boundsRef.current,
+        ),
       });
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -834,75 +1036,121 @@ export default function MapView() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       m.remove();
+      mapRef.current = null;
       overlayRef.current = null;
     };
   }, [selectCourier]);
 
-  const hasBuildings = optional.buildings.length > 0;
-  const trafficOn = optional.roads.length > 0 && vis.traffic;
+  // Left control-stack actions.
+  const zoomBy = (delta: number) => {
+    const m = mapRef.current as maplibregl.Map | null;
+    if (m) m.easeTo({ zoom: m.getZoom() + delta, duration: 300 });
+  };
+  const recenter = () => {
+    const m = mapRef.current as maplibregl.Map | null;
+    if (m) m.easeTo({ center: INITIAL_VIEW.center, zoom: INITIAL_VIEW.zoom, pitch: INITIAL_VIEW.pitch, bearing: 0, duration: 700 });
+  };
 
-  const layerDefs: LayerDef[] = useMemo(
-    () => [
-      { key: "congestion", label: "Congestion field", count: counts.congestion, color: "#ff3b5c", testid: "layer-toggle-congestion", present: true },
-      { key: "drivers", label: "Driver probes", count: counts.drivers, color: "#78f0ff", testid: "layer-toggle-drivers", present: true },
-      { key: "traffic", label: "Traffic flow", count: optional.roads.length, color: "#ffc24b", present: optional.roads.length > 0 },
-      { key: "buildings", label: "3D buildings", count: optional.buildings.length, color: "#1e3c64", testid: "layer-toggle-buildings", present: hasBuildings },
-      { key: "routes", label: "Courier routes", count: counts.routes, color: "#18f0ff", present: true },
-      { key: "jobs", label: "Jobs (priority)", count: counts.jobs, color: "#ff3b5c", present: true },
-      { key: "couriers", label: "Medical couriers", count: counts.couriers, color: "#23f0c7", present: true },
-      { key: "facilities", label: "NHS facilities", count: optional.facilities.length, color: "#ff5678", present: optional.facilities.length > 0 },
-      { key: "junctions", label: "Signal junctions", count: optional.junctions.length, color: "#23f0c7", present: optional.junctions.length > 0 },
-      { key: "disruptions", label: "Disruptions", count: counts.disruptions, color: "#ff7a18", present: true },
-    ],
-    [counts, optional, hasBuildings],
-  );
-
-  const sources: SourceDef[] = useMemo(
-    () => [
-      { key: "congestion", label: "Congestion flywheel", count: counts.congestion, claimId: "flywheel-value", live: true },
-      { key: "drivers", label: "Crowdsourced drivers", count: counts.drivers, claimId: "data-probes", live: true },
-      { key: "facilities", label: "NHS facilities", count: optional.facilities.length, claimId: "data-facilities-complete" },
-      { key: "junctions", label: "Signal junctions", count: optional.junctions.length, claimId: "data-junctions" },
-      { key: "disruptions", label: "Disruptions (bridge/event)", count: counts.disruptions, claimId: "data-signals-valid", live: true },
-      { key: "roads", label: "Road graph", count: optional.roads.length, claimId: "data-roadgraph" },
-    ],
-    [counts, optional],
-  );
-
-  const routeStatus = useMemo(
-    () =>
-      [
-        `routes:${counts.routes}`,
-        `cong:${counts.congestion}`,
-        `drivers:${counts.drivers}`,
-        `traffic:${trafficOn ? optional.roads.length : "off"}`,
-        `buildings:${hasBuildings ? (vis.buildings ? "on" : "off") : "absent"}`,
-      ].join(" · "),
-    [counts, trafficOn, optional.roads.length, hasBuildings, vis.buildings],
-  );
+  const trafficOn = optional.roads.length > 0 && vis.congestion;
 
   return (
     <div className="map-wrap">
       <div ref={containerRef} className="map-root" />
 
-      <div className="map-overlays">
-        <div
-          className="map-chip route-status"
-          data-testid="route-layer-status"
-          data-route-count={counts.routes}
-          data-traffic={trafficOn ? "on" : "off"}
-          data-buildings={hasBuildings ? (vis.buildings ? "on" : "off") : "absent"}
-          data-congestion={counts.congestion}
-          data-drivers={counts.drivers}
-        >
-          <span className="chip-led" /> {routeStatus}
-        </div>
-
-        <LayersPanel layers={layerDefs} vis={vis} onToggle={toggle} />
-        <DataSourcePanel sources={sources} />
+      {/* Left floating control stack */}
+      <div className="control-stack glass" data-testid="layers-panel">
+        {LEFT_LAYERS.map((l) => {
+          const on = !!vis[l.key];
+          return (
+            <button
+              key={l.key}
+              type="button"
+              className={`cs-toggle ${on ? "on" : ""}`}
+              data-testid={l.testid}
+              data-on={on ? "true" : "false"}
+              onClick={() => toggle(l.key)}
+            >
+              <span className="cs-glyph">{l.glyph}</span>
+              <span className="cs-label">{l.label}</span>
+              <span className={`cs-led ${on ? "on" : ""}`} />
+            </button>
+          );
+        })}
+        <div className="cs-divider" />
+        <button type="button" className="cs-icon" title="Recenter" onClick={recenter}>◎</button>
+        <button type="button" className="cs-icon" title="Zoom in" onClick={() => zoomBy(0.6)}>+</button>
+        <button type="button" className="cs-icon" title="Zoom out" onClick={() => zoomBy(-0.6)}>−</button>
       </div>
 
-      <MapLegend />
+      {/* Route/layer status — kept for tests + at-a-glance health */}
+      <div
+        className="route-status"
+        data-testid="route-layer-status"
+        data-route-count={counts.routes}
+        data-traffic={trafficOn ? "on" : "off"}
+        data-congestion={counts.congestion}
+        data-signals={counts.signals}
+      >
+        <span className="rs-led" />
+        {`routes:${counts.routes} · cong:${counts.congestion} · traffic:${trafficOn ? optional.roads.length : "off"} · sig:${counts.signals}`}
+      </div>
+
+      {/* Observable marker for the signal-recs layer (test hook). */}
+      <div
+        data-testid="signal-recs-layer"
+        data-count={counts.signals}
+        data-on={vis.signals ? "true" : "false"}
+        hidden
+      />
+
+      {/* Observable marker for the CCTV layer (test hook). */}
+      <div
+        data-testid="cctv-layer"
+        data-on={vis.cctv ? "true" : "false"}
+        hidden
+      />
+
+      {/* Live CCTV popover — opens on camera click; image refreshes every ~10s. */}
+      {activeCam && (
+        <div
+          className="cctv-popover glass"
+          data-testid="cctv-popover"
+          style={{
+            left: Math.max(12, Math.min(activeCam.x + 14, (containerRef.current?.clientWidth ?? 9999) - 280)),
+            top: Math.max(12, activeCam.y - 40),
+          }}
+        >
+          <div className="cctv-pop-head">
+            <span className="cctv-pop-name">{activeCam.cam.name}</span>
+            <button
+              type="button"
+              className="cctv-pop-close"
+              aria-label="Close camera"
+              onClick={() => setActiveCam(null)}
+            >
+              ✕
+            </button>
+          </div>
+          <img
+            className="cctv-pop-img"
+            src={`${activeCam.cam.image}${activeCam.cam.image.includes("?") ? "&" : "?"}cb=${imgTick}`}
+            alt={`Live view: ${activeCam.cam.name}`}
+          />
+          <div className="cctv-pop-foot">
+            <span className="cctv-pop-live">
+              <span className="cctv-pop-dot" /> LIVE
+            </span>
+            <a
+              className="cctv-pop-video"
+              href={activeCam.cam.video}
+              target="_blank"
+              rel="noreferrer"
+            >
+              ▶ video
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

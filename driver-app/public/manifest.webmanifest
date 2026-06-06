@@ -1,7 +1,7 @@
 {
-  "name": "RLJ Driver — Green-Wave Routing",
-  "short_name": "RLJ Driver",
-  "description": "Share your GPS, ride the green wave. The driver side of the RLJ congestion flywheel.",
+  "name": "PulseGo Driver — Green-Wave Routing",
+  "short_name": "PulseGo Driver",
+  "description": "Share your GPS, ride the green wave. The driver side of the PulseGo congestion flywheel.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

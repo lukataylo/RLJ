@@ -72,7 +72,7 @@ export default function Signup() {
       <div className="signup-hero">
         <div className="brand-mark">
           <span className="brand-ring" />
-          RLJ <span className="brand-accent">DRIVER</span>
+          PulseGo <span className="brand-accent">DRIVER</span>
         </div>
         <h1 className="signup-title">Share the road, ride the green wave</h1>
         <p className="signup-sub">

@@ -57,6 +57,7 @@ class Courier(BaseModel):
     # Not in the shared schema: lets a deployment flag vans without a cold box.
     # Defaults to True so every courier is cold-capable unless told otherwise.
     cold_capable: bool = True
+    vehicle_type: Literal["van", "scooter", "bike"] = "van"
 
 
 class Stop(BaseModel):

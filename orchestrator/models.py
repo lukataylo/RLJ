@@ -39,6 +39,7 @@ class Courier(BaseModel):
     location: Location
     capacity: float = 6
     cold_capable: bool = True
+    vehicle_type: Literal["van", "scooter", "bike"] = "van"
     status: Literal["idle", "enroute", "offline"] = "idle"
     assigned_route_id: Optional[str] = None
     phone: Optional[str] = None
@@ -131,3 +132,39 @@ class DriverPing(BaseModel):
 
 class TelemetryBatch(BaseModel):
     pings: list[DriverPing]
+
+
+# ---- traffic-signal recommendations (from the GB10 Nemotron NemoClaw agent) --------
+class SignalRecommendation(BaseModel):
+    junction_id: Optional[str] = None
+    name: Optional[str] = None
+    lat: float
+    lng: float
+    action: Literal["retime", "green_wave", "hold", "clear"] = "retime"
+    detail: str
+    confidence: float = 0.5
+    source: str = "nemotron@scan-11"
+
+
+class SignalRecommendations(BaseModel):
+    recommendations: list[SignalRecommendation]
+
+
+# ---- two-way NemoClaw agent channel (ask / answer) + per-driver assessments --------
+class AgentAsk(BaseModel):
+    question: str
+
+
+class AgentAnswer(BaseModel):
+    task_id: str
+    answer: str
+
+
+class FleetAssessment(BaseModel):
+    courier_id: str
+    status: Literal["on_time", "reroute_suggested", "at_risk"] = "on_time"
+    note: str = ""
+
+
+class FleetAssessments(BaseModel):
+    assessments: list[FleetAssessment]

@@ -1,5 +1,7 @@
 # Architecture
 
+> **PulseGo — live medical logistics for London.** · [pulsego.org](https://pulsego.org)
+
 Everything runs on **one DGX Spark (GB10)**. Local Nemotron for reasoning, local GPU
 for routing, local web stack. The only outbound network is ElevenLabs (voice) and the
 TfL feed (disruptions) — both behind NemoClaw egress allowlists.

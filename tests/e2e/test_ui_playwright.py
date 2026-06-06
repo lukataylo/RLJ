@@ -1,0 +1,137 @@
+"""Real-browser tests against the LIVE dev stack (Vite UI + orchestrator).
+
+These are NOT self-booted: they drive whatever is already running at
+http://localhost:5173 (frontend) and http://localhost:8000 (orchestrator). In the
+hackspace those dev servers are up, so these run; in CI they're not, so the whole
+module skips cleanly.
+
+Uses the sync Playwright API directly (own browser/page fixtures) so it doesn't
+depend on pytest-playwright's CLI options. All locator/expect waits are bounded to
+~10s so nothing hangs.
+"""
+from __future__ import annotations
+import urllib.request
+
+import pytest
+
+pytestmark = pytest.mark.e2e
+
+UI_URL = "http://localhost:5173"
+ORCH_HEALTH = "http://localhost:8000/healthz"
+WAIT = 10_000  # ms — bounded locator/expect timeout
+
+
+def _reachable(url: str) -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=2) as r:  # noqa: S310 - localhost only
+            return 200 <= r.status < 400
+    except Exception:  # noqa: BLE001
+        return False
+
+
+if not (_reachable(UI_URL) and _reachable(ORCH_HEALTH)):
+    pytest.skip("live UI stack not running", allow_module_level=True)
+
+from playwright.sync_api import sync_playwright, expect  # noqa: E402
+
+
+# Console messages we treat as benign noise (not app errors).
+_BENIGN = ("favicon", "mapbox", "telemetry", "events.mapbox.com", "ERR_BLOCKED")
+
+
+def _is_app_error(kind: str, text: str) -> bool:
+    low = text.lower()
+    return not any(b.lower() in low for b in _BENIGN)
+
+
+@pytest.fixture(scope="module")
+def browser():
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        try:
+            yield b
+        finally:
+            b.close()
+
+
+@pytest.fixture()
+def page(browser):
+    """Fresh context + page, with console/page errors captured into page.app_errors."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    pg = ctx.new_page()
+    errors: list[tuple[str, str]] = []
+    pg.on("console", lambda m: errors.append((m.type, m.text)) if m.type == "error" else None)
+    pg.on("pageerror", lambda e: errors.append(("pageerror", str(e))))
+    pg.app_errors = errors  # type: ignore[attr-defined]
+    pg.goto(UI_URL, wait_until="domcontentloaded")
+    try:
+        yield pg
+    finally:
+        ctx.close()
+
+
+def test_delivery_list_and_cards(page):
+    """The right delivery list is visible with >=1 card, and every visible card
+    carries a vehicle <svg> icon (van/scooter/bike)."""
+    expect(page.get_by_test_id("delivery-list")).to_be_visible(timeout=WAIT)
+
+    cards = page.get_by_test_id("delivery-card")
+    expect(cards.first).to_be_visible(timeout=WAIT)
+    n = cards.count()
+    assert n >= 1, "delivery list rendered no cards"
+
+    for i in range(n):
+        card = cards.nth(i)
+        if not card.is_visible():
+            continue
+        assert card.locator("svg").count() >= 1, f"card {i} has no vehicle svg icon"
+
+
+def test_click_delivery_highlights(page):
+    """Clicking a delivery card selects it (aria-pressed/selected class) AND drives
+    the Inspector from the fleet overview into that courier's detail view."""
+    expect(page.get_by_test_id("delivery-list")).to_be_visible(timeout=WAIT)
+    inspector = page.get_by_test_id("inspector")
+    expect(inspector).to_be_visible(timeout=WAIT)
+
+    cards = page.get_by_test_id("delivery-card")
+    expect(cards.first).to_be_visible(timeout=WAIT)
+    card = cards.first
+    courier_id = card.get_attribute("data-courier")
+    assert courier_id, "delivery card missing data-courier"
+
+    before = inspector.inner_text()
+    card.click()
+
+    # 1) the card gains a selected state
+    expect(card).to_have_attribute("aria-pressed", "true", timeout=WAIT)
+    klass = card.get_attribute("class") or ""
+    assert "selected" in klass, f"clicked card did not get .selected class: {klass!r}"
+
+    # 2) the inspector updates to that courier (text changes; overview is replaced
+    #    by the courier detail view, which renders the courier name).
+    expect(inspector).not_to_contain_text("FLEET OVERVIEW", timeout=WAIT)
+    after = inspector.inner_text()
+    assert after.strip() and after != before, "inspector did not update after selection"
+
+
+def test_nemoclaw_feed_live(page):
+    """The NemoClaw feed is visible and shows >=1 live log line."""
+    feed = page.get_by_test_id("nemoclaw-feed")
+    expect(feed).to_be_visible(timeout=WAIT)
+    expect(feed.locator(".nemo-line").first).to_be_visible(timeout=WAIT)
+    assert feed.locator(".nemo-line").count() >= 1, "nemoclaw feed has no log lines"
+
+
+def test_no_console_errors(page):
+    """No app-level console/page errors on load or after interacting (benign
+    mapbox telemetry + favicon 404 are filtered out)."""
+    expect(page.get_by_test_id("delivery-list")).to_be_visible(timeout=WAIT)
+
+    cards = page.get_by_test_id("delivery-card")
+    if cards.count():
+        cards.first.click()
+        page.wait_for_timeout(500)
+
+    bad = [(k, t) for (k, t) in page.app_errors if _is_app_error(k, t)]  # type: ignore[attr-defined]
+    assert not bad, "console/page errors detected:\n" + "\n".join(f"  [{k}] {t}" for k, t in bad)

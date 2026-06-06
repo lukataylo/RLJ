@@ -230,132 +230,116 @@ def _greedy_fill(sol: _Sol, jobs: list[str]) -> None:
 
 # --------------------------------------------------------------------------- local search
 def _local_search(sol: _Sol, deadline: float) -> None:
-    """Relocate + swap with neighbor lists and don't-look bits, first-improvement.
+    """Relocate (single job) + cross-route swap + intra-route 2-opt, restricted to each
+    job's k-nearest neighbors, with don't-look bits.
 
-    A move recomputes at most two routes; the global key is updated incrementally."""
+    Best-improvement per job; every candidate is scored functionally via ``trial_key`` (no
+    mutate/revert, so the global key can only ever increase — the search is monotone and
+    terminates). A committed move only touches one or two routes and wakes their jobs."""
     pc = sol.pc
-    job_route = {}
-    for cid, seq in sol.routes.items():
-        for jid in seq:
-            job_route[jid] = cid
-    active = [j for j in pc.jids if j in job_route]
-    dont_look = set()
-    queue = list(active)
+    job_route = {jid: cid for cid, seq in sol.routes.items() for jid in seq}
+    dont_look = {j: False for j in job_route}
+    queue = [j for j in pc.jids if j in job_route]
     guard = 0
-    while queue and guard < 100000:
+    while queue:
         guard += 1
-        if guard % 64 == 0 and time.perf_counter() > deadline:
+        if guard % 128 == 0 and time.perf_counter() > deadline:
             return
-        jid = queue.pop(0)
-        if jid in dont_look or jid not in job_route:
+        jid = queue.pop()
+        if dont_look.get(jid, True) or jid not in job_route:
             continue
-        if _try_improve(sol, jid, job_route, queue, dont_look):
-            continue
-        dont_look.add(jid)
+        if not _improve_job(sol, jid, job_route, queue, dont_look):
+            dont_look[jid] = True
 
 
-def _try_improve(sol: _Sol, jid: str, job_route, queue, dont_look) -> bool:
+def _wake(seq, job_route, cid, queue, dont_look):
+    for j in seq:
+        job_route[j] = cid
+        if dont_look.get(j, False):
+            dont_look[j] = False
+            queue.append(j)
+        elif j not in dont_look:
+            dont_look[j] = False
+            queue.append(j)
+
+
+def _improve_job(sol: _Sol, jid: str, job_route, queue, dont_look) -> bool:
+    """Find the single best improving move that involves ``jid`` and commit it."""
     pc = sol.pc
     src = job_route[jid]
-    base_key = sol.key()
+    cur = sol.key()
+    src_seq = sol.routes[src]
+    si = src_seq.index(jid)
+    src_wo = src_seq[:si] + src_seq[si + 1:]
 
-    # candidate destination routes: routes holding a near neighbor of jid, plus src.
     dest_cids = {src}
     for nb in pc._neighbors[jid]:
         if nb in job_route:
             dest_cids.add(job_route[nb])
 
-    src_seq = sol.routes[src]
-    si = src_seq.index(jid)
-    src_wo = src_seq[:si] + src_seq[si + 1:]
+    best = None  # (key, kind, payload)
 
-    # ---- relocate jid into a (possibly different) route at its best position
+    # ---- relocate single job jid into the best slot of a candidate route
     for dst in dest_cids:
-        if not pc.feasible(dst, jid):
+        if dst != src and not pc.feasible(dst, jid):
             continue
-        if dst == src:
-            base_seq = src_wo
-        else:
-            base_seq = sol.routes[dst]
-        for pos in range(len(base_seq) + 1):
-            new_dst = base_seq[:pos] + [jid] + base_seq[pos:]
+        base = src_wo if dst == src else sol.routes[dst]
+        for pos in range(len(base) + 1):
+            new_dst = base[:pos] + [jid] + base[pos:]
             if dst == src:
-                cand = _apply_one(sol, src, new_dst)
-                if cand > base_key:
-                    _commit_one(sol, src, new_dst, base_key, job_route, queue, dont_look)
-                    return True
-                _revert_one(sol, src, src_seq)
+                k = sol.trial_key({src: pc.route_metrics(src, new_dst)})
+                if k > cur and (best is None or k > best[0]):
+                    best = (k, "one", (src, new_dst))
             else:
-                cand = _apply_two(sol, src, src_wo, dst, new_dst)
-                if cand > base_key:
-                    _commit_two(sol, src, src_wo, dst, new_dst, jid,
-                                job_route, queue, dont_look)
-                    return True
-                _revert_two(sol, src, src_seq, dst, base_seq)
+                ch = {src: pc.route_metrics(src, src_wo),
+                      dst: pc.route_metrics(dst, new_dst)}
+                k = sol.trial_key(ch)
+                if k > cur and (best is None or k > best[0]):
+                    best = (k, "two", (src, src_wo, dst, new_dst))
 
     # ---- swap jid with a near neighbor in another route
     for nb in pc._neighbors[jid]:
         if nb not in job_route:
             continue
         dst = job_route[nb]
-        if dst == src:
-            continue
-        if not (pc.feasible(dst, jid) and pc.feasible(src, nb)):
+        if dst == src or not (pc.feasible(dst, jid) and pc.feasible(src, nb)):
             continue
         dst_seq = sol.routes[dst]
         di = dst_seq.index(nb)
         new_src = src_seq[:si] + [nb] + src_seq[si + 1:]
         new_dst = dst_seq[:di] + [jid] + dst_seq[di + 1:]
-        cand = _apply_two(sol, src, new_src, dst, new_dst)
-        if cand > base_key:
-            _commit_two(sol, src, new_src, dst, new_dst, jid,
-                        job_route, queue, dont_look, extra=nb)
-            return True
-        _revert_two(sol, src, src_seq, dst, dst_seq)
-    return False
+        ch = {src: pc.route_metrics(src, new_src), dst: pc.route_metrics(dst, new_dst)}
+        k = sol.trial_key(ch)
+        if k > cur and (best is None or k > best[0]):
+            best = (k, "two", (src, new_src, dst, new_dst))
 
+    # ---- intra-route 2-opt: reverse the segment between jid and a near neighbor
+    for nb in pc._neighbors[jid]:
+        if job_route.get(nb) != src:
+            continue
+        ni = src_seq.index(nb)
+        a, b = (si, ni) if si < ni else (ni, si)
+        if b - a < 2:
+            continue
+        new_src = src_seq[:a] + src_seq[a:b + 1][::-1] + src_seq[b + 1:]
+        k = sol.trial_key({src: pc.route_metrics(src, new_src)})
+        if k > cur and (best is None or k > best[0]):
+            best = (k, "one", (src, new_src))
 
-# move apply/revert helpers — keep totals consistent and cheap
-def _apply_one(sol, cid, seq):
-    sol.set_route(cid, seq)
-    return sol.key()
-
-
-def _revert_one(sol, cid, seq):
-    sol.set_route(cid, seq)
-
-
-def _apply_two(sol, c1, s1, c2, s2):
-    sol.set_route(c1, s1)
-    sol.set_route(c2, s2)
-    return sol.key()
-
-
-def _revert_two(sol, c1, s1, c2, s2):
-    sol.set_route(c1, s1)
-    sol.set_route(c2, s2)
-
-
-def _commit_one(sol, cid, seq, base_key, job_route, queue, dont_look):
-    for j in seq:
-        job_route[j] = cid
-    _wake(seq, queue, dont_look)
-
-
-def _commit_two(sol, c1, s1, c2, s2, jid, job_route, queue, dont_look, extra=None):
-    for j in s1:
-        job_route[j] = c1
-    for j in s2:
-        job_route[j] = c2
-    _wake(s1, queue, dont_look)
-    _wake(s2, queue, dont_look)
-
-
-def _wake(seq, queue, dont_look):
-    for j in seq:
-        if j in dont_look:
-            dont_look.discard(j)
-        queue.append(j)
+    if best is None:
+        return False
+    _, kind, payload = best
+    if kind == "one":
+        cid, seq = payload
+        sol.set_route(cid, seq)
+        _wake(seq, job_route, cid, queue, dont_look)
+    else:
+        c1, s1, c2, s2 = payload
+        sol.set_route(c1, s1)
+        sol.set_route(c2, s2)
+        _wake(s1, job_route, c1, queue, dont_look)
+        _wake(s2, job_route, c2, queue, dont_look)
+    return True
 
 
 # ----------------------------------------------------------------- ruin & recreate (LNS)

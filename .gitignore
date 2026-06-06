@@ -23,6 +23,10 @@ data/*.osm.pbf
 .env.*
 !.env.example
 
+# Local auth DB (SQLite dev/test; prod uses Postgres via DATABASE_URL)
+*.db
+pulsego.db
+
 # OS / editor
 .DS_Store
 .idea/
