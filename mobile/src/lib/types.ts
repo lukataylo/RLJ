@@ -139,6 +139,35 @@ export interface SignalAdvice {
   confidence?: number;
 }
 
+export interface CongestionCell {
+  cell: string;
+  lat: number;
+  lng: number;
+  congestion: number; // 0=free-flow, 1=jammed
+  speed_mps?: number;
+  n_probes?: number;
+  updated_at?: string;
+}
+
+export interface CongestionField {
+  cells: CongestionCell[];
+  generated_at?: string;
+}
+
+export interface DriverContribution {
+  pings?: number;
+  couriers_helped?: number;
+}
+
+export interface DriverGuidance {
+  driver_id: string;
+  status: string;
+  eta?: string | null;
+  route_polyline?: LatLng[];
+  signal_advice?: SignalAdvice | null;
+  contribution?: DriverContribution;
+}
+
 // ---- Auth -----------------------------------------------------------------
 
 export interface LoginResponse {

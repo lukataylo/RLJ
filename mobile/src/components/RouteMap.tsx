@@ -3,15 +3,16 @@
 import React, { useEffect, useRef } from "react";
 import { Platform, StyleProp, ViewStyle } from "react-native";
 import MapView, {
+  Circle,
   Marker,
   Polyline,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
   type Region,
 } from "react-native-maps";
-import type { GpsFix, LatLng, Stop } from "../lib/types";
+import type { CongestionCell, GpsFix, LatLng, Stop } from "../lib/types";
 import { useTheme } from "../theme/ThemeProvider";
-import { MAP_STYLE_DARK, PRIORITY_HEX } from "../theme/tokens";
+import { congestionColor, MAP_STYLE_DARK, PRIORITY_HEX } from "../theme/tokens";
 
 const LONDON: Region = {
   latitude: 51.508,
@@ -25,12 +26,14 @@ export function RouteMap({
   stops,
   fix,
   follow,
+  congestion,
   style,
 }: {
   geometry: LatLng[];
   stops: Stop[];
   fix: GpsFix | null;
   follow?: boolean;
+  congestion?: CongestionCell[];
   style?: StyleProp<ViewStyle>;
 }) {
   const { theme } = useTheme();
@@ -60,6 +63,17 @@ export function RouteMap({
       showsMyLocationButton={false}
       toolbarEnabled={false}
     >
+      {/* congestion heat — translucent circles coloured lime→amber→red */}
+      {congestion?.map((c) => (
+        <Circle
+          key={c.cell}
+          center={{ latitude: c.lat, longitude: c.lng }}
+          radius={260}
+          strokeWidth={0}
+          fillColor={congestionColor(c.congestion, 0.18)}
+        />
+      ))}
+
       {coords.length >= 2 && (
         <>
           {/* glow underlay + main route line (Pulse Red) */}

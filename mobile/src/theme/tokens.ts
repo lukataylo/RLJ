@@ -98,6 +98,29 @@ export const STATUS_HEX = {
   failed: "#FF4D4D",
 } as const;
 
+// Congestion ramp 0..1 → lime → amber → deep-red (Waze-style), matching the
+// web app's palette.ts congestionRGB. Returns an rgba() string at `alpha`.
+export function congestionColor(c: number, alpha = 1): string {
+  const t = Math.max(0, Math.min(1, c));
+  const stops: [number, [number, number, number]][] = [
+    [0, [174, 227, 107]],
+    [0.5, [224, 162, 58]],
+    [1, [232, 80, 58]],
+  ];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [a, ca] = stops[i];
+    const [b, cb] = stops[i + 1];
+    if (t <= b) {
+      const k = (t - a) / (b - a || 1);
+      const r = Math.round(ca[0] + (cb[0] - ca[0]) * k);
+      const g = Math.round(ca[1] + (cb[1] - ca[1]) * k);
+      const bl = Math.round(ca[2] + (cb[2] - ca[2]) * k);
+      return `rgba(${r},${g},${bl},${alpha})`;
+    }
+  }
+  return `rgba(232,80,58,${alpha})`;
+}
+
 // Fonts (loaded via @expo-google-fonts in the root layout).
 export const FONT = {
   head: "Poppins_700Bold",

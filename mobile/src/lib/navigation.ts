@@ -13,6 +13,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useEffect, useRef, useState } from "react";
 import { postTelemetry } from "./api";
 import { distToPath, haversine, simulateGps } from "./geo";
+import { useStore } from "./store";
 import type { DirectionsResult, GpsFix, Maneuver } from "./types";
 
 const ANNOUNCE_FAR = 250; // metres
@@ -74,6 +75,7 @@ export function useNavEngine(opts: NavOptions): NavState {
     setFix(next);
     setSimulated(sim);
     pings.current.push(next);
+    useStore.getState().recordFix(next); // share latest position for green-wave
 
     if (!directions || directions.maneuvers.length === 0) return;
     const maneuvers = directions.maneuvers;
@@ -187,6 +189,8 @@ export function useNavEngine(opts: NavOptions): NavState {
       if (pings.current.length === 0) return;
       const batch = pings.current.splice(0, pings.current.length);
       const ts = new Date().toISOString();
+      // Local truth: count contributed pings even if the POST later fails.
+      useStore.getState().addPings(batch.length);
       postTelemetry({
         pings: batch.map((p) => ({
           driver_id: driverId,
@@ -196,7 +200,11 @@ export function useNavEngine(opts: NavOptions): NavState {
           heading_deg: p.heading_deg,
           ts,
         })),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (res.ok) useStore.getState().setOnline(true);
+        })
+        .catch(() => {});
     }, TELEMETRY_MS);
     return () => clearInterval(t);
   }, [enabled, consent, driverId]);
