@@ -11,7 +11,7 @@ import Inspector from "./components/Inspector";
 import DeliveryList from "./components/DeliveryList";
 import AgentLog from "./components/AgentLog";
 import VerificationPanel from "./components/VerificationPanel";
-import { connectWs, getState } from "./api";
+import { connectWs, getSignalRecs, getState } from "./api";
 import { useStore } from "./store";
 import { useStatus } from "./hooks/useStatus";
 
@@ -22,6 +22,15 @@ export default function App() {
   useEffect(() => {
     const { applyEvent, setConnected, hydrate, pushLog } = useStore.getState();
 
+    // Pull the dedicated signal-recs endpoint too — covers orchestrators whose
+    // /state omits signal_recs. Graceful (empty) on 404/error.
+    const hydrateSignalRecs = () =>
+      getSignalRecs()
+        .then((recs) => {
+          if (recs.length) applyEvent({ type: "signal_recs", payload: recs, ts: new Date().toISOString() });
+        })
+        .catch(() => {});
+
     getState()
       .then((snap) => hydrate(snap))
       .catch(() =>
@@ -31,6 +40,7 @@ export default function App() {
           source: "system",
         }),
       );
+    hydrateSignalRecs();
 
     const disconnect = connectWs({
       onEvent: (e) => applyEvent(e),
@@ -39,6 +49,7 @@ export default function App() {
         getState()
           .then((snap) => hydrate(snap))
           .catch(() => {});
+        hydrateSignalRecs();
       },
       onClose: () => {
         setConnected(false);

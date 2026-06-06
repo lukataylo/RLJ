@@ -7,6 +7,7 @@ import type {
   DisruptionEvent,
   Driver,
   Plan,
+  SignalRec,
   StateSnapshot,
   WsEvent,
 } from "./types";
@@ -94,6 +95,18 @@ export async function getDrivers(): Promise<Driver[]> {
     const res = await fetch(`${BASE}/drivers`);
     if (!res.ok) return [];
     return (await res.json()) as Driver[];
+  } catch {
+    return [];
+  }
+}
+
+/** GET /signals/recommendations — GB10 Nemotron traffic-signal recs.
+ * Empty list on 404/error so the UI degrades gracefully. */
+export async function getSignalRecs(): Promise<SignalRec[]> {
+  try {
+    const res = await fetch(`${BASE}/signals/recommendations`);
+    if (!res.ok) return [];
+    return (await res.json()) as SignalRec[];
   } catch {
     return [];
   }

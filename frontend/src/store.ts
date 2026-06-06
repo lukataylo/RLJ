@@ -12,6 +12,7 @@ import type {
   MetricSample,
   Notification,
   Plan,
+  SignalRec,
   StateSnapshot,
   WsEvent,
 } from "./types";
@@ -32,6 +33,7 @@ interface OpsState {
   disruptions: DisruptionEvent[];
   drivers: Record<string, Driver>;
   congestion: CongestionField;
+  signalRecs: SignalRec[];
   logs: LogLine[];
   lastNotification: Notification | null;
   history: MetricSample[];
@@ -61,6 +63,7 @@ export const useStore = create<OpsState>((set, get) => ({
   disruptions: [],
   drivers: {},
   congestion: { cells: [] },
+  signalRecs: [],
   logs: [],
   lastNotification: null,
   history: [],
@@ -78,6 +81,7 @@ export const useStore = create<OpsState>((set, get) => ({
       disruptions: snap.disruptions ?? [],
       drivers: byId(snap.drivers ?? []),
       congestion: snap.congestion ?? { cells: [] },
+      signalRecs: snap.signal_recs ?? [],
     });
     recordSample(get, set);
   },
@@ -155,6 +159,11 @@ export const useStore = create<OpsState>((set, get) => ({
       case "congestion_updated": {
         const field = e.payload as CongestionField;
         set({ congestion: field ?? { cells: [] } });
+        break;
+      }
+      case "signal_recs": {
+        const recs = e.payload as SignalRec[];
+        set({ signalRecs: Array.isArray(recs) ? recs : [] });
         break;
       }
       case "driver_joined": {

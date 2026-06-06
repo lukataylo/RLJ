@@ -34,14 +34,21 @@ export default function AgentLog() {
       <div className="nemo-sources">sources: TfL · London datastore · live ops</div>
       <div className="nemo-body" data-testid="nemoclaw-feed">
         {feed.length === 0 && <div className="nemo-empty">Awaiting agent activity…</div>}
-        {feed.map((l, i) => (
-          <div key={`${l.ts}-${i}`} className={`nemo-line lvl-${l.level}`}>
-            <span className="nemo-ts">
-              {new Date(l.ts).toLocaleTimeString("en-GB", { hour12: false }).slice(0, 5)}
-            </span>
-            <span className="nemo-msg">{l.message}</span>
-          </div>
-        ))}
+        {feed.map((l, i) => {
+          // Tint lines narrated by the GB10 Nemotron agent (signal recs / re-times).
+          const nemotron = /nemotron|gb10|green wave|re-?time/i.test(l.message);
+          return (
+            <div
+              key={`${l.ts}-${i}`}
+              className={`nemo-line lvl-${l.level}${nemotron ? " src-nemotron" : ""}`}
+            >
+              <span className="nemo-ts">
+                {new Date(l.ts).toLocaleTimeString("en-GB", { hour12: false }).slice(0, 5)}
+              </span>
+              <span className="nemo-msg">{l.message}</span>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

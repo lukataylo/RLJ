@@ -137,6 +137,21 @@ export interface CongestionField {
   generated_at?: string | null;
 }
 
+// ---- Traffic-signal recommendation from the GB10 Nemotron agent ----
+// Surfaced via GET /state (signal_recs), GET /signals/recommendations, and the
+// WS "signal_recs" event. Drives the toggleable Signals layer on the map.
+export type SignalAction = "green_wave" | "retime" | "hold" | "clear";
+
+export interface SignalRec {
+  name: string;
+  lat: number;
+  lng: number;
+  action: SignalAction;
+  detail: string;
+  confidence: number; // 0..1
+  source: string; // e.g. "Nemotron@GB10"
+}
+
 // ---- Orchestrator state snapshot (GET /state and WS "state" payload) ----
 export interface StateSnapshot {
   jobs: DeliveryJob[];
@@ -145,6 +160,7 @@ export interface StateSnapshot {
   disruptions: DisruptionEvent[];
   drivers?: Driver[];
   congestion?: CongestionField;
+  signal_recs?: SignalRec[];
 }
 
 // ---- WebSocket event envelope: every server->client message is {type,payload,ts} ----
@@ -167,7 +183,8 @@ export type WsEvent =
   | { type: "agent_log"; payload: AgentLog; ts: string }
   | { type: "notification"; payload: Notification; ts: string }
   | { type: "congestion_updated"; payload: CongestionField; ts: string }
-  | { type: "driver_joined"; payload: Driver; ts: string };
+  | { type: "driver_joined"; payload: Driver; ts: string }
+  | { type: "signal_recs"; payload: SignalRec[]; ts: string };
 
 export type WsEventType = WsEvent["type"];
 

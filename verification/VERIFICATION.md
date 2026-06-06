@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-06T08:28:53.074982+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T09:39:15.044538+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (45/45) · verified 52/52 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (49/49) · verified 57/57 · failing 0 · unverified 0
 
 ## impact
 
@@ -75,6 +75,8 @@ _Generated 2026-06-06T08:28:53.074982+00:00 — machine output of `make verify`.
 |--|--|--|--|
 | ✅ ⭐ | Autonomy controller detects crowdsourced congestion, re-plans around it, and dispatches | `test_autonomy_loop_reacts_to_congestion` | verified |
 | ✅ ⭐ | NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic) | `test_nemo_agent_offline_narrates_and_injects` | verified |
+| ✅ ⭐ | GB10 signal agent parses Nemotron JSON and keeps only well-formed recs | `test_ask_nemotron_parses_and_filters` | verified |
+| ✅ | GB10 signal agent handles non-JSON model output gracefully | `test_ask_nemotron_handles_non_json` | verified |
 
 ## e2e
 
@@ -84,9 +86,21 @@ _Generated 2026-06-06T08:28:53.074982+00:00 — machine output of `make verify`.
 | ✅ ⭐ | NemoClaw narration is observable by a client connecting after boot (history replay) | `test_nemoclaw_online_narration` | verified |
 | ✅ | Right delivery list renders cards with van/scooter icons (browser e2e) | `test_delivery_list_and_cards` | verified |
 | ✅ | Clicking a delivery selects it and opens the inspector (browser e2e) | `test_click_delivery_highlights` | verified |
+| ✅ ⭐ | Signal recommendations POST/GET round-trip and appear in /state | `test_signals_post_get_roundtrip` | verified |
+| ✅ ⭐ | Posted signal recommendations broadcast to the map (WS + narration) | `test_signals_broadcast` | verified |
 | ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
 | ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |
 | ✅ ⭐ | Telemetry -> congestion -> re-plan loop works end-to-end over the live stack | `test_telemetry_flywheel_loop` | verified |
+
+## unhappy
+
+| | claim | test | status |
+|--|--|--|--|
+| ✅ ⭐ | A malformed signal recommendation is rejected (422), system stays healthy | `test_signals_malformed_422` | verified |
+| ✅ ⭐ | A cold-chain job with no fridge-equipped courier is left unassigned, never mis-assigned | `test_infeasible_cold_job_unassigned_no_crash` | verified |
+| ✅ ⭐ | If the routing service is down, the orchestrator still returns a plan (greedy fallback) | `test_routing_down_uses_greedy_fallback` | verified |
+| ✅ ⭐ | Malformed job input is rejected (422) and the system stays healthy | `test_malformed_job_is_422_and_system_healthy` | verified |
+| ✅ ⭐ | Out-of-bounds / over-speed pings are rejected; valid ones still ingested | `test_bad_pings_rejected_good_accepted` | verified |
 
 ## completeness
 
@@ -96,12 +110,3 @@ _Generated 2026-06-06T08:28:53.074982+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Every UI button is wired to a real handler (no dead buttons) | `test_no_unwired_buttons` | verified |
 | ✅ ⭐ | Every contract REST endpoint is implemented and reachable | `test_orchestrator_rest_endpoints_implemented` | verified |
 | ✅ ⭐ | Every declared WebSocket event is actually emitted (no dead channels) | `test_ws_events_declared_are_emitted` | verified |
-
-## unhappy
-
-| | claim | test | status |
-|--|--|--|--|
-| ✅ ⭐ | A cold-chain job with no fridge-equipped courier is left unassigned, never mis-assigned | `test_infeasible_cold_job_unassigned_no_crash` | verified |
-| ✅ ⭐ | If the routing service is down, the orchestrator still returns a plan (greedy fallback) | `test_routing_down_uses_greedy_fallback` | verified |
-| ✅ ⭐ | Malformed job input is rejected (422) and the system stays healthy | `test_malformed_job_is_422_and_system_healthy` | verified |
-| ✅ ⭐ | Out-of-bounds / over-speed pings are rejected; valid ones still ingested | `test_bad_pings_rejected_good_accepted` | verified |

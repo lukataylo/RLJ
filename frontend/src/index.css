@@ -1017,6 +1017,15 @@ button {
 .nemo-line.lvl-error .nemo-msg {
   color: var(--red);
 }
+/* GB10 Nemotron-narrated lines (signal recs) get a lime tint + accent rail. */
+.nemo-line.src-nemotron .nemo-msg {
+  color: var(--lime);
+}
+.nemo-line.src-nemotron {
+  border-left: 2px solid var(--lime);
+  padding-left: 6px;
+  margin-left: -8px;
+}
 
 /* --------------------------------------------------- bottom-center ticket -- */
 .ticket {

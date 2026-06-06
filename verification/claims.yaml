@@ -267,6 +267,37 @@ claims:
     must_pass: false
     test: "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights"
 
+  # ---- GB10 Nemotron traffic-signal agent ---------------------------------
+  - id: signals-roundtrip
+    statement: "Signal recommendations POST/GET round-trip and appear in /state"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_signals_e2e.py::test_signals_post_get_roundtrip"
+
+  - id: signals-broadcast
+    statement: "Posted signal recommendations broadcast to the map (WS + narration)"
+    category: e2e
+    must_pass: true
+    test: "tests/e2e/test_signals_e2e.py::test_signals_broadcast"
+
+  - id: signals-malformed
+    statement: "A malformed signal recommendation is rejected (422), system stays healthy"
+    category: unhappy
+    must_pass: true
+    test: "tests/e2e/test_signals_e2e.py::test_signals_malformed_422"
+
+  - id: signal-agent-parse
+    statement: "GB10 signal agent parses Nemotron JSON and keeps only well-formed recs"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_signal_agent.py::test_ask_nemotron_parses_and_filters"
+
+  - id: signal-agent-robust
+    statement: "GB10 signal agent handles non-JSON model output gracefully"
+    category: autonomy
+    must_pass: false
+    test: "tests/unit/test_signal_agent.py::test_ask_nemotron_handles_non_json"
+
   # ---- completeness (no stubs / unwired buttons / dead endpoints) ---------
   - id: completeness-no-stubs
     statement: "No unimplemented stubs in source outside the documented GB10 seams"

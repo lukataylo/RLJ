@@ -114,6 +114,27 @@ export const ROUTE_CONGESTED_HEX = "#FF4D4D";
 export const SIGNAL_GREEN_RGB: [number, number, number] = [191, 227, 107];
 export const SIGNAL_RED_RGB: [number, number, number] = [255, 77, 77];
 
+// GB10 Nemotron traffic-signal recommendation colours, keyed by action.
+//   green_wave = lime #BFE36B · retime = amber #E0A23A
+//   hold = red #FF4D4D · clear = cyan #64D2FF
+export const SIGNAL_ACTION_RGB: Record<string, [number, number, number]> = {
+  green_wave: [191, 227, 107],
+  retime: [224, 162, 58],
+  hold: [255, 77, 77],
+  clear: [100, 210, 255],
+};
+
+export const SIGNAL_ACTION_HEX: Record<string, string> = {
+  green_wave: "#BFE36B",
+  retime: "#E0A23A",
+  hold: "#FF4D4D",
+  clear: "#64D2FF",
+};
+
+export function signalActionRGB(action: string): [number, number, number] {
+  return SIGNAL_ACTION_RGB[action] ?? [232, 237, 230];
+}
+
 // Traffic congestion ramp: lime -> amber -> deep-red over a 0..1 value (Waze-style).
 export function congestionRGB(c: number): [number, number, number] {
   const t = Math.max(0, Math.min(1, c));

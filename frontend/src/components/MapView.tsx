@@ -32,6 +32,7 @@ import type {
   DeliveryJob,
   DisruptionEvent,
   Plan,
+  SignalRec,
 } from "../types";
 import {
   COURIER_RGB,
@@ -41,6 +42,7 @@ import {
   ROUTE_NEUTRAL_RGB,
   congestionRGB,
   facilityRGB,
+  signalActionRGB,
 } from "../lib/palette";
 import {
   fetchOptionalJson,
@@ -101,13 +103,14 @@ const DISTRICTS: { name: string; lng: number; lat: number }[] = [
 ];
 
 // Toggleable layers shown in the left control stack.
-type LayerKey = "congestion" | "routes" | "incidents";
+type LayerKey = "congestion" | "routes" | "incidents" | "signals";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
   congestion: true, // "Traffic"
   routes: true,
   incidents: true,
+  signals: true, // GB10 Nemotron signal recs — default ON
 };
 
 interface Snapshot {
@@ -116,6 +119,7 @@ interface Snapshot {
   plan: Plan | null;
   disruptions: DisruptionEvent[];
   congestion: CongestionField;
+  signalRecs: SignalRec[];
   selectedCourierId: string | null;
 }
 
@@ -131,7 +135,16 @@ const EMPTY_SNAP: Snapshot = {
   plan: null,
   disruptions: [],
   congestion: { cells: [] },
+  signalRecs: [],
   selectedCourierId: null,
+};
+
+// Short uppercase glyph per signal action for the on-map label.
+const SIGNAL_ACTION_LABEL: Record<string, string> = {
+  green_wave: "GREEN WAVE",
+  retime: "RETIME",
+  hold: "HOLD",
+  clear: "CLEAR",
 };
 
 const FACILITY_GLYPH: Record<string, string> = {
@@ -259,7 +272,7 @@ function buildLayers(
   phase: number,
   roadPaths: Record<string, LngLat[] | null>,
 ): Layer[] {
-  const { jobs, couriers, plan, disruptions, congestion, selectedCourierId } = snap;
+  const { jobs, couriers, plan, disruptions, congestion, signalRecs, selectedCourierId } = snap;
   const layers: Layer[] = [];
   const courierById = new Map(couriers.map((c) => [c.id, c]));
 
@@ -572,6 +585,62 @@ function buildLayers(
     }
   }
 
+  // 8b. Signal recs — GB10 Nemotron traffic-signal recommendations. A pulsing
+  //     halo + solid ring marker at each junction, coloured by action, with a
+  //     small uppercase action label. Toggleable via the "Signals" control.
+  if (vis.signals && signalRecs.length) {
+    const sigPts = signalRecs.map((r) => ({ ...r, _t: "signal" as const }));
+    const pulse = 0.5 + 0.5 * Math.sin(phase * Math.PI * 2);
+    layers.push(
+      new ScatterplotLayer<(typeof sigPts)[number]>({
+        id: "signal-recs-glow",
+        data: sigPts,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 150 + pulse * 150,
+        radiusUnits: "meters",
+        radiusMinPixels: 10,
+        radiusMaxPixels: 40,
+        getFillColor: (d) =>
+          [...signalActionRGB(d.action), Math.round(30 + pulse * 50)] as [number, number, number, number],
+        updateTriggers: { getRadius: phase, getFillColor: phase },
+      }),
+    );
+    layers.push(
+      new ScatterplotLayer<(typeof sigPts)[number]>({
+        id: "signal-recs",
+        data: sigPts,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 9,
+        radiusUnits: "pixels",
+        radiusMinPixels: 7,
+        stroked: true,
+        lineWidthMinPixels: 2.5,
+        getLineColor: (d) => [...signalActionRGB(d.action), 255] as [number, number, number, number],
+        getFillColor: (d) => [...signalActionRGB(d.action), 70] as [number, number, number, number],
+        pickable: true,
+      }),
+    );
+    layers.push(
+      new TextLayer<(typeof sigPts)[number]>({
+        id: "signal-recs-label",
+        data: sigPts,
+        getPosition: (d) => [d.lng, d.lat],
+        getText: (d) => SIGNAL_ACTION_LABEL[d.action] ?? d.action.toUpperCase(),
+        getSize: 10,
+        getColor: (d) => [...signalActionRGB(d.action), 255] as [number, number, number, number],
+        fontWeight: 700,
+        getTextAnchor: "middle",
+        getAlignmentBaseline: "top",
+        getPixelOffset: [0, 12],
+        characterSet: "auto",
+        fontSettings: { sdf: true },
+        outlineWidth: 2,
+        outlineColor: [5, 9, 11, 220],
+        pickable: true,
+      }),
+    );
+  }
+
   // 9. District labels — static muted atmosphere.
   layers.push(
     new TextLayer<(typeof DISTRICTS)[number]>({
@@ -601,6 +670,15 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
   if (o._t === "disr") {
     const d = object as { label: string; cls: string };
     return { className: "deck-tip", html: `<b>${d.label}</b><br/><span class="tip-dim">${d.cls} disruption</span>` };
+  }
+  if (o._t === "signal") {
+    const s = object as SignalRec;
+    const conf = `${Math.round((s.confidence ?? 0) * 100)}%`;
+    const act = (SIGNAL_ACTION_LABEL[s.action] ?? s.action).toUpperCase();
+    return {
+      className: "deck-tip",
+      html: `<b>${s.name} <span style="text-transform:uppercase">[${act}]</span></b><br/>${s.detail ?? ""}<br/><span class="tip-dim">Nemotron@GB10 · conf ${conf}</span>`,
+    };
   }
   if ("congestion" in o && "path" in o) {
     const r = object as RoadPath;
@@ -635,6 +713,7 @@ const LEFT_LAYERS: { key: LayerKey; label: string; glyph: string; testid: string
   { key: "congestion", label: "Traffic", glyph: "🚦", testid: "layer-toggle-congestion" },
   { key: "routes", label: "Routes", glyph: "〰", testid: "layer-toggle-routes" },
   { key: "incidents", label: "Incidents", glyph: "⚠", testid: "layer-toggle-incidents" },
+  { key: "signals", label: "Signals", glyph: "◈", testid: "layer-toggle-signals" },
 ];
 
 export default function MapView() {
@@ -651,7 +730,7 @@ export default function MapView() {
 
   const [optional, setOptional] = useState<OptionalData>({ roads: [], facilities: [], venues: [] });
   const [vis, setVis] = useState<LayerVis>(DEFAULT_VIS);
-  const [counts, setCounts] = useState({ jobs: 0, couriers: 0, routes: 0, congestion: 0, disruptions: 0 });
+  const [counts, setCounts] = useState({ jobs: 0, couriers: 0, routes: 0, congestion: 0, disruptions: 0, signals: 0 });
 
   const selectCourier = useStore((s) => s.selectCourier);
 
@@ -693,6 +772,7 @@ export default function MapView() {
         plan: s.plan,
         disruptions: s.disruptions,
         congestion: s.congestion,
+        signalRecs: s.signalRecs,
         selectedCourierId: s.selectedCourierId,
       };
       setCounts({
@@ -701,6 +781,7 @@ export default function MapView() {
         routes: s.plan?.routes?.length ?? 0,
         congestion: s.congestion.cells.length,
         disruptions: s.disruptions.length,
+        signals: s.signalRecs.length,
       });
       const planAt = s.plan?.generated_at ?? "";
       if (planAt !== lastPlanAt) {
@@ -897,10 +978,19 @@ export default function MapView() {
         data-route-count={counts.routes}
         data-traffic={trafficOn ? "on" : "off"}
         data-congestion={counts.congestion}
+        data-signals={counts.signals}
       >
         <span className="rs-led" />
-        {`routes:${counts.routes} · cong:${counts.congestion} · traffic:${trafficOn ? optional.roads.length : "off"}`}
+        {`routes:${counts.routes} · cong:${counts.congestion} · traffic:${trafficOn ? optional.roads.length : "off"} · sig:${counts.signals}`}
       </div>
+
+      {/* Observable marker for the signal-recs layer (test hook). */}
+      <div
+        data-testid="signal-recs-layer"
+        data-count={counts.signals}
+        data-on={vis.signals ? "true" : "false"}
+        hidden
+      />
     </div>
   );
 }
