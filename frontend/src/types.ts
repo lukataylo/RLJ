@@ -152,6 +152,33 @@ export interface SignalRec {
   source: string; // e.g. "Nemotron@GB10"
 }
 
+// ---- Per-driver fleet assessment (GET /fleet/assessments + WS "fleet_assessments") ----
+// One verdict per courier from the GB10 Nemotron agent; drives the status pill +
+// Redirect affordance on each delivery card.
+export type FleetAssessmentStatus = "on_time" | "reroute_suggested" | "at_risk";
+
+export interface FleetAssessment {
+  courier_id: string;
+  status: FleetAssessmentStatus;
+  note: string;
+}
+
+// ---- Live CCTV camera (GET /cctv/cameras) — curated TfL JamCams ----
+export interface CctvCamera {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  image: string; // live still JPEG (cache-bust with a query param to refresh)
+  video: string; // live video stream link
+}
+
+// ---- Answer from the GB10 Nemotron agent (WS "agent_answer") ----
+export interface AgentAnswer {
+  task_id: string;
+  answer: string;
+}
+
 // ---- Orchestrator state snapshot (GET /state and WS "state" payload) ----
 export interface StateSnapshot {
   jobs: DeliveryJob[];
@@ -167,6 +194,8 @@ export interface StateSnapshot {
 export interface AgentLog {
   level: "info" | "warn" | "error" | string;
   message: string;
+  // Origin tag on the WS payload; "nemotron" lines are tinted in the feed.
+  source?: string;
 }
 
 export interface CourierMoved {
@@ -184,7 +213,9 @@ export type WsEvent =
   | { type: "notification"; payload: Notification; ts: string }
   | { type: "congestion_updated"; payload: CongestionField; ts: string }
   | { type: "driver_joined"; payload: Driver; ts: string }
-  | { type: "signal_recs"; payload: SignalRec[]; ts: string };
+  | { type: "signal_recs"; payload: SignalRec[]; ts: string }
+  | { type: "fleet_assessments"; payload: FleetAssessment[]; ts: string }
+  | { type: "agent_answer"; payload: AgentAnswer; ts: string };
 
 export type WsEventType = WsEvent["type"];
 

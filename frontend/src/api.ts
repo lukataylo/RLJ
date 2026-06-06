@@ -2,10 +2,12 @@
 // Base URL comes from VITE_ORCHESTRATOR_URL, default http://localhost:8000.
 
 import type {
+  CctvCamera,
   CongestionField,
   DeliveryJob,
   DisruptionEvent,
   Driver,
+  FleetAssessment,
   Plan,
   SignalRec,
   StateSnapshot,
@@ -107,6 +109,52 @@ export async function getSignalRecs(): Promise<SignalRec[]> {
     const res = await fetch(`${BASE}/signals/recommendations`);
     if (!res.ok) return [];
     return (await res.json()) as SignalRec[];
+  } catch {
+    return [];
+  }
+}
+
+/** POST /agent/ask — queue a question for the GB10 Nemotron agent. The answer
+ * arrives asynchronously as a WS "agent_log" (source "nemotron") + "agent_answer". */
+export async function askAgent(question: string): Promise<unknown> {
+  return json(
+    await fetch(`${BASE}/agent/ask`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question }),
+    }),
+  );
+}
+
+/** GET /fleet/assessments — per-courier on-time/reroute/at-risk verdicts.
+ * Empty list on 404/error so the cards degrade gracefully. */
+export async function getFleetAssessments(): Promise<FleetAssessment[]> {
+  try {
+    const res = await fetch(`${BASE}/fleet/assessments`);
+    if (!res.ok) return [];
+    return (await res.json()) as FleetAssessment[];
+  } catch {
+    return [];
+  }
+}
+
+/** POST /couriers/{id}/redirect — ask the orchestrator to re-route one courier.
+ * Throws on 404 (unknown courier) so the caller can surface the failure. */
+export async function redirectCourier(id: string): Promise<{ ok: boolean } & Record<string, unknown>> {
+  return json(
+    await fetch(`${BASE}/couriers/${encodeURIComponent(id)}/redirect`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    }),
+  );
+}
+
+/** GET /cctv/cameras — curated live TfL JamCams. Empty list on 404/error. */
+export async function getCctv(): Promise<CctvCamera[]> {
+  try {
+    const res = await fetch(`${BASE}/cctv/cameras`);
+    if (!res.ok) return [];
+    return (await res.json()) as CctvCamera[];
   } catch {
     return [];
   }

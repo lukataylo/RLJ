@@ -26,6 +26,7 @@ import type { Layer, PickingInfo } from "@deck.gl/core";
 import { ScatterplotLayer, PathLayer, TextLayer } from "@deck.gl/layers";
 import { useStore } from "../store";
 import type {
+  CctvCamera,
   CongestionCell,
   CongestionField,
   Courier,
@@ -103,7 +104,7 @@ const DISTRICTS: { name: string; lng: number; lat: number }[] = [
 ];
 
 // Toggleable layers shown in the left control stack.
-type LayerKey = "congestion" | "routes" | "incidents" | "signals";
+type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
@@ -111,7 +112,11 @@ const DEFAULT_VIS: LayerVis = {
   routes: true,
   incidents: true,
   signals: true, // GB10 Nemotron signal recs — default ON
+  cctv: false, // live CCTV cameras — default OFF to keep the map clean
 };
+
+// Cap on simultaneously rendered camera icons so a dense viewport never clutters.
+const CCTV_RENDER_CAP = 80;
 
 interface Snapshot {
   jobs: DeliveryJob[];
@@ -120,8 +125,12 @@ interface Snapshot {
   disruptions: DisruptionEvent[];
   congestion: CongestionField;
   signalRecs: SignalRec[];
+  cctv: CctvCamera[];
   selectedCourierId: string | null;
 }
+
+// Map viewport bounds [west, south, east, north]; null until the map first moves.
+type Bounds = [number, number, number, number] | null;
 
 interface OptionalData {
   roads: RoadPath[];
@@ -136,6 +145,7 @@ const EMPTY_SNAP: Snapshot = {
   disruptions: [],
   congestion: { cells: [] },
   signalRecs: [],
+  cctv: [],
   selectedCourierId: null,
 };
 
@@ -265,14 +275,26 @@ function dashSegments(a: LngLat, b: LngLat, dash = 0.0009, gap = 0.0007): LngLat
   return segs;
 }
 
+// Cameras inside the current viewport (bounds), capped so a dense area never clutters.
+function visibleCams(cams: CctvCamera[], bounds: Bounds): CctvCamera[] {
+  if (!cams.length) return [];
+  let inView = cams;
+  if (bounds) {
+    const [w, s, e, n] = bounds;
+    inView = cams.filter((c) => c.lng >= w && c.lng <= e && c.lat >= s && c.lat <= n);
+  }
+  return inView.length > CCTV_RENDER_CAP ? inView.slice(0, CCTV_RENDER_CAP) : inView;
+}
+
 function buildLayers(
   snap: Snapshot,
   data: OptionalData,
   vis: LayerVis,
   phase: number,
   roadPaths: Record<string, LngLat[] | null>,
+  bounds: Bounds,
 ): Layer[] {
-  const { jobs, couriers, plan, disruptions, congestion, signalRecs, selectedCourierId } = snap;
+  const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId } = snap;
   const layers: Layer[] = [];
   const courierById = new Map(couriers.map((c) => [c.id, c]));
 
@@ -641,6 +663,46 @@ function buildLayers(
     );
   }
 
+  // 8c. Live CCTV cameras — small clickable markers (default OFF). Only the cams in
+  //     the current viewport are drawn, capped, so a dense area never clutters.
+  if (vis.cctv && cctv.length) {
+    const cams = visibleCams(cctv, bounds).map((c) => ({ ...c, _t: "cctv" as const }));
+    if (cams.length) {
+      layers.push(
+        new ScatterplotLayer<(typeof cams)[number]>({
+          id: "cctv-cams",
+          data: cams,
+          getPosition: (d) => [d.lng, d.lat],
+          getRadius: 7,
+          radiusUnits: "pixels",
+          radiusMinPixels: 6,
+          radiusMaxPixels: 10,
+          stroked: true,
+          lineWidthMinPixels: 1.5,
+          getLineColor: [232, 237, 230, 235],
+          getFillColor: [100, 210, 255, 150],
+          pickable: true,
+        }),
+      );
+      layers.push(
+        new TextLayer<(typeof cams)[number]>({
+          id: "cctv-cams-glyph",
+          data: cams,
+          getPosition: (d) => [d.lng, d.lat],
+          getText: () => "▣",
+          getSize: 11,
+          getColor: [5, 9, 11, 255],
+          fontWeight: 700,
+          getTextAnchor: "middle",
+          getAlignmentBaseline: "center",
+          characterSet: "auto",
+          fontSettings: { sdf: true },
+          pickable: true,
+        }),
+      );
+    }
+  }
+
   // 9. District labels — static muted atmosphere.
   layers.push(
     new TextLayer<(typeof DISTRICTS)[number]>({
@@ -680,6 +742,10 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
       html: `<b>${s.name} <span style="text-transform:uppercase">[${act}]</span></b><br/>${s.detail ?? ""}<br/><span class="tip-dim">Nemotron@GB10 · conf ${conf}</span>`,
     };
   }
+  if (o._t === "cctv") {
+    const c = object as CctvCamera;
+    return { className: "deck-tip", html: `<b>${c.name}</b><br/><span class="tip-dim">live CCTV · click to view</span>` };
+  }
   if ("congestion" in o && "path" in o) {
     const r = object as RoadPath;
     return { className: "deck-tip", html: `<b>Traffic ${(r.congestion * 100).toFixed(0)}%</b><br/><span class="tip-dim">road segment</span>` };
@@ -714,6 +780,7 @@ const LEFT_LAYERS: { key: LayerKey; label: string; glyph: string; testid: string
   { key: "routes", label: "Routes", glyph: "〰", testid: "layer-toggle-routes" },
   { key: "incidents", label: "Incidents", glyph: "⚠", testid: "layer-toggle-incidents" },
   { key: "signals", label: "Signals", glyph: "◈", testid: "layer-toggle-signals" },
+  { key: "cctv", label: "CCTV", glyph: "▣", testid: "layer-toggle-cctv" },
 ];
 
 export default function MapView() {
@@ -727,12 +794,36 @@ export default function MapView() {
   const visRef = useRef<LayerVis>(DEFAULT_VIS);
   const roadPathsRef = useRef<Record<string, LngLat[] | null>>({});
   const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const boundsRef = useRef<Bounds>(null);
+  // Set by an effect; the once-created overlay onClick calls it to open the popover.
+  const selectCamRef = useRef<((cam: CctvCamera, x: number, y: number) => void) | null>(null);
 
   const [optional, setOptional] = useState<OptionalData>({ roads: [], facilities: [], venues: [] });
   const [vis, setVis] = useState<LayerVis>(DEFAULT_VIS);
   const [counts, setCounts] = useState({ jobs: 0, couriers: 0, routes: 0, congestion: 0, disruptions: 0, signals: 0 });
+  // Open CCTV popover: the picked camera + its on-screen pixel position + a refresh tick.
+  const [activeCam, setActiveCam] = useState<{ cam: CctvCamera; x: number; y: number } | null>(null);
+  const [imgTick, setImgTick] = useState(0);
 
   const selectCourier = useStore((s) => s.selectCourier);
+
+  // Bridge the imperative overlay click → React state for the CCTV popover.
+  useEffect(() => {
+    selectCamRef.current = (cam, x, y) => {
+      setActiveCam({ cam, x, y });
+      setImgTick(0);
+    };
+    return () => {
+      selectCamRef.current = null;
+    };
+  }, []);
+
+  // While the popover is open, cache-bust the live still every ~10s.
+  useEffect(() => {
+    if (!activeCam) return;
+    const t = window.setInterval(() => setImgTick((n) => n + 1), 10000);
+    return () => window.clearInterval(t);
+  }, [activeCam]);
 
   const toggle = (key: LayerKey) => setVis((v) => ({ ...v, [key]: !v[key] }));
 
@@ -773,6 +864,7 @@ export default function MapView() {
         disruptions: s.disruptions,
         congestion: s.congestion,
         signalRecs: s.signalRecs,
+        cctv: s.cctv,
         selectedCourierId: s.selectedCourierId,
       };
       setCounts({
@@ -878,7 +970,15 @@ export default function MapView() {
 
     const m = map as maplibregl.Map;
 
+    // Keep the viewport bounds current so the CCTV layer only draws cams in view.
+    const syncBounds = () => {
+      const b = m.getBounds();
+      boundsRef.current = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+    };
+    m.on("move", syncBounds);
+
     m.on("load", () => {
+      syncBounds();
       // Tint the Thames into a soft glowing blue ribbon (mapbox dark-v11 has water).
       if (USE_MAPBOX) {
         try {
@@ -900,6 +1000,10 @@ export default function MapView() {
       layers: [],
       onClick: (info: PickingInfo) => {
         const o = info.object as Record<string, unknown> | null;
+        if (o && o._t === "cctv") {
+          selectCamRef.current?.(o as unknown as CctvCamera, info.x ?? 0, info.y ?? 0);
+          return;
+        }
         if (o && "status" in o && "location" in o) {
           selectCourier((o as unknown as Courier).id);
         }
@@ -916,7 +1020,14 @@ export default function MapView() {
       last = now;
       phaseRef.current = (phaseRef.current + dt / LOOP_SECONDS) % 1;
       overlay.setProps({
-        layers: buildLayers(snapRef.current, dataRef.current, visRef.current, phaseRef.current, roadPathsRef.current),
+        layers: buildLayers(
+          snapRef.current,
+          dataRef.current,
+          visRef.current,
+          phaseRef.current,
+          roadPathsRef.current,
+          boundsRef.current,
+        ),
       });
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -991,6 +1102,55 @@ export default function MapView() {
         data-on={vis.signals ? "true" : "false"}
         hidden
       />
+
+      {/* Observable marker for the CCTV layer (test hook). */}
+      <div
+        data-testid="cctv-layer"
+        data-on={vis.cctv ? "true" : "false"}
+        hidden
+      />
+
+      {/* Live CCTV popover — opens on camera click; image refreshes every ~10s. */}
+      {activeCam && (
+        <div
+          className="cctv-popover glass"
+          data-testid="cctv-popover"
+          style={{
+            left: Math.max(12, Math.min(activeCam.x + 14, (containerRef.current?.clientWidth ?? 9999) - 280)),
+            top: Math.max(12, activeCam.y - 40),
+          }}
+        >
+          <div className="cctv-pop-head">
+            <span className="cctv-pop-name">{activeCam.cam.name}</span>
+            <button
+              type="button"
+              className="cctv-pop-close"
+              aria-label="Close camera"
+              onClick={() => setActiveCam(null)}
+            >
+              ✕
+            </button>
+          </div>
+          <img
+            className="cctv-pop-img"
+            src={`${activeCam.cam.image}${activeCam.cam.image.includes("?") ? "&" : "?"}cb=${imgTick}`}
+            alt={`Live view: ${activeCam.cam.name}`}
+          />
+          <div className="cctv-pop-foot">
+            <span className="cctv-pop-live">
+              <span className="cctv-pop-dot" /> LIVE
+            </span>
+            <a
+              className="cctv-pop-video"
+              href={activeCam.cam.video}
+              target="_blank"
+              rel="noreferrer"
+            >
+              ▶ video
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

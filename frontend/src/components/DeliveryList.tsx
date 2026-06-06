@@ -35,6 +35,7 @@ export default function DeliveryList() {
   const plan = useStore((s) => s.plan);
   const selectedId = useStore((s) => s.selectedCourierId);
   const selectCourier = useStore((s) => s.selectCourier);
+  const fleetAssessments = useStore((s) => s.fleetAssessments);
 
   const items = useMemo<DeliveryItem[]>(() => {
     const out: DeliveryItem[] = [];
@@ -101,6 +102,7 @@ export default function DeliveryList() {
             key={it.key}
             item={it}
             selected={selectedId === it.courierId}
+            assessment={fleetAssessments[it.courierId]}
             onSelect={() => selectCourier(selectedId === it.courierId ? null : it.courierId)}
             onClear={() => selectCourier(null)}
           />

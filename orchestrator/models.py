@@ -148,3 +148,23 @@ class SignalRecommendation(BaseModel):
 
 class SignalRecommendations(BaseModel):
     recommendations: list[SignalRecommendation]
+
+
+# ---- two-way NemoClaw agent channel (ask / answer) + per-driver assessments --------
+class AgentAsk(BaseModel):
+    question: str
+
+
+class AgentAnswer(BaseModel):
+    task_id: str
+    answer: str
+
+
+class FleetAssessment(BaseModel):
+    courier_id: str
+    status: Literal["on_time", "reroute_suggested", "at_risk"] = "on_time"
+    note: str = ""
+
+
+class FleetAssessments(BaseModel):
+    assessments: list[FleetAssessment]

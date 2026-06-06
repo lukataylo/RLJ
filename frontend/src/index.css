@@ -226,6 +226,87 @@ button {
   box-shadow: 0 0 8px var(--lime);
 }
 
+/* ------------------------------------------------------- CCTV popover ------ */
+.cctv-popover {
+  position: absolute;
+  z-index: 60;
+  width: 264px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cctv-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cctv-pop-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cctv-pop-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.cctv-pop-close:hover {
+  color: var(--red);
+}
+.cctv-pop-img {
+  width: 100%;
+  height: 152px;
+  object-fit: cover;
+  border-radius: 9px;
+  background: var(--bg1);
+  border: 1px solid var(--hair);
+  display: block;
+}
+.cctv-pop-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cctv-pop-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--lime);
+}
+.cctv-pop-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 8px var(--lime);
+}
+.cctv-pop-video {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--yellow);
+  text-decoration: none;
+  padding: 4px 9px;
+  border: 1px solid rgba(242, 194, 26, 0.3);
+  border-radius: 8px;
+}
+.cctv-pop-video:hover {
+  background: rgba(242, 194, 26, 0.14);
+}
+
 /* ------------------------------------------------------- top-left pill ----- */
 .prov-pill {
   position: absolute;
@@ -918,6 +999,80 @@ button {
   color: var(--muted);
 }
 
+/* per-driver assessment pill + note (shown when status != on_time) */
+.dc-assess {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+}
+.dc-assess-pill {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.dc-assess.reroute_suggested .dc-assess-pill {
+  color: var(--bg);
+  background: var(--amber);
+}
+.dc-assess.at_risk .dc-assess-pill {
+  color: #fff;
+  background: var(--red);
+}
+.dc-assess-note {
+  font-size: 9.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dc-assess.at_risk .dc-assess-note {
+  color: var(--red);
+}
+
+/* redirect action */
+.dc-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.dc-redirect {
+  background: rgba(242, 194, 26, 0.1);
+  border: 1px solid rgba(242, 194, 26, 0.3);
+  border-radius: 8px;
+  padding: 5px 11px;
+  color: var(--yellow);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.dc-redirect:hover {
+  background: rgba(242, 194, 26, 0.2);
+  border-color: rgba(242, 194, 26, 0.5);
+}
+.dc-redirect.redirecting {
+  color: var(--muted);
+  background: rgba(200, 220, 180, 0.06);
+  border-color: var(--hair);
+  cursor: default;
+}
+.dc-redirect.done {
+  color: var(--bg);
+  background: var(--lime);
+  border-color: var(--lime);
+}
+.dc-redirect.error {
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+}
+
 /* keep the inspector from crowding the column when a courier is selected */
 .right-stack .inspector {
   flex-shrink: 0;
@@ -1025,6 +1180,72 @@ button {
   border-left: 2px solid var(--lime);
   padding-left: 6px;
   margin-left: -8px;
+}
+
+/* Ask NemoClaw — input + send + preset prompts */
+.nemo-ask {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.nemo-ask-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(200, 220, 180, 0.05);
+  border: 1px solid var(--hair);
+  border-radius: 9px;
+  padding: 7px 9px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.nemo-ask-input::placeholder {
+  color: var(--faint);
+}
+.nemo-ask-input:focus {
+  outline: none;
+  border-color: rgba(242, 194, 26, 0.4);
+}
+.nemo-ask-send {
+  flex-shrink: 0;
+  background: var(--yellow);
+  color: var(--bg);
+  border: none;
+  border-radius: 9px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.nemo-ask-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.nemo-presets {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+}
+.nemo-preset {
+  flex: 1;
+  background: rgba(200, 220, 180, 0.05);
+  border: 1px solid var(--hair);
+  border-radius: 9px;
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nemo-preset:hover {
+  background: rgba(191, 227, 107, 0.08);
+  border-color: rgba(191, 227, 107, 0.25);
+  color: var(--text);
+}
+.nemo-preset:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* --------------------------------------------------- bottom-center ticket -- */

@@ -101,18 +101,93 @@ def ask_nemotron(cells: list[dict]) -> list[dict]:
     return out
 
 
+def _hotspot_summary(cells: list[dict]) -> str:
+    hot = sorted(cells, key=lambda c: c.get("congestion", 0), reverse=True)[:6]
+    return "; ".join(f"({c['lat']:.4f},{c['lng']:.4f}) {c['congestion']:.2f}" for c in hot) or "none reported"
+
+
+def fetch_state() -> dict:
+    try:
+        return _get_json(f"{ORCH}/state")
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def answer_pending_tasks(cells: list[dict]) -> None:
+    """Operator asked NemoClaw something -> reason with local Nemotron, post the answer."""
+    try:
+        tasks = _get_json(f"{ORCH}/agent/tasks")
+    except Exception:  # noqa: BLE001
+        return
+    for t in tasks[:2]:
+        ctx = f"Live congestion hotspots (lat,lng,level): {_hotspot_summary(cells)}. Junctions monitored: {len(JUNCTIONS)}."
+        body = {"model": MODEL, "stream": False, "options": {"temperature": 0.3},
+                "messages": [
+                    {"role": "system", "content": "You are NemoClaw, a London medical-courier traffic operations agent running locally on a DGX Spark. Answer the operator concisely (max 3 sentences), grounded in the live data."},
+                    {"role": "user", "content": f"{ctx}\nOperator question: {t['question']}"}]}
+        try:
+            resp = _post_json(f"{OLLAMA}/api/chat", body, timeout=150.0)
+            ans = (resp.get("message", {}).get("content", "") or "").strip()[:400] or "(no answer)"
+        except Exception as e:  # noqa: BLE001
+            ans = f"(agent error: {e})"
+        try:
+            _post_json(f"{ORCH}/agent/answer", {"task_id": t["id"], "answer": ans})
+            print(f"[ok] answered {t['id']}", flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] answer post failed: {e}", flush=True)
+
+
+def assess_drivers(state: dict, cells: list[dict]) -> None:
+    """Per-driver: on_time | reroute_suggested | at_risk vs live congestion."""
+    couriers = state.get("couriers", [])
+    if not couriers:
+        return
+    drv = [{"id": c["id"], "name": c.get("name"),
+            "loc": [c["location"]["lat"], c["location"]["lng"]]} for c in couriers]
+    prompt = (f"Drivers: {json.dumps(drv)}\nCongestion hotspots (lat,lng,level): {_hotspot_summary(cells)}\n"
+              "For each driver id, classify status as on_time|reroute_suggested|at_risk with a short note "
+              '(<14 words). Reply ONLY JSON {"assessments":[{"courier_id":str,"status":str,"note":str}]}.')
+    body = {"model": MODEL, "format": "json", "stream": False, "options": {"temperature": 0.2},
+            "messages": [{"role": "system", "content": "You assess delivery drivers against live congestion. Reply only JSON."},
+                         {"role": "user", "content": prompt}]}
+    try:
+        resp = _post_json(f"{OLLAMA}/api/chat", body, timeout=150.0)
+        items = json.loads(resp.get("message", {}).get("content", "{}")).get("assessments", [])
+    except Exception as e:  # noqa: BLE001
+        print(f"[warn] assess failed: {e}", flush=True)
+        return
+    valid = {"on_time", "reroute_suggested", "at_risk"}
+    out = [{"courier_id": str(x["courier_id"]),
+            "status": x.get("status") if x.get("status") in valid else "on_time",
+            "note": str(x.get("note", ""))[:120]}
+           for x in items if x.get("courier_id")]
+    if out:
+        try:
+            _post_json(f"{ORCH}/fleet/assessments", {"assessments": out})
+            print(f"[ok] posted {len(out)} driver assessment(s)", flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] assessment post failed: {e}", flush=True)
+
+
 def main():
-    print(f"signal_agent: orch={ORCH} ollama={OLLAMA} model={MODEL} interval={INTERVAL_S}s", flush=True)
+    tick_s = float(os.environ.get("TICK_S", str(INTERVAL_S if INTERVAL_S <= 20 else 12)))
+    print(f"signal_agent: orch={ORCH} ollama={OLLAMA} model={MODEL} tick={tick_s}s", flush=True)
+    tick = 0
     while True:
+        tick += 1
         cells = fetch_congestion()
-        recs = ask_nemotron(cells)
-        if recs:
-            try:
-                res = _post_json(f"{ORCH}/signals/recommendations", {"recommendations": recs})
-                print(f"[ok] posted {res.get('accepted')} recommendation(s) to orchestrator", flush=True)
-            except Exception as e:  # noqa: BLE001
-                print(f"[warn] post failed: {e}", flush=True)
-        time.sleep(INTERVAL_S)
+        answer_pending_tasks(cells)             # responsive to operator asks every tick
+        if tick % 6 == 1:                       # signal recs ~every 6 ticks
+            recs = ask_nemotron(cells)
+            if recs:
+                try:
+                    res = _post_json(f"{ORCH}/signals/recommendations", {"recommendations": recs})
+                    print(f"[ok] posted {res.get('accepted')} signal rec(s)", flush=True)
+                except Exception as e:  # noqa: BLE001
+                    print(f"[warn] rec post failed: {e}", flush=True)
+        if tick % 6 == 3:                       # per-driver assessment offset from recs
+            assess_drivers(fetch_state(), cells)
+        time.sleep(tick_s)
 
 
 if __name__ == "__main__":

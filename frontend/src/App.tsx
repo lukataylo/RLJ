@@ -11,7 +11,7 @@ import Inspector from "./components/Inspector";
 import DeliveryList from "./components/DeliveryList";
 import AgentLog from "./components/AgentLog";
 import VerificationPanel from "./components/VerificationPanel";
-import { connectWs, getSignalRecs, getState } from "./api";
+import { connectWs, getCctv, getFleetAssessments, getSignalRecs, getState } from "./api";
 import { useStore } from "./store";
 import { useStatus } from "./hooks/useStatus";
 
@@ -20,7 +20,8 @@ export default function App() {
   const [verifyOpen, setVerifyOpen] = useState(false);
 
   useEffect(() => {
-    const { applyEvent, setConnected, hydrate, pushLog } = useStore.getState();
+    const { applyEvent, setConnected, hydrate, pushLog, setFleetAssessments, setCctv } =
+      useStore.getState();
 
     // Pull the dedicated signal-recs endpoint too — covers orchestrators whose
     // /state omits signal_recs. Graceful (empty) on 404/error.
@@ -29,6 +30,16 @@ export default function App() {
         .then((recs) => {
           if (recs.length) applyEvent({ type: "signal_recs", payload: recs, ts: new Date().toISOString() });
         })
+        .catch(() => {});
+
+    // Per-courier fleet assessments + live CCTV cameras (both graceful on error).
+    const hydrateFleet = () =>
+      getFleetAssessments()
+        .then((list) => setFleetAssessments(list))
+        .catch(() => {});
+    const hydrateCctv = () =>
+      getCctv()
+        .then((cams) => setCctv(cams))
         .catch(() => {});
 
     getState()
@@ -41,6 +52,8 @@ export default function App() {
         }),
       );
     hydrateSignalRecs();
+    hydrateFleet();
+    hydrateCctv();
 
     const disconnect = connectWs({
       onEvent: (e) => applyEvent(e),
@@ -50,6 +63,8 @@ export default function App() {
           .then((snap) => hydrate(snap))
           .catch(() => {});
         hydrateSignalRecs();
+        hydrateFleet();
+        hydrateCctv();
       },
       onClose: () => {
         setConnected(false);

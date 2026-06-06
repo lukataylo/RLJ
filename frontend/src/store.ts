@@ -3,12 +3,15 @@
 
 import { create } from "zustand";
 import type {
+  AgentAnswer,
   AgentLog,
+  CctvCamera,
   CongestionField,
   Courier,
   DeliveryJob,
   DisruptionEvent,
   Driver,
+  FleetAssessment,
   MetricSample,
   Notification,
   Plan,
@@ -23,6 +26,8 @@ export interface LogLine {
   level: string;
   message: string;
   source: "agent_log" | "notification" | "system";
+  // True for lines narrated by the GB10 Nemotron agent (tinted in the feed).
+  nemotron?: boolean;
 }
 
 interface OpsState {
@@ -38,12 +43,17 @@ interface OpsState {
   lastNotification: Notification | null;
   history: MetricSample[];
   selectedCourierId: string | null;
+  fleetAssessments: Record<string, FleetAssessment>;
+  cctv: CctvCamera[];
+  lastAgentAnswer: AgentAnswer | null;
 
   setConnected: (v: boolean) => void;
   hydrate: (snap: StateSnapshot) => void;
   applyEvent: (e: WsEvent) => void;
   pushLog: (line: Omit<LogLine, "ts"> & { ts?: string }) => void;
   selectCourier: (id: string | null) => void;
+  setFleetAssessments: (list: FleetAssessment[]) => void;
+  setCctv: (list: CctvCamera[]) => void;
 }
 
 const MAX_LOGS = 200;
@@ -68,10 +78,18 @@ export const useStore = create<OpsState>((set, get) => ({
   lastNotification: null,
   history: [],
   selectedCourierId: null,
+  fleetAssessments: {},
+  cctv: [],
+  lastAgentAnswer: null,
 
   setConnected: (v) => set({ connected: v }),
 
   selectCourier: (id) => set({ selectedCourierId: id }),
+
+  setFleetAssessments: (list) =>
+    set({ fleetAssessments: keyByCourier(Array.isArray(list) ? list : []) }),
+
+  setCctv: (list) => set({ cctv: Array.isArray(list) ? list : [] }),
 
   hydrate: (snap) => {
     set({
@@ -142,6 +160,7 @@ export const useStore = create<OpsState>((set, get) => ({
           level: log.level ?? "info",
           message: log.message,
           source: "agent_log",
+          nemotron: log.source === "nemotron",
         });
         break;
       }
@@ -177,9 +196,32 @@ export const useStore = create<OpsState>((set, get) => ({
         });
         break;
       }
+      case "fleet_assessments": {
+        const list = e.payload as FleetAssessment[];
+        set({ fleetAssessments: keyByCourier(Array.isArray(list) ? list : []) });
+        break;
+      }
+      case "agent_answer": {
+        const ans = e.payload as AgentAnswer;
+        set({ lastAgentAnswer: ans });
+        get().pushLog({
+          ts: e.ts,
+          level: "info",
+          message: `NemoClaw: ${ans.answer}`,
+          source: "agent_log",
+          nemotron: true,
+        });
+        break;
+      }
     }
   },
 }));
+
+function keyByCourier(list: FleetAssessment[]): Record<string, FleetAssessment> {
+  const out: Record<string, FleetAssessment> = {};
+  for (const a of list) out[a.courier_id] = a;
+  return out;
+}
 
 function recordSample(
   get: () => OpsState,

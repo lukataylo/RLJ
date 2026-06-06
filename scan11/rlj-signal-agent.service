@@ -12,6 +12,7 @@ Environment=ORCH=http://10.18.216.110:8000
 Environment=OLLAMA=http://localhost:11434
 Environment=MODEL=nemotron
 Environment=INTERVAL_S=90
+Environment=TICK_S=12
 Restart=always
 RestartSec=5
 

@@ -21,7 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
                     Plan, OptimizeRequest, OptimizeResponse,
                     Driver, DriverPing, TelemetryBatch,
-                    SignalRecommendation, SignalRecommendations)
+                    SignalRecommendation, SignalRecommendations,
+                    AgentAsk, AgentAnswer, FleetAssessments)
 from greedy import greedy_plan
 import congestion as congestion_mod
 import nemo_agent
@@ -42,7 +43,10 @@ class State:
         self.pings: list[dict] = []
         self.congestion: dict = {"cells": [], "generated_at": None}
         self.signal_recs: list[dict] = []   # from the GB10 Nemotron agent
+        self.agent_tasks: list[dict] = []   # questions queued for the GB10 agent
+        self.fleet_assessments: dict[str, dict] = {}  # courier_id -> {status,note}
         self.couriers_helped: int = 0
+        self._task_n = 0
         self.progress: dict[str, float] = {}   # courier_id -> fraction along current route
         self._job_n = 0
         self._crt_n = 0
@@ -58,6 +62,7 @@ class State:
             "drivers": [d.model_dump(mode="json") for d in self.drivers.values()],
             "congestion": self.congestion,
             "signal_recs": self.signal_recs,
+            "fleet_assessments": list(self.fleet_assessments.values()),
         }
 
     def all_disruptions(self) -> list[DisruptionEvent]:
@@ -297,6 +302,41 @@ async def get_congestion():
     return S.congestion
 
 
+# ----------------------------------------------------------------------------- CCTV (JamCams)
+_CCTV_CACHE: dict = {"at": 0.0, "cams": []}
+_CCTV_BBOX = (51.45, 51.56, -0.25, 0.05)  # central-ish London, curated
+
+
+@app.get("/cctv/cameras")
+async def cctv_cameras():
+    """Curated live TfL JamCams (proxied + cached ~5 min, so the browser avoids CORS and
+    we don't render 882 icons). Each: {id,name,lat,lng,image,video,available}."""
+    import time as _t
+    if _CCTV_CACHE["cams"] and (_t.time() - _CCTV_CACHE["at"] < 300):
+        return _CCTV_CACHE["cams"]
+    cams = []
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            data = (await client.get("https://api.tfl.gov.uk/Place/Type/JamCam")).json()
+        a, b, c, d = _CCTV_BBOX
+        for cam in data if isinstance(data, list) else []:
+            lat, lng = cam.get("lat"), cam.get("lon")
+            if lat is None or not (a <= lat <= b and c <= lng <= d):
+                continue
+            props = {p["key"]: p["value"] for p in cam.get("additionalProperties", [])}
+            if str(props.get("available", "true")).lower() == "false":
+                continue
+            cams.append({"id": cam.get("id"), "name": cam.get("commonName"),
+                         "lat": lat, "lng": lng, "image": props.get("imageUrl"),
+                         "video": props.get("videoUrl")})
+        cams = cams[:120]
+    except Exception:  # noqa: BLE001 - offline: return whatever we had (possibly empty)
+        return _CCTV_CACHE["cams"]
+    _CCTV_CACHE["at"] = _t.time()
+    _CCTV_CACHE["cams"] = cams
+    return cams
+
+
 @app.get("/signals/recommendations")
 async def get_signal_recs():
     return S.signal_recs
@@ -314,6 +354,71 @@ async def post_signal_recs(body: SignalRecommendations):
                                      "message": f"Nemotron@GB10: {len(S.signal_recs)} signal rec(s) — "
                                                 f"{top['action']} at {top.get('name') or 'junction'}: {top['detail'][:80]}"})
     return {"accepted": len(S.signal_recs)}
+
+
+# ----------------------------------------------------------------------------- agent channel
+@app.post("/agent/ask")
+async def agent_ask(body: AgentAsk):
+    """Queue a question for the GB10 NemoClaw agent (it polls /agent/tasks and answers)."""
+    S._task_n += 1
+    task = {"id": f"task-{S._task_n}", "question": body.question,
+            "ts": _now_iso(), "status": "pending"}
+    S.agent_tasks.append(task)
+    S.agent_tasks = S.agent_tasks[-50:]
+    await HUB.emit("agent_log", {"level": "info", "source": "operator",
+                                 "message": f"Asked NemoClaw: {body.question[:120]}"})
+    return task
+
+
+@app.get("/agent/tasks")
+async def agent_tasks():
+    return [t for t in S.agent_tasks if t["status"] == "pending"]
+
+
+@app.post("/agent/answer")
+async def agent_answer(body: AgentAnswer):
+    """The GB10 agent posts its Nemotron answer here; it lands in the NemoClaw feed."""
+    for t in S.agent_tasks:
+        if t["id"] == body.task_id:
+            t["status"] = "answered"
+            t["answer"] = body.answer
+            break
+    await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
+                                 "message": f"Nemotron@GB10: {body.answer[:240]}"})
+    await HUB.emit("agent_answer", {"task_id": body.task_id, "answer": body.answer})
+    return {"ok": True}
+
+
+# ----------------------------------------------------------------------------- per-driver
+@app.get("/fleet/assessments")
+async def get_fleet_assessments():
+    return list(S.fleet_assessments.values())
+
+
+@app.post("/fleet/assessments")
+async def post_fleet_assessments(body: FleetAssessments):
+    """The agent's per-driver assessment (on_time / reroute_suggested / at_risk) shown on cards."""
+    for a in body.assessments:
+        S.fleet_assessments[a.courier_id] = a.model_dump(mode="json")
+    await HUB.emit("fleet_assessments", list(S.fleet_assessments.values()))
+    flagged = [a for a in body.assessments if a.status != "on_time"]
+    if flagged:
+        await HUB.emit("agent_log", {"level": "warn", "source": "nemotron",
+                                     "message": f"Nemotron@GB10 flagged {len(flagged)} driver(s) for reroute."})
+    return {"accepted": len(body.assessments)}
+
+
+@app.post("/couriers/{courier_id}/redirect")
+async def redirect_courier(courier_id: str):
+    """Operator-triggered redirect: re-optimise (routes avoid live congestion) and narrate."""
+    courier = S.couriers.get(courier_id)
+    if courier is None:
+        raise HTTPException(status_code=404, detail="unknown courier")
+    await HUB.emit("agent_log", {"level": "info", "source": "operator",
+                                 "message": f"Redirecting {courier.name or courier_id} around current congestion."})
+    plan = await run_optimize()
+    return {"ok": True, "courier_id": courier_id,
+            "windows_met": plan.objective.windows_met, "solver": plan.objective.solver}
 
 
 @app.get("/driver/{driver_id}/guidance")
