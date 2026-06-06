@@ -75,10 +75,8 @@ def test_parse_delivery_heuristic_fallback(monkeypatch):
     geocode = _load("geocode")
     intake = _load("intake")
 
-    def _boom(*a, **k):  # force the offline heuristic path
-        raise RuntimeError("ollama down")
-
-    monkeypatch.setattr(intake, "_ask_ollama", _boom)
+    # No LLM provider reachable -> complete_json returns None -> heuristic path.
+    monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
 
     parsed = intake.parse_delivery("urgent meds from Guy's to Moorfields",
                                    geocode.place_names())
@@ -97,8 +95,7 @@ def test_parse_delivery_extracts_freetext_phrases(monkeypatch):
     # is forced down so the deterministic regex heuristic runs offline.
     geocode = _load("geocode")
     intake = _load("intake")
-    monkeypatch.setattr(intake, "_ask_ollama",
-                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+    monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
 
     parsed = intake.parse_delivery(
         "urgent sample from Spitalfields Practice to Victoria Medical Centre")
@@ -116,8 +113,7 @@ def test_parse_delivery_extracts_freetext_phrases(monkeypatch):
 def test_parse_delivery_ignores_place_names_arg(monkeypatch):
     # place_names is accepted for compat but ignored; passing junk must not break.
     intake = _load("intake")
-    monkeypatch.setattr(intake, "_ask_ollama",
-                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+    monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
     parsed = intake.parse_delivery("routine meds from Bank to Angel",
                                    ["totally", "irrelevant", "list"])
     assert parsed["origin"] and parsed["destination"]
@@ -125,9 +121,25 @@ def test_parse_delivery_ignores_place_names_arg(monkeypatch):
 
 def test_parse_delivery_sample_and_cold(monkeypatch):
     intake = _load("intake")
-    monkeypatch.setattr(intake, "_ask_ollama",
-                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+    monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
     parsed = intake.parse_delivery("stat blood sample from Whitechapel to King's Cross", [])
+    assert parsed["priority"] == "stat"
+    assert parsed["type"] == "sample_pickup"
+    assert parsed["cold_chain"] is True
+
+
+def test_parse_delivery_uses_llm_when_available(monkeypatch):
+    # Prod-style: an LLM provider returns good JSON -> parse_delivery uses it (no heuristic).
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.delenv("LOCAL", raising=False)
+    intake = _load("intake")
+    monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: {
+        "origin": "Guy's Hospital", "destination": "Moorfields Eye Hospital",
+        "priority": "stat", "type": "sample_pickup", "cold_chain": True,
+    })
+    parsed = intake.parse_delivery("grab the bloods over to the eye place")
+    assert parsed["origin"] == "Guy's Hospital"
+    assert parsed["destination"] == "Moorfields Eye Hospital"
     assert parsed["priority"] == "stat"
     assert parsed["type"] == "sample_pickup"
     assert parsed["cold_chain"] is True
@@ -140,8 +152,7 @@ def client(monkeypatch):
     # that exact module's Ollama call so /intake is deterministic + offline (regex path).
     app_mod = _load("app")
     intake = sys.modules["intake"]
-    monkeypatch.setattr(intake, "_ask_ollama",
-                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
     return TestClient(app_mod.app)
 
 

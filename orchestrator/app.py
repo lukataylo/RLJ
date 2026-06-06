@@ -32,6 +32,8 @@ import nemo_agent
 import geocode
 from intake import parse_delivery
 import route_preview
+import config
+import llm
 import db
 import auth
 from auth import require_user, current_user, CurrentUser
@@ -507,9 +509,58 @@ async def post_signal_recs(body: SignalRecommendations, _user: CurrentUser = Dep
 
 
 # ----------------------------------------------------------------------------- agent channel
+async def _record_agent_answer(task_id: str, answer: str):
+    """Mark a queued task answered + emit the NemoClaw-feed events. Shared by the GB10
+    worker path (POST /agent/answer) and the prod OpenAI auto-answer path below."""
+    for t in S.agent_tasks:
+        if t["id"] == task_id:
+            t["status"] = "answered"
+            t["answer"] = answer
+            break
+    await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
+                                 "message": f"Nemotron@GB10: {answer[:240]}"})
+    await HUB.emit("agent_answer", {"task_id": task_id, "answer": answer})
+
+
+def _fleet_context() -> str:
+    """A light fleet-context system prompt for the LLM (no heavy state dumps)."""
+    parts = [
+        "You are PulseGo's dispatch assistant for a time-critical medical courier "
+        "fleet in London. Answer the operator's question concisely.",
+        f"Fleet now: {len(S.couriers)} courier(s), {len(S.jobs)} job(s), "
+        f"{len(S.drivers)} signed-up driver(s).",
+    ]
+    if S.plan and S.plan.objective:
+        obj = S.plan.objective
+        parts.append(
+            f"Current plan ({obj.solver}): {obj.windows_met}/{obj.windows_total} "
+            f"time windows met across {len(S.plan.routes)} route(s).")
+    return " ".join(parts)
+
+
+async def _openai_auto_answer(task_id: str, question: str):
+    """Prod path: with no on-box worker, the orchestrator answers via OpenAI."""
+    try:
+        answer = await asyncio.to_thread(llm.chat, question, system=_fleet_context())
+    except Exception as e:  # noqa: BLE001 - llm.chat shouldn't raise, but be safe
+        answer = None
+        await HUB.emit("agent_log", {"level": "warn", "source": "nemotron",
+                                     "message": f"Agent answer failed ({type(e).__name__})."})
+        return
+    if answer:
+        await _record_agent_answer(task_id, answer)
+    else:
+        await HUB.emit("agent_log", {"level": "warn", "source": "nemotron",
+                                     "message": "Agent could not produce an answer."})
+
+
 @app.post("/agent/ask")
 async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
-    """Queue a question for the GB10 NemoClaw agent (it polls /agent/tasks and answers)."""
+    """Queue a question for the NemoClaw agent.
+
+    LOCAL (GB10): the on-box worker polls /agent/tasks and posts to /agent/answer.
+    PRODUCTION (no DGX): the orchestrator answers itself via OpenAI in the background.
+    """
     S._task_n += 1
     task = {"id": f"task-{S._task_n}", "question": body.question,
             "ts": _now_iso(), "status": "pending"}
@@ -517,6 +568,10 @@ async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
     S.agent_tasks = S.agent_tasks[-50:]
     await HUB.emit("agent_log", {"level": "info", "source": "operator",
                                  "message": f"Asked NemoClaw: {body.question[:120]}"})
+    # In prod (no on-box worker) answer ourselves via OpenAI; locally the DGX worker
+    # handles it, so we must NOT auto-answer or the feed gets double answers.
+    if not config.is_local() and config.openai_key():
+        asyncio.create_task(_openai_auto_answer(task["id"], body.question))
     return task
 
 
@@ -528,14 +583,7 @@ async def agent_tasks():
 @app.post("/agent/answer")
 async def agent_answer(body: AgentAnswer, _user: CurrentUser = Depends(require_user)):
     """The GB10 agent posts its Nemotron answer here; it lands in the NemoClaw feed."""
-    for t in S.agent_tasks:
-        if t["id"] == body.task_id:
-            t["status"] = "answered"
-            t["answer"] = body.answer
-            break
-    await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
-                                 "message": f"Nemotron@GB10: {body.answer[:240]}"})
-    await HUB.emit("agent_answer", {"task_id": body.task_id, "answer": body.answer})
+    await _record_agent_answer(body.task_id, body.answer)
     return {"ok": True}
 
 

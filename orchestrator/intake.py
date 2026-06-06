@@ -1,11 +1,13 @@
 """Natural-language delivery intake — parse free text into a structured job spec.
 
-Primary path: a LOCAL Ollama/Nemotron model on the GB10 box (``$OLLAMA``,
-``$MODEL``) with ``format:"json"`` and a strict prompt that EXTRACTS the literal
-origin and destination place phrases from the text (free-form — NOT constrained
-to any list). The big offline gazetteer + ``geocode.resolve`` then do the
-matching, so arbitrary London places resolve. Fallback (Ollama down / bad JSON):
-a pure-regex heuristic. Either way the result is ``{origin,destination,priority,
+Primary path: the provider-agnostic LLM (``llm.complete_json``) with a strict
+prompt that EXTRACTS the literal origin and destination place phrases from the
+text (free-form — NOT constrained to any list). Depending on the deploy mode
+(see ``config``) that LLM is either a LOCAL Ollama/Nemotron model on the GB10 box
+or OpenAI in production; when neither is reachable ``complete_json`` returns
+``None``. The big offline gazetteer + ``geocode.resolve`` then do the matching, so
+arbitrary London places resolve. Fallback (LLM unavailable / bad JSON): a
+pure-regex heuristic. Either way the result is ``{origin,destination,priority,
 type,cold_chain}`` and origin/destination are later passed to ``geocode.resolve``
 (so leaving them as raw phrases is fine).
 
@@ -13,15 +15,10 @@ type,cold_chain}`` and origin/destination are later passed to ``geocode.resolve`
 """
 from __future__ import annotations
 
-import json
-import os
 import re
 from typing import Optional
 
-import httpx
-
-OLLAMA = os.getenv("OLLAMA", "http://localhost:11434")
-MODEL = os.getenv("MODEL", "nemotron")
+import llm
 
 _VALID_PRIORITY = {"stat", "urgent", "routine"}
 _VALID_TYPE = {"sample_pickup", "med_delivery"}
@@ -90,14 +87,14 @@ def _coerce(raw: dict) -> dict:
     return out
 
 
-def _ask_ollama(text: str, timeout: float = 20.0) -> dict:
-    """Call the local model. Raises on any failure (caller falls back to heuristic).
+def _build_prompt(text: str) -> str:
+    """The strict extraction prompt.
 
     The model EXTRACTS the literal origin/destination phrases as they appear in
     the request — it is NOT given a list to pick from. The downstream gazetteer
     + ``geocode.resolve`` handle matching those phrases to real London places.
     """
-    prompt = (
+    return (
         "You convert a dispatcher's free-text courier request into JSON.\n"
         "Extract the origin and destination EXACTLY as written in the request "
         "(copy the literal place phrase — a name, area, landmark, postcode or "
@@ -112,17 +109,14 @@ def _ask_ollama(text: str, timeout: float = 20.0) -> dict:
         '  type (one of "sample_pickup","med_delivery"; samples/pathology = sample_pickup),\n'
         '  cold_chain (boolean; true for blood/plasma/cold-chain/vaccine).'
     )
-    payload = {"model": MODEL, "prompt": prompt, "stream": False, "format": "json"}
-    with httpx.Client(timeout=timeout) as client:
-        r = client.post(f"{OLLAMA}/api/generate", json=payload)
-        r.raise_for_status()
-        body = r.json()
-    raw = json.loads(body["response"])
-    return _coerce(raw)
 
 
 def parse_delivery(text: str, place_names: Optional[list[str]] = None) -> dict:
     """Parse free text -> {origin,destination,priority,type,cold_chain}. Never raises.
+
+    Uses the provider-agnostic ``llm.complete_json`` (local Ollama or OpenAI per
+    deploy mode). When it returns ``None`` (no provider / unreachable) or yields an
+    unusable result, falls back to the deterministic offline regex heuristic.
 
     ``place_names`` is accepted for backwards compatibility (app.py still passes
     it) but ignored: the LLM now extracts free-text phrases and the big gazetteer
@@ -130,6 +124,9 @@ def parse_delivery(text: str, place_names: Optional[list[str]] = None) -> dict:
     """
     del place_names  # accepted for compat; no longer used
     try:
-        return _ask_ollama(text)
-    except Exception:  # noqa: BLE001 - Ollama down / bad JSON -> deterministic heuristic
-        return _heuristic(text)
+        raw = llm.complete_json(_build_prompt(text))
+        if raw is not None:
+            return _coerce(raw)
+    except Exception:  # noqa: BLE001 - bad/empty LLM JSON -> deterministic heuristic
+        pass
+    return _heuristic(text)
