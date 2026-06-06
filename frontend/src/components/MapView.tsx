@@ -58,7 +58,17 @@ import {
   type EventVenue,
   type Facility,
 } from "../lib/datasets";
-import { getRoadRoute, routeSignature, type LngLat } from "../lib/routing";
+import { getRoadRoute, routeSignature, type LngLat, type RoadGeom } from "../lib/routing";
+
+// Waze-style live-traffic colour for a Mapbox congestion_numeric value (0–100).
+// -1 (unknown) returns null so the caller uses the neutral free-flow colour.
+function wazeRGB(c: number): [number, number, number] | null {
+  if (c < 0) return null;
+  if (c < 35) return [80, 200, 120]; // free — green
+  if (c < 60) return [242, 194, 26]; // moderate — yellow
+  if (c < 80) return [230, 140, 40]; // heavy — orange
+  return [232, 60, 50]; // severe — red
+}
 import { getTheme, onThemeChange, type Theme } from "../lib/theme";
 import {
   mdiTrafficLight,
@@ -317,7 +327,7 @@ function buildLayers(
   data: OptionalData,
   vis: LayerVis,
   phase: number,
-  roadPaths: Record<string, LngLat[] | null>,
+  roadPaths: Record<string, RoadGeom | null>,
   bounds: Bounds,
 ): Layer[] {
   const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId } = snap;
@@ -361,29 +371,40 @@ function buildLayers(
   const selActive = selectedCourierId != null;
   const congSources = congestionSources(data.roads, congestion.cells, congestion.generated_at ?? "static");
 
+  interface RouteLine { courier_id: string; selected: boolean; path: LngLat[]; congestion: number[] | null }
   const routeLines = (plan?.routes ?? [])
-    .map((r) => {
+    .map((r): RouteLine | null => {
       const courier = courierById.get(r.courier_id);
       const stopCoords = routeStopCoords(plan, courier, r.courier_id);
       if (stopCoords.length < 2) return null;
       const road = roadPaths[r.courier_id];
-      const path = road && road.length >= 2 ? road : fallbackPath(plan, r.courier_id, stopCoords);
+      const onRoad = road && road.coords.length >= 2;
+      const path = onRoad ? road!.coords : fallbackPath(plan, r.courier_id, stopCoords);
       if (path.length < 2) return null;
-      return { courier_id: r.courier_id, selected: r.courier_id === selectedCourierId, path };
+      return {
+        courier_id: r.courier_id,
+        selected: r.courier_id === selectedCourierId,
+        path,
+        congestion: onRoad ? road!.congestion : null,
+      };
     })
-    .filter((r): r is { courier_id: string; selected: boolean; path: LngLat[] } => r !== null);
+    .filter((r): r is RouteLine => r !== null);
 
-  // One record per drawn segment so each can be neutral or red independently.
-  interface RouteSeg { courier_id: string; selected: boolean; congested: boolean; path: LngLat[] }
+  // One record per drawn segment so each carries its own live-traffic colour.
+  // `cong` is Mapbox congestion_numeric (0–100) when road-following, else -1 and we
+  // fall back to our own congestion sources (binary neutral/red).
+  interface RouteSeg { courier_id: string; selected: boolean; cong: number; congested: boolean; path: LngLat[] }
   const routeSegs: RouteSeg[] = [];
   for (const rl of routeLines) {
     for (let i = 0; i < rl.path.length - 1; i++) {
       const a = rl.path[i];
       const b = rl.path[i + 1];
+      const cong = rl.congestion ? (rl.congestion[i] ?? -1) : -1;
       routeSegs.push({
         courier_id: rl.courier_id,
         selected: rl.selected,
-        congested: segmentCongested(a, b, congSources),
+        cong,
+        congested: cong >= 0 ? cong >= 60 : segmentCongested(a, b, congSources),
         path: [a, b],
       });
     }
@@ -392,7 +413,9 @@ function buildLayers(
   // Alpha ramps: when a route is selected, it brightens and the rest dim away.
   const segGlowAlpha = (s: RouteSeg) => (!selActive ? 60 : s.selected ? 100 : 16);
   const segMainAlpha = (s: RouteSeg) => (!selActive ? 215 : s.selected ? 255 : 55);
-  const segColor = (s: RouteSeg) => (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB);
+  // Live Waze colour when we have Mapbox traffic; otherwise neutral/red fallback.
+  const segColor = (s: RouteSeg): [number, number, number] =>
+    wazeRGB(s.cong) ?? (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB);
 
   if (vis.routes && routeSegs.length) {
     layers.push(
@@ -818,7 +841,7 @@ export default function MapView() {
   const snapRef = useRef<Snapshot>(EMPTY_SNAP);
   const dataRef = useRef<OptionalData>({ roads: [], facilities: [], venues: [] });
   const visRef = useRef<LayerVis>(DEFAULT_VIS);
-  const roadPathsRef = useRef<Record<string, LngLat[] | null>>({});
+  const roadPathsRef = useRef<Record<string, RoadGeom | null>>({});
   const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boundsRef = useRef<Bounds>(null);
   // Set by an effect; the once-created overlay onClick calls it to open the popover.
@@ -859,7 +882,7 @@ export default function MapView() {
     const run = () => {
       const snap = snapRef.current;
       const courierById = new Map(snap.couriers.map((c) => [c.id, c]));
-      const next: Record<string, LngLat[] | null> = {};
+      const next: Record<string, RoadGeom | null> = {};
       for (const r of snap.plan?.routes ?? []) {
         const coords = routeStopCoords(snap.plan, courierById.get(r.courier_id), r.courier_id);
         if (coords.length < 2) continue;
