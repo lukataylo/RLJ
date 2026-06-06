@@ -7,7 +7,7 @@ import { GlassCard } from "../../src/components/GlassCard";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { health } from "../../src/lib/api";
 import { clearToken } from "../../src/lib/auth";
-import { DEFAULT_API_URL, getApiUrl, setApiUrl } from "../../src/lib/config";
+import { DEFAULT_API_URL, LOCAL_NEMOTRON_API_URL, getApiUrl, setApiUrl } from "../../src/lib/config";
 import { useStore } from "../../src/lib/store";
 import { connectWs, disconnectWs } from "../../src/lib/ws";
 import { useTheme } from "../../src/theme/ThemeProvider";
@@ -31,6 +31,17 @@ export default function Settings() {
     setProbe("Checking…");
     const ok = await health();
     setProbe(ok ? "Reachable ✓" : "Not reachable");
+  }
+
+  async function useLocalNemotronBox() {
+    const next = LOCAL_NEMOTRON_API_URL;
+    setUrl(next);
+    await setApiUrl(next);
+    disconnectWs();
+    connectWs();
+    setProbe("Checking local Nemotron box…");
+    const ok = await health();
+    setProbe(ok ? "Local box reachable ✓" : "Local box not reachable");
   }
 
   function signOut() {
@@ -105,6 +116,9 @@ export default function Settings() {
               marginBottom: 10,
             }}
           />
+          <View style={{ marginBottom: 10 }}>
+            <PrimaryButton label="Use local Nemotron box" variant="ghost" onPress={useLocalNemotronBox} />
+          </View>
           <PrimaryButton label="Save & test" variant="ghost" onPress={saveUrl} />
           {probe ? (
             <Text style={{ color: theme.muted, fontFamily: FONT.bodyMed, fontSize: 12, marginTop: 8 }}>

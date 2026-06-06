@@ -145,6 +145,23 @@ interface AirBorough { id: string; name: string; lat: number; lng: number; aqi: 
 interface PointFeature { id: string; description: string; lat: number; lng: number; severity?: string }
 interface CycleStation { id: string; name: string; lat: number; lng: number; capacity: number }
 interface CycleHighway { id: string; name: string; geometry: { lat: number; lng: number }[] }
+interface LoadingZone {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  restriction: string;
+  max_stay_min: number;
+  clinical_priority: string;
+}
+interface RoadSign {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  message: string;
+  severity: "low" | "moderate" | "severe";
+}
 
 // Inline Material Design icon (24×24 path data from @mdi/js).
 function McIcon({ path, size = 18 }: { path: string; size?: number }) {
@@ -205,7 +222,7 @@ const DISTRICTS: { name: string; lng: number; lat: number }[] = [
 ];
 
 // Toggleable layers shown in the left control stack.
-type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "flood" | "cycle";
+type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "kerb" | "roadsigns" | "flood" | "cycle";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
@@ -215,7 +232,9 @@ const DEFAULT_VIS: LayerVis = {
   signals: true, // GB10 Nemotron signal recs — default ON
   cctv: false, // live CCTV cameras — default OFF to keep the map clean
   air: false, // London air quality (LAQN) — default OFF
-  roadworks: false, // TfL streetworks — default OFF
+  roadworks: true, // planned works — default ON for the first-60-second story
+  kerb: true, // medical loading/handoff points — default ON
+  roadsigns: true, // TfL variable-message signs — default ON
   flood: false, // EA flood warnings — default OFF
   cycle: false, // TfL cycle infra + hire — default OFF
 };
@@ -247,6 +266,8 @@ interface OptionalData {
   venues: EventVenue[];
   air: AirBorough[];
   roadworks: PointFeature[];
+  kerb: LoadingZone[];
+  roadsigns: RoadSign[];
   floods: PointFeature[];
   cycleStations: CycleStation[];
   cycleHighways: CycleHighway[];
@@ -254,7 +275,7 @@ interface OptionalData {
 
 const EMPTY_OPTIONAL: OptionalData = {
   roads: [], facilities: [], venues: [],
-  air: [], roadworks: [], floods: [], cycleStations: [], cycleHighways: [],
+  air: [], roadworks: [], kerb: [], roadsigns: [], floods: [], cycleStations: [], cycleHighways: [],
 };
 
 const EMPTY_SNAP: Snapshot = {
@@ -961,6 +982,52 @@ function buildLayers(
     );
   }
 
+  // Kerbside handoff/loading zones — legal stop points that make routing operational.
+  if (vis.kerb && data.kerb.length) {
+    layers.push(
+      new ScatterplotLayer<LoadingZone>({
+        id: "kerbside-loading",
+        data: data.kerb,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: (d) => (d.clinical_priority === "stat" ? 10 : 8),
+        radiusUnits: "pixels",
+        getFillColor: (d) =>
+          d.clinical_priority === "stat"
+            ? [232, 60, 50, 240]
+            : d.clinical_priority === "urgent"
+              ? [242, 194, 26, 230]
+              : [80, 200, 120, 210],
+        getLineColor: [255, 255, 255, 230],
+        lineWidthMinPixels: 1.5,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
+  // TfL roadside Variable Message Signs — the human-readable reason for a reroute.
+  if (vis.roadsigns && data.roadsigns.length) {
+    layers.push(
+      new ScatterplotLayer<RoadSign>({
+        id: "roadside-signs",
+        data: data.roadsigns,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: (d) => (d.severity === "severe" ? 11 : 8),
+        radiusUnits: "pixels",
+        getFillColor: (d) =>
+          d.severity === "severe"
+            ? [232, 60, 50, 245]
+            : d.severity === "moderate"
+              ? [230, 140, 40, 230]
+              : [80, 200, 120, 210],
+        getLineColor: [8, 8, 8, 255],
+        lineWidthMinPixels: 2,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
   // Flood warnings — Environment Agency (blue).
   if (vis.flood && data.floods.length) {
     layers.push(
@@ -1038,6 +1105,20 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
     const c = object as CctvCamera;
     return { className: "deck-tip", html: `<b>${c.name}</b><br/><span class="tip-dim">live CCTV · click to view</span>` };
   }
+  if ("restriction" in o && "max_stay_min" in o) {
+    const k = object as LoadingZone;
+    return {
+      className: "deck-tip",
+      html: `<b>${k.name}</b><br/>${k.restriction} · ${k.max_stay_min} min<br/><span class="tip-dim">${k.clinical_priority.toUpperCase()} handoff zone</span>`,
+    };
+  }
+  if ("message" in o && "severity" in o && "lat" in o && "lng" in o) {
+    const s = object as RoadSign;
+    return {
+      className: "deck-tip",
+      html: `<b>${s.name}</b><br/>${s.message}<br/><span class="tip-dim">TfL roadside sign · ${s.severity}</span>`,
+    };
+  }
   if ("congestion" in o && "path" in o) {
     const r = object as RoadPath;
     return { className: "deck-tip", html: `<b>Traffic ${(r.congestion * 100).toFixed(0)}%</b><br/><span class="tip-dim">road segment</span>` };
@@ -1075,6 +1156,8 @@ const LEFT_LAYERS: { key: LayerKey; label: string; icon: string; testid: string 
   { key: "cctv", label: "CCTV", icon: mdiCctv, testid: "layer-toggle-cctv" },
   { key: "air", label: "Air quality", icon: mdiAirFilter, testid: "layer-toggle-air" },
   { key: "roadworks", label: "Roadworks", icon: mdiTrafficCone, testid: "layer-toggle-roadworks" },
+  { key: "kerb", label: "Kerb", icon: mdiCrosshairsGps, testid: "layer-toggle-kerb" },
+  { key: "roadsigns", label: "Signs", icon: mdiAlertOutline, testid: "layer-toggle-roadsigns" },
   { key: "flood", label: "Flood", icon: mdiWaves, testid: "layer-toggle-flood" },
   { key: "cycle", label: "Cycle", icon: mdiBike, testid: "layer-toggle-cycle" },
 ];
@@ -1275,12 +1358,14 @@ export default function MapView() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, fldRaw, cycRaw] = await Promise.all([
+      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, kerbRaw, signsRaw, fldRaw, cycRaw] = await Promise.all([
         fetchOptionalJson("/data/roads.geojson"),
         fetchOptional<unknown>("/data/facilities.json"),
         fetchOptional<unknown>("/data/events.json"),
         fetchOptional<{ boroughs?: AirBorough[] }>("/data/airquality.json"),
         fetchOptional<{ streetworks?: PointFeature[] }>("/data/streetworks.json"),
+        fetchOptional<{ loading_zones?: LoadingZone[] }>("/data/kerbside.json"),
+        fetchOptional<{ signs?: RoadSign[] }>("/data/roadsigns.json"),
         fetchOptional<{ floods?: PointFeature[] }>("/data/floodwarnings.json"),
         fetchOptional<{ stations?: CycleStation[]; highways?: CycleHighway[] }>("/data/cycleinfra.json"),
       ]);
@@ -1290,16 +1375,20 @@ export default function MapView() {
       const venues = parseEventVenues(evtRaw);
       const air = aqRaw?.boroughs ?? [];
       const roadworks = swRaw?.streetworks ?? [];
+      const kerb = kerbRaw?.loading_zones ?? [];
+      const roadsigns = signsRaw?.signs ?? [];
       const floods = fldRaw?.floods ?? [];
       const cycleStations = cycRaw?.stations ?? [];
       const cycleHighways = cycRaw?.highways ?? [];
-      setOptional({ roads, facilities, venues, air, roadworks, floods, cycleStations, cycleHighways });
+      setOptional({ roads, facilities, venues, air, roadworks, kerb, roadsigns, floods, cycleStations, cycleHighways });
       const loaded: string[] = [];
       if (roads.length) loaded.push(`${roads.length} roads`);
       if (facilities.length) loaded.push(`${facilities.length} facilities`);
       if (venues.length) loaded.push(`${venues.length} event venues`);
       if (air.length) loaded.push(`${air.length} AQ boroughs`);
       if (roadworks.length) loaded.push(`${roadworks.length} roadworks`);
+      if (kerb.length) loaded.push(`${kerb.length} kerb handoffs`);
+      if (roadsigns.length) loaded.push(`${roadsigns.length} roadside signs`);
       if (floods.length) loaded.push(`${floods.length} flood warnings`);
       if (cycleHighways.length) loaded.push(`${cycleHighways.length} cycle routes`);
       if (loaded.length) {

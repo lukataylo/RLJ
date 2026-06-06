@@ -91,6 +91,20 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
 
       <span className="nav-spacer" />
 
+      {token && (
+        <button
+          type="button"
+          className={`nav-demo ${demoOn ? "on" : ""}`}
+          data-testid="demo-mode-primary"
+          aria-pressed={demoOn}
+          disabled={demoBusy}
+          onClick={toggleDemo}
+          title="Seed the judge demo scenario"
+        >
+          {demoBusy ? "Loading…" : demoOn ? "Demo live" : "Start demo"}
+        </button>
+      )}
+
       <button
         type="button"
         className={`nav-verify ${status.loaded ? (mustPassGreen ? "ok" : "fail") : "unknown"}`}

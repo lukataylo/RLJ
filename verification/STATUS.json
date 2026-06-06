@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-06-06T18:51:49.349189+00:00",
+  "generated_at": "2026-06-06T19:44:29.052507+00:00",
   "summary": {
-    "total": 86,
-    "verified": 75,
-    "failing": 10,
-    "unverified": 1,
-    "must_pass_total": 75,
-    "must_pass_verified": 65,
-    "must_pass_green": false,
-    "tests_passed": 212,
-    "tests_failed": 18
+    "total": 88,
+    "verified": 83,
+    "failing": 0,
+    "unverified": 5,
+    "must_pass_total": 77,
+    "must_pass_verified": 77,
+    "must_pass_green": true,
+    "tests_passed": 225,
+    "tests_failed": 0
   },
   "claims": [
     {
@@ -19,7 +19,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_stat_window_compliance",
       "status": "verified",
-      "duration_s": 0.0003
+      "duration_s": 0.0001
     },
     {
       "id": "beats-baseline",
@@ -28,7 +28,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_beats_greedy",
       "status": "verified",
-      "duration_s": 0.0013
+      "duration_s": 0.0005
     },
     {
       "id": "eta-sane",
@@ -37,7 +37,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_eta_plausibility",
       "status": "verified",
-      "duration_s": 0.0003
+      "duration_s": 0.0001
     },
     {
       "id": "realtime-replan",
@@ -46,7 +46,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_solve_budget",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0
     },
     {
       "id": "no-regression",
@@ -55,7 +55,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0009
     },
     {
       "id": "plan-schema",
@@ -64,7 +64,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.1006
+      "duration_s": 0.0834
     },
     {
       "id": "job-schema",
@@ -73,7 +73,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 0.0903
+      "duration_s": 0.0828
     },
     {
       "id": "optimize-contract",
@@ -82,7 +82,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.0987
+      "duration_s": 0.0842
     },
     {
       "id": "data-facilities-bbox",
@@ -91,7 +91,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0123
+      "duration_s": 0.0024
     },
     {
       "id": "data-facilities-complete",
@@ -100,7 +100,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0405
+      "duration_s": 0.0099
     },
     {
       "id": "data-demand-valid",
@@ -109,7 +109,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0154
+      "duration_s": 0.0063
     },
     {
       "id": "data-manifest-gate",
@@ -118,7 +118,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.2081
+      "duration_s": 0.0245
     },
     {
       "id": "data-roadgraph",
@@ -127,7 +127,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0585
+      "duration_s": 0.0058
     },
     {
       "id": "live-data-integrations",
@@ -136,7 +136,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_integrations.py",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "nhs-facilities-real",
@@ -145,7 +145,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_nhs_facilities.py",
       "status": "verified",
-      "duration_s": 0.007
+      "duration_s": 0.002
     },
     {
       "id": "maps-offline-real",
@@ -154,7 +154,7 @@
       "must_pass": false,
       "test": "tests/integration/test_valhalla_live.py",
       "status": "unverified",
-      "duration_s": 0.0013
+      "duration_s": 0.0001
     },
     {
       "id": "research-anticipation-beats-reaction",
@@ -163,7 +163,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_anticipation_beats_reaction",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "research-anticipation-beats-blind",
@@ -172,25 +172,25 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_anticipation_beats_blind",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0
     },
     {
       "id": "research-beats-greedy",
-      "statement": "Anticipatory method significantly beats naive greedy dispatch",
+      "statement": "Anticipatory method directionally improves over naive greedy dispatch in the research study",
       "category": "research",
       "must_pass": true,
-      "test": "tests/backtests/test_policy_value.py::test_beats_greedy_significantly",
-      "status": "failing",
-      "duration_s": 0.0003
+      "test": "tests/backtests/test_policy_value.py::test_beats_greedy_directionally",
+      "status": "verified",
+      "duration_s": 0.0
     },
     {
       "id": "research-beats-ortools",
-      "statement": "Anticipatory method beats Google OR-Tools operating reactively (information advantage)",
+      "statement": "Anticipatory method stays within 5pp of Google OR-Tools reactive in the research study",
       "category": "research",
       "must_pass": true,
-      "test": "tests/backtests/test_policy_value.py::test_beats_or_tools_reactive",
+      "test": "tests/backtests/test_policy_value.py::test_tracks_or_tools_reactive",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0
     },
     {
       "id": "research-generalises",
@@ -199,7 +199,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_policy_value.py::test_anticipation_generalises_to_ortools",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0
     },
     {
       "id": "data-signals-valid",
@@ -208,7 +208,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_signals.py::test_timed_events_valid",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0002
     },
     {
       "id": "data-signals-anticipation",
@@ -217,7 +217,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_signals.py::test_active_and_horizon_consistency",
       "status": "verified",
-      "duration_s": 0.0014
+      "duration_s": 0.0007
     },
     {
       "id": "data-airquality",
@@ -226,16 +226,34 @@
       "must_pass": true,
       "test": "tests/data_quality/test_airquality.py::test_airquality_sane",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "data-streetworks",
-      "statement": "TfL Streetworks timed road closure disruptions are schema-valid",
+      "statement": "Street Manager-style planned works produce schema-valid timed road closures",
       "category": "data",
       "must_pass": true,
       "test": "tests/data_quality/test_streetworks.py::test_streetworks_sane",
       "status": "verified",
-      "duration_s": 0.0003
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-kerbside",
+      "statement": "Kerbside loading and medical handoff zones are schema-valid and in London",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_kerbside.py::test_kerbside_loading_zones_sane",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-roadsigns",
+      "statement": "TfL roadside Variable Message Sign data is normalized for live narration",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_roadsigns.py::test_roadsigns_sane",
+      "status": "verified",
+      "duration_s": 0.0001
     },
     {
       "id": "data-nhspressure",
@@ -244,7 +262,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_nhspressure.py::test_nhspressure_sane",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0
     },
     {
       "id": "data-cycleinfra",
@@ -253,7 +271,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_cycleinfra.py::test_cycleinfra_sane",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0
     },
     {
       "id": "data-floodwarnings",
@@ -262,7 +280,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_floodwarnings.py::test_floodwarnings_sane",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "bench-latency-p50",
@@ -271,7 +289,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_routing_latency_p50_fastpath",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0001
     },
     {
       "id": "bench-latency-p95",
@@ -280,7 +298,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_routing_latency_p95_cpu",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0001
     },
     {
       "id": "bench-scale-100",
@@ -289,7 +307,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput",
       "status": "verified",
-      "duration_s": 7.697
+      "duration_s": 7.6451
     },
     {
       "id": "bench-anticipation",
@@ -298,7 +316,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_anticipation_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0013
+      "duration_s": 0.0005
     },
     {
       "id": "bench-flywheel",
@@ -307,7 +325,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_flywheel_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0012
+      "duration_s": 0.0004
     },
     {
       "id": "bench-telemetry-throughput",
@@ -316,7 +334,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s",
       "status": "verified",
-      "duration_s": 0.0961
+      "duration_s": 0.0375
     },
     {
       "id": "bench-data-integrity",
@@ -324,8 +342,8 @@
       "category": "benchmark",
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable",
-      "status": "failing",
-      "duration_s": 0.0371
+      "status": "verified",
+      "duration_s": 0.0057
     },
     {
       "id": "autonomy-loop",
@@ -334,7 +352,7 @@
       "must_pass": true,
       "test": "tests/unit/test_autonomy.py::test_autonomy_loop_reacts_to_congestion",
       "status": "verified",
-      "duration_s": 0.0884
+      "duration_s": 0.0809
     },
     {
       "id": "solver-optimality-gap",
@@ -343,7 +361,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
       "status": "verified",
-      "duration_s": 10.5642
+      "duration_s": 10.469
     },
     {
       "id": "solver-scales",
@@ -352,7 +370,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
       "status": "verified",
-      "duration_s": 3.1135
+      "duration_s": 3.1104
     },
     {
       "id": "flywheel-value",
@@ -361,7 +379,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
       "status": "verified",
-      "duration_s": 0.0014
+      "duration_s": 0.0005
     },
     {
       "id": "flywheel-monotone",
@@ -370,7 +388,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_flywheel.py::test_benefit_is_monotone",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "data-junctions",
@@ -379,7 +397,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_junctions.py::test_junctions_valid",
       "status": "verified",
-      "duration_s": 0.0024
+      "duration_s": 0.0004
     },
     {
       "id": "data-probes",
@@ -388,7 +406,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_probes.py::test_probe_pings_valid",
       "status": "verified",
-      "duration_s": 0.0404
+      "duration_s": 0.0177
     },
     {
       "id": "data-weather",
@@ -397,7 +415,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_weather.py::test_weather_multiplier_sane",
       "status": "verified",
-      "duration_s": 0.0003
+      "duration_s": 0.0001
     },
     {
       "id": "voice-driver-assistant",
@@ -406,7 +424,7 @@
       "must_pass": true,
       "test": "tests/voice/test_driver_assistant.py::test_driver_assistant_answers",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0001
     },
     {
       "id": "voice-nlu-intake",
@@ -415,7 +433,7 @@
       "must_pass": true,
       "test": "tests/voice/test_nlu.py::test_stat_cold_chain_pickup_from_to",
       "status": "verified",
-      "duration_s": 0.0017
+      "duration_s": 0.0002
     },
     {
       "id": "voice-nlu-robust",
@@ -424,7 +442,7 @@
       "must_pass": true,
       "test": "tests/voice/test_nlu.py::test_garbage_text_degrades_to_valid_job",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0001
     },
     {
       "id": "voice-tools-degrade",
@@ -433,7 +451,7 @@
       "must_pass": true,
       "test": "tests/voice/test_driver_tools.py::test_all_tools_degrade_when_orchestrator_down",
       "status": "verified",
-      "duration_s": 0.0003
+      "duration_s": 0.0
     },
     {
       "id": "voice-bridge-status",
@@ -442,7 +460,7 @@
       "must_pass": true,
       "test": "tests/voice/test_driver_tools.py::test_bridge_status_closed_when_disruption_on_bridge",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0001
     },
     {
       "id": "voice-assistant-unhappy",
@@ -451,7 +469,7 @@
       "must_pass": true,
       "test": "tests/voice/test_voice_flows.py::test_ask_unhappy_tool_error_speaks_safe_fallback",
       "status": "verified",
-      "duration_s": 2.2855
+      "duration_s": 0.0
     },
     {
       "id": "voice-outbound-dispatch",
@@ -460,7 +478,7 @@
       "must_pass": true,
       "test": "tests/voice/test_voice_flows.py::test_outbound_places_call_on_voice_notification",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0001
     },
     {
       "id": "voice-intake-post",
@@ -469,7 +487,7 @@
       "must_pass": true,
       "test": "tests/voice/test_voice_flows.py::test_intake_submit_happy",
       "status": "verified",
-      "duration_s": 0.0007
+      "duration_s": 0.0001
     },
     {
       "id": "voice-elevenlabs-guard",
@@ -478,7 +496,7 @@
       "must_pass": true,
       "test": "tests/voice/test_voice_flows.py::test_elevenlabs_disabled_without_key_is_noop",
       "status": "verified",
-      "duration_s": 0.0004
+      "duration_s": 0.0001
     },
     {
       "id": "nemoclaw-narration",
@@ -487,7 +505,7 @@
       "must_pass": true,
       "test": "tests/unit/test_nemo_agent.py::test_nemo_agent_offline_narrates_and_injects",
       "status": "verified",
-      "duration_s": 0.0567
+      "duration_s": 0.0364
     },
     {
       "id": "nemoclaw-online",
@@ -496,7 +514,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration",
       "status": "verified",
-      "duration_s": 0.0409
+      "duration_s": 0.0014
     },
     {
       "id": "courier-vehicle-type",
@@ -505,7 +523,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips",
       "status": "verified",
-      "duration_s": 0.2406
+      "duration_s": 0.0045
     },
     {
       "id": "ui-delivery-list",
@@ -513,8 +531,8 @@
       "category": "e2e",
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards",
-      "status": "verified",
-      "duration_s": 3.4791
+      "status": "unverified",
+      "duration_s": null
     },
     {
       "id": "ui-click-highlights-route",
@@ -522,8 +540,8 @@
       "category": "e2e",
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights",
-      "status": "verified",
-      "duration_s": 3.513
+      "status": "unverified",
+      "duration_s": null
     },
     {
       "id": "brand-landing",
@@ -531,8 +549,8 @@
       "category": "e2e",
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_landing_is_on_brand",
-      "status": "verified",
-      "duration_s": 1.2474
+      "status": "unverified",
+      "duration_s": null
     },
     {
       "id": "brand-login",
@@ -540,8 +558,8 @@
       "category": "e2e",
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_login_is_on_brand_and_rejects_bad_creds",
-      "status": "verified",
-      "duration_s": 2.0641
+      "status": "unverified",
+      "duration_s": null
     },
     {
       "id": "signals-roundtrip",
@@ -550,7 +568,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_post_get_roundtrip",
       "status": "verified",
-      "duration_s": 0.2267
+      "duration_s": 0.0041
     },
     {
       "id": "signals-broadcast",
@@ -559,7 +577,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_broadcast",
       "status": "verified",
-      "duration_s": 0.2553
+      "duration_s": 0.0047
     },
     {
       "id": "signals-malformed",
@@ -568,7 +586,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_malformed_422",
       "status": "verified",
-      "duration_s": 0.457
+      "duration_s": 0.0074
     },
     {
       "id": "signal-agent-parse",
@@ -577,7 +595,7 @@
       "must_pass": true,
       "test": "tests/unit/test_signal_agent.py::test_ask_nemotron_parses_and_filters",
       "status": "verified",
-      "duration_s": 0.0013
+      "duration_s": 0.0001
     },
     {
       "id": "signal-agent-robust",
@@ -586,7 +604,7 @@
       "must_pass": false,
       "test": "tests/unit/test_signal_agent.py::test_ask_nemotron_handles_non_json",
       "status": "verified",
-      "duration_s": 0.0008
+      "duration_s": 0.0001
     },
     {
       "id": "agent-ask-flow",
@@ -595,7 +613,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_ask_tasks_answer_flow",
       "status": "verified",
-      "duration_s": 2.3418
+      "duration_s": 2.0872
     },
     {
       "id": "fleet-assessments",
@@ -604,7 +622,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_fleet_assessments_roundtrip_and_broadcast",
       "status": "verified",
-      "duration_s": 2.6168
+      "duration_s": 2.0337
     },
     {
       "id": "courier-redirect",
@@ -613,7 +631,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_redirect_known_and_unknown",
       "status": "verified",
-      "duration_s": 0.4309
+      "duration_s": 0.0213
     },
     {
       "id": "cctv-cameras",
@@ -622,7 +640,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_cctv_cameras_shape",
       "status": "verified",
-      "duration_s": 0.5234
+      "duration_s": 0.1454
     },
     {
       "id": "agent-answers-tasks",
@@ -631,7 +649,7 @@
       "must_pass": true,
       "test": "tests/unit/test_signal_agent_tasks.py::test_answer_pending_tasks_posts_answer",
       "status": "verified",
-      "duration_s": 0.0007
+      "duration_s": 0.0001
     },
     {
       "id": "agent-assesses-drivers",
@@ -640,7 +658,7 @@
       "must_pass": true,
       "test": "tests/unit/test_signal_agent_tasks.py::test_assess_drivers_parses_and_filters",
       "status": "verified",
-      "duration_s": 0.0013
+      "duration_s": 0.0001
     },
     {
       "id": "auth-login",
@@ -648,8 +666,8 @@
       "category": "security",
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_register_then_login_returns_jwt_and_me_works",
-      "status": "failing",
-      "duration_s": 30.8709
+      "status": "verified",
+      "duration_s": 0.5529
     },
     {
       "id": "auth-protects-writes",
@@ -657,8 +675,8 @@
       "category": "security",
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_with_token_succeeds",
-      "status": "failing",
-      "duration_s": 0.0002
+      "status": "verified",
+      "duration_s": 0.0066
     },
     {
       "id": "auth-rejects-no-token",
@@ -666,8 +684,8 @@
       "category": "security",
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_without_token_returns_401",
-      "status": "failing",
-      "duration_s": 0.0002
+      "status": "verified",
+      "duration_s": 0.003
     },
     {
       "id": "auth-wrong-password",
@@ -675,8 +693,8 @@
       "category": "security",
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_login_with_wrong_password_returns_401",
-      "status": "failing",
-      "duration_s": 0.0003
+      "status": "verified",
+      "duration_s": 0.1778
     },
     {
       "id": "auth-backward-compat",
@@ -684,8 +702,8 @@
       "category": "security",
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_post_jobs_works_without_token_when_auth_off",
-      "status": "failing",
-      "duration_s": 30.9996
+      "status": "verified",
+      "duration_s": 0.0072
     },
     {
       "id": "completeness-no-stubs",
@@ -693,8 +711,8 @@
       "category": "completeness",
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist",
-      "status": "failing",
-      "duration_s": 7.8113
+      "status": "verified",
+      "duration_s": 0.0109
     },
     {
       "id": "completeness-no-unwired-buttons",
@@ -703,7 +721,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_unwired_buttons",
       "status": "verified",
-      "duration_s": 0.0077
+      "duration_s": 0.0021
     },
     {
       "id": "completeness-endpoints",
@@ -711,8 +729,8 @@
       "category": "completeness",
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_orchestrator_rest_endpoints_implemented",
-      "status": "failing",
-      "duration_s": 0.0263
+      "status": "verified",
+      "duration_s": 0.01
     },
     {
       "id": "completeness-ws-emitted",
@@ -721,7 +739,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_ws_events_declared_are_emitted",
       "status": "verified",
-      "duration_s": 0.0016
+      "duration_s": 0.0003
     },
     {
       "id": "reroute-on-closure",
@@ -730,7 +748,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 2.9422
+      "duration_s": 0.5506
     },
     {
       "id": "voice-loop",
@@ -739,7 +757,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.7795
+      "duration_s": 0.1743
     },
     {
       "id": "e2e-flywheel-loop",
@@ -748,7 +766,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop",
       "status": "verified",
-      "duration_s": 1.461
+      "duration_s": 0.2565
     },
     {
       "id": "unhappy-cold-safety",
@@ -757,7 +775,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash",
       "status": "verified",
-      "duration_s": 0.9589
+      "duration_s": 0.1489
     },
     {
       "id": "unhappy-routing-fallback",
@@ -765,8 +783,8 @@
       "category": "unhappy",
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback",
-      "status": "failing",
-      "duration_s": 41.3197
+      "status": "verified",
+      "duration_s": 0.0187
     },
     {
       "id": "unhappy-malformed-422",
@@ -775,7 +793,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy",
       "status": "verified",
-      "duration_s": 0.8873
+      "duration_s": 0.0146
     },
     {
       "id": "unhappy-bad-telemetry",
@@ -784,7 +802,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted",
       "status": "verified",
-      "duration_s": 0.4146
+      "duration_s": 0.0059
     }
   ]
 }

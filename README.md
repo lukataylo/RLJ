@@ -9,8 +9,8 @@
 [![Hack for Impact London](https://img.shields.io/badge/Hack_for_Impact-London-76B900?logo=nvidia&logoColor=white)](https://luma.com/NVIDIA-Hack-London)
 [![Runs on DGX Spark](https://img.shields.io/badge/runs_on-DGX_Spark_·_GB10-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-gb/products/workstations/dgx-spark/)
 [![Tracks](https://img.shields.io/badge/tracks-Public_Services_·_Urban_Operations-0b7285)](#-built-for-hack-for-impact-london-nvidia)
-[![Verified](https://img.shields.io/badge/claims-75%2F75_verified-brightgreen)](verification/VERIFICATION.md)
-[![Tests](https://img.shields.io/badge/tests-128_passing-brightgreen)](tests/)
+[![Verified](https://img.shields.io/badge/must--pass-77%2F77_green-brightgreen)](verification/VERIFICATION.md)
+[![Tests](https://img.shields.io/badge/tests-225_passing-brightgreen)](tests/)
 [![Local-first](https://img.shields.io/badge/data-zero--egress-1f6feb)](nemoclaw/)
 [![Live demo](https://img.shields.io/badge/site-pulsego.org-e8503a)](https://pulsego.org)
 
@@ -95,11 +95,11 @@ anywhere, whilst making a positive impact"* — and maps directly onto the judgi
 | What the hackathon rewards | How PulseGo delivers |
 |---|---|
 | **Agentic AI on local NVIDIA hardware** | Multi-agent system on local **Nemotron** via **NemoClaw**; **GPU routing solver** on the GB10 — the Spark does heavy compute, not just chat. |
-| **Grounded in open City of London data** | 13 DQ-gated civic datasets — TfL, NHS ODS, EA, air quality, flood, street-works (see [below](#-grounded-in-open-london-data)). |
+| **Grounded in open City of London data** | 15 DQ-gated civic datasets — TfL, NHS ODS, EA, air quality, flood, street-works, kerbside handoff zones and roadside signs (see [below](#-grounded-in-open-london-data)). |
 | **Public Services + Urban Operations tracks** | Protects NHS clinical SLAs (Public Services) by optimising city-scale courier flow in real time (Urban Operations). |
 | **Quantified, real-world impact** | Test-bound impact: **41/41 clinical windows met** vs 39 for naive dispatch; **100% STAT on-time**. |
 | **Local-first / data residency** | **Zero-egress** NemoClaw policy — patient data never leaves the box; pull the network cable and it still routes. |
-| **A working, polished demo** | Product-grade command center + 3D twin; **75/75 claims verified, 128 tests passing**. |
+| **A working, polished demo** | Product-grade command center + 3D twin; **77/77 must-pass claims green, 225 tests passing**. |
 
 ## 🏗 Architecture
 
@@ -115,7 +115,7 @@ flowchart TD
         ROUTE["🧭 Routing :8100<br/>GPU ACO + HGS + OR-Tools/cuOpt<br/>local-search refined"]
         FE["🗺️ Command center :5173<br/>deck.gl map ⇄ 3D LiDAR twin<br/>verified ✅/❌ KPI badges"]
         PWA["📱 Driver PWA :5174<br/>share-GPS · green-wave · stats"]
-        DATA["📚 Data layer<br/>13 DQ-gated civic datasets"]
+        DATA["📚 Data layer<br/>15 DQ-gated civic datasets"]
         GATE["🔒 Verification gate<br/>tests → claims → STATUS.json"]
     end
     CLINIC["📞 Clinic call"] --> VOICE --> ORCH
@@ -162,7 +162,7 @@ Full control-flow + fallback ladder: **[`ARCHITECTURE.md`](ARCHITECTURE.md)**. D
 
 ## 🌍 Grounded in open London data
 
-Thirteen datasets, **every one data-quality-gated** before it's served (`make data` →
+Fifteen datasets, **every one data-quality-gated** before it's served (`make data` →
 [`data/manifest.json`](data/manifest.json), each with a SHA-256 and a bound DQ test). Live feeds
 degrade gracefully to verified bundled/scheduled fallbacks — so *"pull the network cable"* still works.
 
@@ -173,7 +173,9 @@ degrade gracefully to verified bundled/scheduled fallbacks — so *"pull the net
 | Road disruptions · live CCTV | **TfL Unified API** (JamCams) | Live |
 | Air quality | TfL AirQuality / LAQN | Live → fallback |
 | Flood warnings | **Environment Agency** real-time | Live → fallback |
-| Street works | Street Manager / scheduled | Scheduled |
+| Planned works | Street Manager-style roadworks | Scheduled |
+| Kerbside handoff/loading points | London borough kerbside/loading restrictions | Scheduled |
+| Roadside message signs | **TfL Unified API** VariableMessageSign | Live → fallback |
 | Tower Bridge lifts · public events · signal junctions | published schedules | Scheduled |
 | Weather | Open-Meteo | Live → bundled |
 | NHS pressure · cycle infrastructure | NHS / TfL | Scheduled |
@@ -188,7 +190,7 @@ See [`data/README.md`](data/README.md) for provenance details. Full open-data ca
 ```bash
 make install          # python test + service deps
 make data             # build + DQ-verify datasets -> data/manifest.json + map geojson
-make verify           # the gate: 75 claims, 65 must-pass. exits non-zero unless GREEN
+make verify           # the gate: exits non-zero unless every must-pass claim is GREEN
 
 # run the stack (separate terminals)
 cd routing      && uvicorn app:app --port 8100                                   # GPU routing service
@@ -210,7 +212,7 @@ test passed in the latest run; `make verify` exits non-zero unless every must-pa
 and CI enforces it on every push.
 
 ```
-✅ 75 / 75 claims verified   ·   65 / 65 must-pass green   ·   128 tests passing
+✅ 77 / 77 must-pass green   ·   83 / 88 claims verified   ·   225 tests passing
 ```
 
 External tests gate claims across **impact, performance, contracts, data quality, research, and
@@ -246,7 +248,7 @@ externally re-scored.
 | [`voice/`](voice/) | ElevenLabs intake + outbound caller + driver voice assistant (FAQ→tools) |
 | [`frontend/`](frontend/) | command-center: deck.gl map ⇄ Three.js LiDAR twin; verified badges; live layers |
 | [`driver-app/`](driver-app/) | mobile PWA for drivers: signup, share-GPS, green-wave, contribution stats |
-| [`data/`](data/) | 13 DQ-gated civic datasets + manifest gating |
+| [`data/`](data/) | 15 DQ-gated civic datasets + manifest gating |
 | [`nemoclaw/`](nemoclaw/) | local-first sandbox policies (voice = ElevenLabs-only; routing = zero-egress) |
 | [`verification/`](verification/) | claims ledger + gate (`run.py` → `STATUS.json` / `VERIFICATION.md`) |
 | [`tests/`](tests/) | external suites: data-quality, contracts, backtests, benchmarks, e2e |

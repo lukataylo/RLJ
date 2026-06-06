@@ -30,6 +30,8 @@ import streetworks as streetworks_mod
 import nhspressure as nhspressure_mod
 import cycleinfra as cycleinfra_mod
 import floodwarnings as floodwarnings_mod
+import kerbside as kerbside_mod
+import roadsigns as roadsigns_mod
 from loader import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -345,6 +347,48 @@ def build(
         "fetched_at": _now_iso(),
         "dq_passed": fld_passed,
         "dq_suite": "tests/data_quality/test_floodwarnings.py",
+    }
+
+    # ---- kerbside loading / handoff points -------------------------------- #
+    kerb_path = kerbside_mod.KERBSIDE_PATH
+    kerb_passed, kerb_rows = True, 0
+    try:
+        payload = kerbside_mod.write_kerbside(kerb_path)
+        kerb_rows = len(payload.get("loading_zones", []))
+        quality.validate_kerbside(payload)
+    except Exception as e:  # noqa: BLE001
+        kerb_passed = False
+        print(f"[kerbside] DQ FAILED: {e}")
+    datasets["kerbside"] = {
+        "source": "scheduled",
+        "path": _rel(kerb_path),
+        "rows": kerb_rows,
+        "sha256": sha256_file(kerb_path) if kerb_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": kerb_passed,
+        "dq_suite": "tests/data_quality/test_kerbside.py",
+    }
+
+    # ---- TfL roadside variable message signs ------------------------------ #
+    rs_path = roadsigns_mod.ROADSIGNS_PATH
+    rs_passed, rs_rows, rs_live = True, 0, False
+    try:
+        payload = roadsigns_mod.write_roadsigns(rs_path, allow_network=allow_network)
+        rs_rows = len(payload.get("signs", []))
+        rs_live = bool(payload.get("live", False))
+        quality.validate_roadsigns(payload)
+    except Exception as e:  # noqa: BLE001
+        rs_passed = False
+        print(f"[roadsigns] DQ FAILED: {e}")
+    datasets["roadsigns"] = {
+        "source": "live-with-fallback",
+        "live": rs_live,
+        "path": _rel(rs_path),
+        "rows": rs_rows,
+        "sha256": sha256_file(rs_path) if rs_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": rs_passed,
+        "dq_suite": "tests/data_quality/test_roadsigns.py",
     }
 
     manifest = {"generated_at": _now_iso(), "scenario_now": now, "datasets": datasets}

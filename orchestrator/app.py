@@ -13,6 +13,7 @@ import os
 import json
 import pathlib
 import asyncio
+import sys
 from datetime import datetime, timezone
 from contextlib import suppress
 
@@ -41,6 +42,9 @@ from greedy import greedy_plan
 import congestion as congestion_mod
 import nemo_agent
 import geocode
+_intake_mod = sys.modules.get("intake")
+if _intake_mod and "orchestrator" not in str(getattr(_intake_mod, "__file__", "")):
+    sys.modules.pop("intake", None)
 from intake import parse_delivery
 import route_preview
 import config
@@ -621,9 +625,10 @@ async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
     S.agent_tasks = S.agent_tasks[-50:]
     await HUB.emit("agent_log", {"level": "info", "source": "operator",
                                  "message": f"Asked NemoClaw: {body.question[:120]}"})
-    # In prod (no on-box worker) answer ourselves via OpenAI; locally the DGX worker
-    # handles it, so we must NOT auto-answer or the feed gets double answers.
-    if not config.is_local():
+    # In prod (no on-box worker) answer ourselves only when an OpenAI-compatible
+    # key is configured. Otherwise keep the task pending for the local
+    # Nemotron/Expo flow instead of fabricating a fallback answer.
+    if not config.is_local() and config.openai_key():
         asyncio.create_task(_openai_auto_answer(task["id"], body.question))
     return task
 
