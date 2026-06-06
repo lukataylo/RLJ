@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-06T15:26:34.160485+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T15:52:59.143569+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (65/65) · verified 75/75 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (73/73) · verified 83/83 · failing 0 · unverified 0
 
 ## impact
 
@@ -91,6 +91,10 @@ _Generated 2026-06-06T15:26:34.160485+00:00 — machine output of `make verify`.
 | | claim | test | status |
 |--|--|--|--|
 | ✅ ⭐ | Driver voice assistant routes the FAQ questions to the correct tools | `test_driver_assistant_answers` | verified |
+| ✅ ⭐ | Voice NLU parses real clinic phrasings into a valid DeliveryJob (priority, cold-chain, places, time) | `test_stat_cold_chain_pickup_from_to` | verified |
+| ✅ ⭐ | bridge_status derives open/closed from live /state disruptions matched to bridge geometry | `test_bridge_status_closed_when_disruption_on_bridge` | verified |
+| ✅ ⭐ | Outbound WS handler places a voice call only on voice_call notifications | `test_outbound_places_call_on_voice_notification` | verified |
+| ✅ ⭐ | Inbound intake parses text and POSTs a DeliveryJob to the orchestrator | `test_intake_submit_happy` | verified |
 | ✅ ⭐ | NemoClaw narration is observable by a client connecting after boot (history replay) | `test_nemoclaw_online_narration` | verified |
 | ✅ | Right delivery list renders cards with van/scooter icons (browser e2e) | `test_delivery_list_and_cards` | verified |
 | ✅ | Clicking a delivery selects it and opens the inspector (browser e2e) | `test_click_delivery_highlights` | verified |
@@ -109,6 +113,10 @@ _Generated 2026-06-06T15:26:34.160485+00:00 — machine output of `make verify`.
 
 | | claim | test | status |
 |--|--|--|--|
+| ✅ ⭐ | Voice NLU degrades safely on garbage/empty input (never emits an invalid job) | `test_garbage_text_degrades_to_valid_job` | verified |
+| ✅ ⭐ | Driver-assistant tools return an error dict (never crash) when the orchestrator is down | `test_all_tools_degrade_when_orchestrator_down` | verified |
+| ✅ ⭐ | Driver assistant speaks a safe fallback when a tool errors (no crash, no dead air) | `test_ask_unhappy_tool_error_speaks_safe_fallback` | verified |
+| ✅ ⭐ | ElevenLabs wrapper is a safe no-op with no API key (offline-demoable) | `test_elevenlabs_disabled_without_key_is_noop` | verified |
 | ✅ ⭐ | A malformed signal recommendation is rejected (422), system stays healthy | `test_signals_malformed_422` | verified |
 | ✅ ⭐ | A cold-chain job with no fridge-equipped courier is left unassigned, never mis-assigned | `test_infeasible_cold_job_unassigned_no_crash` | verified |
 | ✅ ⭐ | If the routing service is down, the orchestrator still returns a plan (greedy fallback) | `test_routing_down_uses_greedy_fallback` | verified |

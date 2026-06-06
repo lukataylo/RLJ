@@ -266,6 +266,54 @@ claims:
     must_pass: true
     test: "tests/voice/test_driver_assistant.py::test_driver_assistant_answers"
 
+  - id: voice-nlu-intake
+    statement: "Voice NLU parses real clinic phrasings into a valid DeliveryJob (priority, cold-chain, places, time)"
+    category: e2e
+    must_pass: true
+    test: "tests/voice/test_nlu.py::test_stat_cold_chain_pickup_from_to"
+
+  - id: voice-nlu-robust
+    statement: "Voice NLU degrades safely on garbage/empty input (never emits an invalid job)"
+    category: unhappy
+    must_pass: true
+    test: "tests/voice/test_nlu.py::test_garbage_text_degrades_to_valid_job"
+
+  - id: voice-tools-degrade
+    statement: "Driver-assistant tools return an error dict (never crash) when the orchestrator is down"
+    category: unhappy
+    must_pass: true
+    test: "tests/voice/test_driver_tools.py::test_all_tools_degrade_when_orchestrator_down"
+
+  - id: voice-bridge-status
+    statement: "bridge_status derives open/closed from live /state disruptions matched to bridge geometry"
+    category: e2e
+    must_pass: true
+    test: "tests/voice/test_driver_tools.py::test_bridge_status_closed_when_disruption_on_bridge"
+
+  - id: voice-assistant-unhappy
+    statement: "Driver assistant speaks a safe fallback when a tool errors (no crash, no dead air)"
+    category: unhappy
+    must_pass: true
+    test: "tests/voice/test_voice_flows.py::test_ask_unhappy_tool_error_speaks_safe_fallback"
+
+  - id: voice-outbound-dispatch
+    statement: "Outbound WS handler places a voice call only on voice_call notifications"
+    category: e2e
+    must_pass: true
+    test: "tests/voice/test_voice_flows.py::test_outbound_places_call_on_voice_notification"
+
+  - id: voice-intake-post
+    statement: "Inbound intake parses text and POSTs a DeliveryJob to the orchestrator"
+    category: e2e
+    must_pass: true
+    test: "tests/voice/test_voice_flows.py::test_intake_submit_happy"
+
+  - id: voice-elevenlabs-guard
+    statement: "ElevenLabs wrapper is a safe no-op with no API key (offline-demoable)"
+    category: unhappy
+    must_pass: true
+    test: "tests/voice/test_voice_flows.py::test_elevenlabs_disabled_without_key_is_noop"
+
   # ---- NemoClaw agent + delivery UI (latest features) ---------------------
   - id: nemoclaw-narration
     statement: "NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic)"
