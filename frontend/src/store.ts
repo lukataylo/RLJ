@@ -64,9 +64,13 @@ interface OpsState {
   history: MetricSample[];
   selectedCourierId: string | null;
   focusJobId: string | null;
-  // The just-created delivery's own pickup→dropoff road geometry (from /intake),
-  // drawn as a dedicated clean blue A→B line on the map. null = no focus route.
+  // The just-created delivery's own road geometry (from /intake), drawn as a
+  // dedicated clean blue route on the map. null = no focus route.
   focusRoute: { lat: number; lng: number }[] | null;
+  // The optimized stops for the focus route (origin + destinations, in visit
+  // order), drawn as numbered waypoint markers on top of the blue route so a
+  // multi-hop delivery is legible. null = no focus stops.
+  focusStops: { name: string; lat: number; lng: number }[] | null;
   fleetAssessments: Record<string, FleetAssessment>;
   cctv: CctvCamera[];
   lastAgentAnswer: AgentAnswer | null;
@@ -86,6 +90,9 @@ interface OpsState {
   selectCourier: (id: string | null) => void;
   setFocusJob: (id: string | null) => void;
   setFocusRoute: (pts: { lat: number; lng: number }[] | null) => void;
+  setFocusStops: (
+    stops: { name: string; lat: number; lng: number }[] | null,
+  ) => void;
   setFleetAssessments: (list: FleetAssessment[]) => void;
   setCctv: (list: CctvCamera[]) => void;
 }
@@ -114,6 +121,7 @@ export const useStore = create<OpsState>((set, get) => ({
   selectedCourierId: null,
   focusJobId: null,
   focusRoute: null,
+  focusStops: null,
   fleetAssessments: {},
   cctv: [],
   lastAgentAnswer: null,
@@ -140,12 +148,15 @@ export const useStore = create<OpsState>((set, get) => ({
   setConnected: (v) => set({ connected: v }),
 
   // Selecting (clicking) a courier returns to the normal fleet view: clear any
-  // delivery focus route + focused job so only the courier highlight applies.
-  selectCourier: (id) => set({ selectedCourierId: id, focusRoute: null, focusJobId: null }),
+  // delivery focus route + stops + focused job so only the courier highlight applies.
+  selectCourier: (id) =>
+    set({ selectedCourierId: id, focusRoute: null, focusStops: null, focusJobId: null }),
 
   setFocusJob: (id) => set({ focusJobId: id }),
 
   setFocusRoute: (pts) => set({ focusRoute: pts }),
+
+  setFocusStops: (stops) => set({ focusStops: stops }),
 
   setFleetAssessments: (list) =>
     set({ fleetAssessments: keyByCourier(Array.isArray(list) ? list : []) }),

@@ -119,6 +119,36 @@ def test_parse_delivery_ignores_place_names_arg(monkeypatch):
     assert parsed["origin"] and parsed["destination"]
 
 
+def test_parse_delivery_multidrop(monkeypatch):
+    # MULTI-DROP: one pickup (Guy's), two drops (St Thomas' + Moorfields).
+    geocode = _load("geocode")
+    intake = _load("intake")
+    monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
+
+    parsed = intake.parse_delivery(
+        "deliver blood from Guy's to St Thomas' and also Moorfields")
+    assert parsed["cold_chain"] is True
+    # origin resolves to Guy's
+    origin = geocode.resolve(parsed["origin"])
+    assert origin and origin["name"] == "Guy's Hospital"
+    # exactly two destinations, resolving to St Thomas' + Moorfields
+    assert len(parsed["destinations"]) == 2
+    assert parsed["destination"] == parsed["destinations"][0]  # back-compat key
+    resolved = [geocode.resolve(d) for d in parsed["destinations"]]
+    names = [r["name"] for r in resolved if r]
+    assert "St Thomas' Hospital" in names
+    assert "Moorfields Eye Hospital" in names
+
+
+def test_parse_delivery_single_still_one_destination(monkeypatch):
+    # Single-drop request -> destinations length 1, destination == destinations[0].
+    intake = _load("intake")
+    monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
+    parsed = intake.parse_delivery("urgent meds from Guy's to Moorfields")
+    assert len(parsed["destinations"]) == 1
+    assert parsed["destination"] == parsed["destinations"][0]
+
+
 def test_parse_delivery_sample_and_cold(monkeypatch):
     intake = _load("intake")
     monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
@@ -162,13 +192,34 @@ def test_intake_endpoint_creates_job(client):
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True, body
-    job = body["job"]
+    jobs = body["jobs"]
+    assert len(jobs) == 1
+    job = jobs[0]
     assert job["id"]
     for end in ("origin", "destination"):
         loc = job[end]
         assert 51.28 <= loc["lat"] <= 51.69 and -0.51 <= loc["lng"] <= 0.33
-    assert body["resolved"]["destination"]["name"] == "Moorfields Eye Hospital"
+    assert body["resolved"]["destinations"][0]["name"] == "Moorfields Eye Hospital"
+    assert body["order"]  # optimised visiting order is present
     assert "→" in body["message"]
+
+
+def test_intake_endpoint_multidrop(client):
+    # One pickup, two drops -> two jobs created, optimised order returned.
+    r = client.post("/intake",
+                    json={"text": "deliver blood from Guy's to St Thomas' and also Moorfields"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True, body
+    assert len(body["jobs"]) == 2
+    assert len(body["resolved"]["destinations"]) == 2
+    # order starts at the origin (pickup) and lists all stops
+    assert body["order"]
+    assert body["order"][0] == "Guy's Hospital"
+    assert len(body["order"]) == 3  # origin + 2 drops
+    # offline-safe: Valhalla unreachable in tests -> polyline falls back to []
+    assert body["route"] == []
+    assert "route optimized" in body["message"]
 
 
 def test_intake_endpoint_unresolved(client):

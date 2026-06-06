@@ -250,8 +250,10 @@ async def list_jobs():
     return [j.model_dump(mode="json") for j in S.jobs.values()]
 
 
-@app.post("/jobs")
-async def create_job(job: DeliveryJob, _user: CurrentUser = Depends(require_user)):
+async def _add_job(job: DeliveryJob) -> DeliveryJob:
+    """Assign an id, store the job and emit job_created + agent_log — WITHOUT
+    re-optimising. Shared by POST /jobs and the multi-drop /intake so the latter
+    can add several jobs and re-optimise only ONCE."""
     if not job.id:
         S._job_n += 1
         job.id = f"job-{S._job_n}"
@@ -260,6 +262,12 @@ async def create_job(job: DeliveryJob, _user: CurrentUser = Depends(require_user
     await HUB.emit("job_created", job.model_dump(mode="json"))
     await HUB.emit("agent_log", {"level": "info",
                                  "message": f"New {job.priority.upper()} job {job.id}: {job.origin.name or '?'} → {job.destination.name or '?'}."})
+    return job
+
+
+@app.post("/jobs")
+async def create_job(job: DeliveryJob, _user: CurrentUser = Depends(require_user)):
+    job = await _add_job(job)
     await run_optimize()
     await emit_dispatch_notification(job.id)
     return job.model_dump(mode="json")
@@ -271,52 +279,70 @@ class AgentIntake(BaseModel):
 
 @app.post("/intake")
 async def intake(body: AgentIntake, _user: CurrentUser = Depends(require_user)):
-    """Offline natural-language delivery intake.
+    """Offline natural-language delivery intake — MULTI-DROP.
 
-    Free text -> parse (local Nemotron, regex fallback) -> resolve both places
-    against the offline London gazetteer -> create a job through the SAME path as
-    POST /jobs (so it re-optimizes and the route renders live).
+    Free text -> parse (local Nemotron, regex fallback) into one pickup + one or
+    more drops -> resolve every place against the offline London gazetteer ->
+    create ONE DeliveryJob per drop (origin -> drop), re-optimising ONCE -> draw
+    the optimised pickup->drops road route (visiting order chosen via Valhalla).
     """
     text = (body.text or "").strip()
     if not text:
         return {"ok": False, "error": "empty request", "suggestions": []}
 
     parsed = parse_delivery(text, geocode.place_names())
+
     origin = geocode.resolve(parsed["origin"])
-    destination = geocode.resolve(parsed["destination"])
-
-    if origin is None or destination is None:
-        unresolved = parsed["origin"] if origin is None else parsed["destination"]
+    if origin is None:
         return {"ok": False,
-                "error": f"could not resolve {'origin' if origin is None else 'destination'}: "
-                         f"'{unresolved}'",
-                "suggestions": geocode.suggest(unresolved)}
+                "error": f"could not resolve '{parsed['origin']}'",
+                "suggestions": geocode.suggest(parsed["origin"])}
 
-    job = DeliveryJob(
-        type=parsed["type"],
-        priority=parsed["priority"],
-        cold_chain=parsed["cold_chain"],
-        origin=Location(lat=origin["lat"], lng=origin["lng"], name=origin["name"]),
-        destination=Location(lat=destination["lat"], lng=destination["lng"],
-                             name=destination["name"]),
-        raw_text=text,
-    )
+    resolved_dests: list[dict] = []
+    for name in parsed["destinations"]:
+        d = geocode.resolve(name)
+        if d is None:
+            return {"ok": False,
+                    "error": f"could not resolve '{name}'",
+                    "suggestions": geocode.suggest(name)}
+        resolved_dests.append(d)
+
+    drop_names = ", ".join(d["name"] for d in resolved_dests)
     await HUB.emit("agent_log", {"level": "info", "source": "intake",
                                  "message": f"Intake: \"{text[:100]}\" -> "
-                                            f"{job.priority.upper()} {job.type} "
-                                            f"{origin['name']} -> {destination['name']}."})
-    # Same path as POST /jobs: assigns id, emits job_created + agent_log, re-optimizes,
-    # then dispatch notification.
-    created = await create_job(job, _user)
-    job_id = created.get("id")
-    # This delivery's own clean pickup->dropoff road route (for the UI to draw/highlight
-    # in blue), instead of the courier's full multi-stop tour. [] if Valhalla is down.
-    route = route_preview.valhalla_route_shape(
-        [origin["lat"], destination["lat"]], [origin["lng"], destination["lng"]])
-    return {"ok": True, "job": created,
-            "resolved": {"origin": origin, "destination": destination},
-            "route": route,
-            "message": f"Created {job_id}: {origin['name']} → {destination['name']}"}
+                                            f"{parsed['priority'].upper()} {parsed['type']} "
+                                            f"{origin['name']} -> {drop_names}."})
+
+    # One job per drop (origin -> drop), all added first, then a single re-optimise.
+    origin_loc = Location(lat=origin["lat"], lng=origin["lng"], name=origin["name"])
+    created_jobs: list[dict] = []
+    job_ids: list[str] = []
+    for d in resolved_dests:
+        job = await _add_job(DeliveryJob(
+            type=parsed["type"],
+            priority=parsed["priority"],
+            cold_chain=parsed["cold_chain"],
+            origin=origin_loc,
+            destination=Location(lat=d["lat"], lng=d["lng"], name=d["name"]),
+            raw_text=text,
+        ))
+        created_jobs.append(job.model_dump(mode="json"))
+        job_ids.append(job.id)
+    await run_optimize()
+    for jid in job_ids:
+        await emit_dispatch_notification(jid)
+
+    # Optimised multi-hop route: [origin] + drops, visiting order chosen by Valhalla.
+    pts = [origin] + resolved_dests
+    opt = route_preview.optimized_route([p["lat"] for p in pts], [p["lng"] for p in pts])
+    order_names = [pts[i]["name"] for i in opt["order"]]
+
+    n = len(created_jobs)
+    return {"ok": True, "jobs": created_jobs,
+            "resolved": {"origin": origin, "destinations": resolved_dests},
+            "order": order_names, "route": opt["polyline"],
+            "message": f"Created {n} delivery(ies): {origin['name']} → {drop_names}"
+                       "  · route optimized"}
 
 
 @app.get("/couriers")

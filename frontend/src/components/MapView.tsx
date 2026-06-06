@@ -233,9 +233,12 @@ interface Snapshot {
   cctv: CctvCamera[];
   selectedCourierId: string | null;
   focusJobId: string | null;
-  // The just-created delivery's own pickup→dropoff road geometry, drawn as a
-  // dedicated clean blue A→B line (and dimming the fleet). null = not active.
+  // The just-created delivery's own road geometry, drawn as a dedicated clean
+  // blue route (and dimming the fleet). null = not active.
   focusRoute: { lat: number; lng: number }[] | null;
+  // Optimized stops for the focus route (origin + drops in visit order), drawn as
+  // numbered waypoint markers on top of the blue route. null = not active.
+  focusStops: { name: string; lat: number; lng: number }[] | null;
 }
 
 // Map viewport bounds [west, south, east, north]; null until the map first moves.
@@ -268,6 +271,7 @@ const EMPTY_SNAP: Snapshot = {
   selectedCourierId: null,
   focusJobId: null,
   focusRoute: null,
+  focusStops: null,
 };
 
 // Short uppercase glyph per signal action for the on-map label.
@@ -415,7 +419,7 @@ function buildLayers(
   roadPaths: Record<string, RoadGeom | null>,
   bounds: Bounds,
 ): Layer[] {
-  const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId, focusJobId, focusRoute } = snap;
+  const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId, focusJobId, focusRoute, focusStops } = snap;
   const layers: Layer[] = [];
 
   // A dedicated delivery route is active when /intake handed us ≥2 road points.
@@ -596,6 +600,59 @@ function buildLayers(
         capRounded: true,
         jointRounded: true,
         updateTriggers: { getPath: focusRoute },
+      }),
+    );
+
+    // 2c. FOCUS STOPS — numbered waypoint markers at the optimized visit stops
+    //     (origin + drops in order). Drawn on top of the blue route so a multi-hop
+    //     delivery reads clearly. Falls back to the route's endpoints when the
+    //     store didn't supply stops. The origin (index 0) gets a brighter ring.
+    const stops: { name: string; lat: number; lng: number }[] =
+      focusStops && focusStops.length
+        ? focusStops
+        : [
+            { name: "origin", lat: focusRoute[0].lat, lng: focusRoute[0].lng },
+            {
+              name: "destination",
+              lat: focusRoute[focusRoute.length - 1].lat,
+              lng: focusRoute[focusRoute.length - 1].lng,
+            },
+          ];
+    const stopPts = stops.map((s, i) => ({ ...s, _t: "focusStop" as const, index: i }));
+    layers.push(
+      new ScatterplotLayer<(typeof stopPts)[number]>({
+        id: "focus-stops",
+        data: stopPts,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 11,
+        radiusUnits: "pixels",
+        radiusMinPixels: 9,
+        stroked: true,
+        lineWidthMinPixels: 2,
+        getLineColor: [232, 237, 230, 255],
+        getFillColor: (d) =>
+          d.index === 0
+            ? ([...ROUTE_HIGHLIGHT_RGB, 255] as [number, number, number, number])
+            : ([...ROUTE_HIGHLIGHT_RGB, 200] as [number, number, number, number]),
+        pickable: true,
+        updateTriggers: { getPosition: focusStops, getFillColor: focusStops },
+      }),
+    );
+    layers.push(
+      new TextLayer<(typeof stopPts)[number]>({
+        id: "focus-stops-label",
+        data: stopPts,
+        getPosition: (d) => [d.lng, d.lat],
+        // Origin shows "S" (start); subsequent drops are numbered 1, 2, 3…
+        getText: (d) => (d.index === 0 ? "S" : String(d.index)),
+        getSize: 12,
+        getColor: [5, 9, 11, 255],
+        fontWeight: 700,
+        getTextAnchor: "middle",
+        getAlignmentBaseline: "center",
+        characterSet: "auto",
+        fontSettings: { sdf: true },
+        updateTriggers: { getText: focusStops, getPosition: focusStops },
       }),
     );
   }
@@ -1038,6 +1095,11 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
     const c = object as CctvCamera;
     return { className: "deck-tip", html: `<b>${c.name}</b><br/><span class="tip-dim">live CCTV · click to view</span>` };
   }
+  if (o._t === "focusStop") {
+    const s = object as { name: string; index: number };
+    const tag = s.index === 0 ? "pickup" : `stop ${s.index}`;
+    return { className: "deck-tip", html: `<b>${s.name}</b><br/><span class="tip-dim">${tag} · optimized route</span>` };
+  }
   if ("congestion" in o && "path" in o) {
     const r = object as RoadPath;
     return { className: "deck-tip", html: `<b>Traffic ${(r.congestion * 100).toFixed(0)}%</b><br/><span class="tip-dim">road segment</span>` };
@@ -1182,6 +1244,7 @@ export default function MapView() {
         selectedCourierId: s.selectedCourierId,
         focusJobId: s.focusJobId,
         focusRoute: s.focusRoute,
+        focusStops: s.focusStops,
       };
       setCounts({
         jobs: jobs.length,

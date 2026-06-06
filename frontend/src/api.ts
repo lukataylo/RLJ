@@ -119,15 +119,30 @@ export interface ResolvedPlace {
 }
 
 /** Result of POST /intake — discriminated union on `ok`.
- * success: the created job + resolved endpoints + a human-readable message +
- *   `route`: the delivery's own pickup→dropoff road geometry (real London streets
- *   from Valhalla; `[]` when Valhalla is down) so the UI can draw its clean A→B line.
+ * success: the created job(s) + resolved endpoints + a human-readable message +
+ *   `route`: the delivery's optimized multi-stop road geometry (real London streets
+ *   from Valhalla; `[]` when Valhalla is down) so the UI can draw its clean route.
+ *   Multi-drop ("… to A and also B") returns `jobs` (one per drop),
+ *   `resolved.destinations` (one per drop) and the optimized visit `order`.
+ *   Single-drop returns the same shape with one job / one destination, plus the
+ *   legacy `job` / `resolved.destination` fields for backwards compatibility.
  * failure: an error string + suggestions the dispatcher can pick from. */
 export type IntakeResult =
   | {
       ok: true;
-      job: DeliveryJob;
-      resolved: { origin: ResolvedPlace; destination: ResolvedPlace };
+      // Legacy single-drop fields (still emitted for single-destination intakes).
+      job?: DeliveryJob;
+      // Multi-drop: one job per drop (always present in the new contract).
+      jobs?: DeliveryJob[];
+      resolved: {
+        origin: ResolvedPlace;
+        // Legacy single destination (still emitted for single-drop).
+        destination?: ResolvedPlace;
+        // Multi-drop destinations (one per drop).
+        destinations: ResolvedPlace[];
+      };
+      // Optimized visit order (place names, origin first). Optional.
+      order?: string[];
       message: string;
       route: { lat: number; lng: number }[];
     }
@@ -146,9 +161,25 @@ export async function postIntake(text: string): Promise<IntakeResult> {
   // The contract returns a JSON body (with `ok`) on both success and failure.
   const body = (await res.json().catch(() => null)) as IntakeResult | null;
   if (body && typeof body.ok === "boolean") {
-    // Default `route` to [] so callers can always read the delivery's geometry
-    // (the field may be absent if the backend / Valhalla didn't supply it).
-    if (body.ok && !Array.isArray(body.route)) body.route = [];
+    if (body.ok) {
+      // Default arrays so callers can always read them, regardless of whether the
+      // backend sent the new multi-drop shape or the legacy single-drop one.
+      if (!Array.isArray(body.route)) body.route = [];
+      if (!Array.isArray(body.order)) body.order = [];
+      if (!body.resolved) {
+        body.resolved = { origin: { name: "origin", lat: 0, lng: 0 }, destinations: [] };
+      }
+      // Backfill `destinations` from a legacy single `destination` when needed.
+      if (!Array.isArray(body.resolved.destinations)) {
+        body.resolved.destinations = body.resolved.destination
+          ? [body.resolved.destination]
+          : [];
+      }
+      // Backfill `jobs` from a legacy single `job` when needed.
+      if (!Array.isArray(body.jobs)) {
+        body.jobs = body.job ? [body.job] : [];
+      }
+    }
     return body;
   }
   // No usable body (e.g. 500/HTML) — surface as a graceful failure.

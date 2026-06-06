@@ -29,6 +29,7 @@ export default function AgentLog() {
   const pushLog = useStore((s) => s.pushLog);
   const setFocusJob = useStore((s) => s.setFocusJob);
   const setFocusRoute = useStore((s) => s.setFocusRoute);
+  const setFocusStops = useStore((s) => s.setFocusStops);
 
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
@@ -140,18 +141,41 @@ export default function AgentLog() {
       try {
         const res = await postIntake(text);
         if (res.ok) {
-          const o = res.resolved?.origin?.name ?? res.job.origin?.name ?? "origin";
-          const d =
-            res.resolved?.destination?.name ?? res.job.destination?.name ?? "destination";
+          // Normalise to the multi-drop shape (postIntake backfills these from the
+          // legacy single-drop fields, so both old and new backends work here).
+          const jobs = res.jobs ?? (res.job ? [res.job] : []);
+          const origin = res.resolved?.origin;
+          const dests =
+            res.resolved?.destinations ??
+            (res.resolved?.destination ? [res.resolved.destination] : []);
+
+          const o = origin?.name ?? jobs[0]?.origin?.name ?? "origin";
+          const destNames = dests.length
+            ? dests.map((d) => d.name)
+            : jobs.map((j) => j.destination?.name).filter((n): n is string => !!n);
+          const n = jobs.length || destNames.length || 1;
+          const word = n === 1 ? "delivery" : "deliveries";
+          const composed = destNames.length
+            ? `✓ Created ${n} ${word}: ${o} → ${destNames.join(", ")} · route optimized`
+            : `✓ Created ${n} ${word} · route optimized`;
           pushLog({
             level: "info",
-            message: `✓ Created ${res.job.id}: ${o} → ${d}`,
+            message: res.message || composed,
             source: "agent_log",
           });
-          setFocusJob(res.job.id); // highlight the new job on the map
-          // Draw the delivery's OWN clean A→B blue road route (pickup→dropoff),
-          // not the courier's tangled multi-stop tour. [] if Valhalla was down.
+
+          // Highlight the first new job on the map.
+          if (jobs[0]?.id) setFocusJob(jobs[0].id);
+          // Draw the delivery's OWN optimized multi-stop blue road route (origin →
+          // drops in visit order). [] if Valhalla was down.
           setFocusRoute(res.route ?? []);
+          // Numbered waypoint markers at the optimized stops (origin + drops) so a
+          // multi-hop delivery is legible on top of the blue route.
+          const stops = [
+            ...(origin ? [{ name: origin.name, lat: origin.lat, lng: origin.lng }] : []),
+            ...dests.map((d) => ({ name: d.name, lat: d.lat, lng: d.lng })),
+          ];
+          setFocusStops(stops.length ? stops : null);
           setQuestion("");
         } else {
           const suffix = res.suggestions?.length
