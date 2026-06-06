@@ -7,10 +7,13 @@
 
 import type {
   CongestionField,
+  Courier,
+  DeliveryJob,
   Driver,
   DriverGuidance,
   GpsFix,
   LatLng,
+  Plan,
   SignalAdvice,
   TelemetryAck,
   TelemetryBatch,
@@ -87,6 +90,21 @@ export function postTelemetry(
 /** GET /congestion — current congestion field for the heat layer. */
 export function getCongestion(): Promise<ApiResult<CongestionField>> {
   return call<CongestionField>("/congestion");
+}
+
+/** GET /jobs — all delivery jobs (filtered client-side into upcoming/past). */
+export function getJobs(): Promise<ApiResult<DeliveryJob[]>> {
+  return call<DeliveryJob[]>("/jobs");
+}
+
+/** GET /plan — current optimised plan (routes + stops + polylines). */
+export function getPlan(): Promise<ApiResult<Plan | null>> {
+  return call<Plan | null>("/plan");
+}
+
+/** GET /couriers — fleet roster. */
+export function getCouriers(): Promise<ApiResult<Courier[]>> {
+  return call<Courier[]>("/couriers");
 }
 
 /** GET /driver/{id}/guidance — route + green-wave + contribution. */

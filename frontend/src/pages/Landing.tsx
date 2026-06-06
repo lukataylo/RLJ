@@ -15,8 +15,8 @@ const FEATURES = [
         <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
       </svg>
     ),
-    title: "Lightning fast",
-    body: "Routing and re-planning run locally on a DGX Spark GB10 — the whole fleet re-optimises in under a second, with zero data egress.",
+    title: "Private by design",
+    body: "Patient data never leaves the building. The optimiser and the AI dispatcher run on a single on-prem DGX Spark GB10 — zero cloud egress, NHS-grade data sovereignty, no third party ever sees a sample.",
   },
   {
     icon: (
@@ -26,8 +26,8 @@ const FEATURES = [
         <path d="m9 12 2 2 4-4" />
       </svg>
     ),
-    title: "Reliable & safe",
-    body: "Cold-chain aware dispatch never mis-assigns a temperature-critical sample. Every STAT job is tracked and accounted for, end to end.",
+    title: "Anticipatory, not reactive",
+    body: "The whole fleet re-plans in under a second — before closures, courier-down events and demand spikes bite. Cold-chain aware dispatch never mis-assigns a temperature-critical sample.",
   },
   {
     icon: (
@@ -37,8 +37,8 @@ const FEATURES = [
         <circle cx="12" cy="10" r="2.5" />
       </svg>
     ),
-    title: "Real-time tracking",
-    body: "Live London traffic, TfL CCTV and signal recommendations keep every blood sample and transplant box on the fastest path across the city.",
+    title: "One box. No cloud bill.",
+    body: "A single appliance fuses a world-class routing solver, live London data (TfL, NHS, air, flood) and a local Nemotron agent. No per-API fees, no internet dependency — it keeps dispatching even if the line drops.",
   },
 ];
 
@@ -58,7 +58,7 @@ export default function Landing() {
   // Lightweight SEO / OG without a helmet dependency.
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = "PulseGo — fast, friendly medical delivery for London";
+    document.title = "PulseGo — on-prem AI dispatch for medical couriers";
     const metas: HTMLMetaElement[] = [];
     const set = (attr: "name" | "property", key: string, content: string) => {
       let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
@@ -70,9 +70,9 @@ export default function Landing() {
       }
       el.setAttribute("content", content);
     };
-    const desc = "PulseGo — fast, friendly medical delivery for London. Local-first AI on DGX Spark, anticipatory routing and live London data + CCTV. pulsego.org";
+    const desc = "PulseGo — on-prem AI dispatch for time-critical medical couriers. The optimiser and the agent run on one local DGX Spark: zero data egress, sub-second fleet re-planning, no cloud bill, works offline. pulsego.org";
     set("name", "description", desc);
-    set("property", "og:title", "PulseGo — fast, friendly medical delivery for London");
+    set("property", "og:title", "PulseGo — on-prem AI dispatch for medical couriers");
     set("property", "og:description", desc);
     set("property", "og:type", "website");
     set("property", "og:site_name", "PulseGo");
@@ -100,14 +100,16 @@ export default function Landing() {
       <main className="site-main">
         <section className="hero">
           <div className="hero-copy">
-            <div className="hero-eyebrow">London · Medical Logistics · DGX Spark</div>
+            <div className="hero-eyebrow">Local-first medical logistics · DGX Spark GB10</div>
             <h1 className="hero-title">
-              Fast, friendly<br />medical delivery.<br />
-              <span className="hero-accent">Every time.</span>
+              Critical samples,<br />re-routed before<br />
+              <span className="hero-accent">delays hit.</span>
             </h1>
             <p className="hero-sub">
-              PulseGo moves time-critical medical samples across London — reliable,
-              local-first AI routing so clinicians can focus on what matters most.
+              PulseGo runs the entire dispatch optimiser <b>and</b> its AI agent on a single
+              on-prem DGX Spark — so patient data never leaves the building, the fleet
+              re-plans in under a second with no cloud cost, and it keeps moving even if the
+              internet drops. The cloud can't promise any of that.
             </p>
             <div className="hero-cta-row">
               <Link className="site-btn primary" to={ctaHref} data-testid="landing-cta">
@@ -163,9 +165,10 @@ export default function Landing() {
 
         <section className="cta-band" id="about">
           <div>
-            <h2 className="cta-band-title">Ready to move with purpose?</h2>
+            <h2 className="cta-band-title">See it run — entirely on-prem.</h2>
             <p className="cta-band-sub">
-              Step into the live operations console and watch the fleet move.
+              Step into the live console: real London routes, live traffic, and an AI
+              dispatcher — all computed locally, nothing in the cloud.
             </p>
           </div>
           <Link className="site-btn primary" to={ctaHref}>

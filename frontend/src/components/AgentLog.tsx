@@ -13,11 +13,8 @@ import { useStore } from "../store";
 import NemoFace from "./NemoFace";
 import { speechSupported, startListening, speak, type Listener } from "../lib/voice";
 
-const MAX_LINES = 5;
+const MAX_LINES = 6;
 const LISTEN_SECONDS = 15;
-
-const PRESET_MONITOR = "Monitor live conditions and flag any couriers at risk.";
-const PRESET_ASSESS = "Assess all active drivers and recommend reroutes where needed.";
 
 export default function AgentLog() {
   const logs = useStore((s) => s.logs);
@@ -254,26 +251,6 @@ export default function AgentLog() {
           {sending ? "…" : "Send"}
         </button>
       </form>
-      <div className="nemo-presets">
-        <button
-          type="button"
-          className="nemo-preset"
-          data-testid="ask-preset-monitor"
-          disabled={sending}
-          onClick={() => void send(PRESET_MONITOR)}
-        >
-          Monitor &amp; flag
-        </button>
-        <button
-          type="button"
-          className="nemo-preset"
-          data-testid="ask-preset-assess"
-          disabled={sending}
-          onClick={() => void send(PRESET_ASSESS)}
-        >
-          Assess drivers
-        </button>
-      </div>
     </section>
   );
 }
