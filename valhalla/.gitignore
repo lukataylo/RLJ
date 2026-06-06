@@ -11,3 +11,4 @@ tiles/
 admins.sqlite
 timezones.sqlite
 valhalla.json
+build_tiles.log
