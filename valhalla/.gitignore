@@ -1,0 +1,13 @@
+# Large routing artifacts live on the Spark, never in git.
+custom_files/
+*.osm.pbf
+*.tar
+*.tar.gz
+# Valhalla tile + build outputs
+valhalla_tiles/
+valhalla_tiles.tar
+tiles/
+*.gph
+admins.sqlite
+timezones.sqlite
+valhalla.json

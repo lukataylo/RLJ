@@ -47,7 +47,7 @@ from models import (
     Route,
     Stop,
 )
-from traveltime import build_travel_time_matrix
+from traveltime import build_travel_time_matrix, travel_time_matrix
 
 # --- array backend: CuPy on the GB10, NumPy on this Mac -----------------------------
 try:  # pragma: no cover - GPU only
@@ -134,7 +134,7 @@ def _build_problem(req: OptimizeRequest, now: datetime) -> _Problem:
 
     lats = [c[0] for c in coords]
     lngs = [c[1] for c in coords]
-    T = build_travel_time_matrix(lats, lngs, disruptions=req.disruptions)
+    T = travel_time_matrix(lats, lngs, disruptions=req.disruptions)
 
     veh_cap = np.array([float(c.capacity) for c in couriers], dtype=np.float64)
     veh_cold = np.array([bool(getattr(c, "cold_capable", True)) for c in couriers])

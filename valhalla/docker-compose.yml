@@ -1,0 +1,35 @@
+# Offline Valhalla routing for Greater London — runs on the DGX Spark (ARM64).
+# Turnkey image auto-downloads the OSM extract, builds tiles, then serves HTTP.
+# Tiles persist in ./custom_files on the Spark's big disk, so rebuilds are rare.
+services:
+  valhalla:
+    image: ghcr.io/nilsnolde/docker-valhalla/valhalla:latest
+    container_name: pulsego-valhalla
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:8002:8002"   # bind all interfaces so the orchestrator/routing box can reach it
+    volumes:
+      - ./custom_files:/custom_files
+    environment:
+      # Source extract — downloaded once, then everything is offline.
+      tile_urls: "https://download.geofabrik.de/europe/united-kingdom/england/greater-london-latest.osm.pbf"
+      # Serve the routing tiles over HTTP on :8002.
+      serve_tiles: "True"
+      # Build admin + timezone DBs (needed for correct turn/cost + time-zone handling).
+      build_admins: "True"
+      build_time_zones: "True"
+      # If a prebuilt tiles tar is present in /custom_files, load it instead of re-cutting from the pbf.
+      use_tiles_ignore_pbf: "True"
+      # Don't blow away existing tiles on every restart; flip to True (or use the env override) to force a rebuild.
+      force_rebuild: "False"
+      # Keep the build single-shot and reuse cached tiles across restarts.
+      build_elevation: "False"
+      build_transit: "False"
+      server_threads: "4"
+    healthcheck:
+      # /status returns 200 with tile metadata once the server is up and tiles are loaded.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8002/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 600s   # first run downloads the extract + builds tiles; give it headroom

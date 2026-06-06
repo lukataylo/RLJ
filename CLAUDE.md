@@ -110,6 +110,15 @@ Postgres plugin: `api` (orchestrator, public), `routing` (private), `web` (front
 `driver` (PWA, public), `Postgres`. See `DEPLOY.md`. For the GB10 box ↔ map topology (the
 signal agent pushes to the orchestrator at its `ORCH` env IP), see `CONNECT.md`.
 
+## The GB10 box (DGX Spark)
+
+The physical GB10 / DGX Spark box (hostname `scan-11`) is reachable over SSH via the
+preconfigured alias **`dgxspark`** (`~/.ssh/config` → `nvidia@scan-11.local`, key-only auth, no
+password). Run commands on it directly, e.g. `ssh dgxspark 'nvidia-smi -L'` or
+`ssh dgxspark 'systemctl status rlj-signal-agent'`. The `Bash(ssh dgxspark:*)` permission is
+allowlisted in `.claude/settings.local.json`, so no per-call prompt. Note: `scan-11.local` is
+mDNS — only resolvable when on the same LAN as the box.
+
 ## Further reading
 
 `README.md` (overview + quickstart), `ARCHITECTURE.md` (diagram, control flow, fallback ladder),

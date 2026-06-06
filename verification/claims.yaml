@@ -91,6 +91,12 @@ claims:
     must_pass: false
     test: "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox"
 
+  - id: live-data-integrations
+    statement: "London open-data integrations normalize public API payloads into safe local records"
+    category: data
+    must_pass: true
+    test: "tests/data_quality/test_integrations.py"
+
   # ---- research: anticipatory routing significantly beats baselines -------
   - id: research-anticipation-beats-reaction
     statement: "Schedule-anticipation significantly beats live-only reactive routing (paired Wilcoxon p<0.05)"
