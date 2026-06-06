@@ -1,0 +1,7 @@
+# SPA: serve static, fall back to index.html for client-side routes. Bind Railway $PORT.
+:{$PORT:80} {
+	root * /usr/share/caddy
+	encode gzip
+	try_files {path} /index.html
+	file_server
+}

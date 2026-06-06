@@ -1,6 +1,6 @@
 // Top floating row of the command center:
 //   - TOP-LEFT pill: local-compute provenance (DGX Spark, zero-egress, live re-plan ms)
-//   - TOP-CENTER nav pill: ☰ menu (scenario actions) + RLJ wordmark + tabs +
+//   - TOP-CENTER nav pill: ☰ menu (scenario actions) + PulseGo wordmark + tabs +
 //     verification badge ("must-pass N/M", opens the Verification drawer) + live clock
 //
 // The ☰ menu hosts the demo Actions (Close road / Add STAT / Courier down /
@@ -80,7 +80,7 @@ export default function TopBar({ status, onOpenVerification }: Props) {
           )}
         </div>
 
-        <span className="nav-mark">RLJ</span>
+        <span className="nav-mark">PulseGo</span>
 
         <div className="nav-tabs">
           {TABS.map((t) => (

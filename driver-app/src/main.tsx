@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 // Sci-fi type system (offline-safe, bundled via @fontsource), matching the
-// RLJ ops console: Orbitron for display/big numbers, Rajdhani for body/labels.
+// PulseGo ops console: Orbitron for display/big numbers, Rajdhani for body/labels.
 import "@fontsource/orbitron/latin-500.css";
 import "@fontsource/orbitron/latin-700.css";
 import "@fontsource/orbitron/latin-800.css";

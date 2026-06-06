@@ -1,4 +1,4 @@
-# RLJ — Connect & Run (GB10 NemoClaw agent ↔ map)
+# PulseGo — Connect & Run (GB10 NemoClaw agent ↔ map)
 
 How the pieces talk, and how to get connected if the box agent isn't reaching your map.
 

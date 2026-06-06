@@ -200,7 +200,7 @@ function DriverHome() {
       <header className="topbar">
         <div className="brand-mark sm">
           <span className="brand-ring" />
-          RLJ <span className="brand-accent">DRIVER</span>
+          PulseGo <span className="brand-accent">DRIVER</span>
         </div>
 
         <div className="topbar-right">

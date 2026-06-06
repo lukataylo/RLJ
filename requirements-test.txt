@@ -15,3 +15,8 @@ scipy>=1.11
 ortools>=9.8
 # e2e (browser tests). Install browsers once with: ./.venv/bin/python -m playwright install chromium
 pytest-playwright>=0.5
+# auth layer — needed so CI can run tests/e2e/test_auth.py (psycopg omitted; tests use sqlite).
+sqlalchemy>=2
+passlib[bcrypt]
+bcrypt>=4.0,<4.1  # passlib 1.7.x is incompatible with bcrypt>=4.1
+pyjwt

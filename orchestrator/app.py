@@ -15,8 +15,9 @@ from datetime import datetime, timezone
 from contextlib import suppress
 
 import httpx
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
                     Plan, OptimizeRequest, OptimizeResponse,
@@ -26,11 +27,19 @@ from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
 from greedy import greedy_plan
 import congestion as congestion_mod
 import nemo_agent
+import db
+import auth
+from auth import require_user, current_user, CurrentUser
 
 ROUTING_URL = os.getenv("ROUTING_URL", "http://localhost:8100")
 
 app = FastAPI(title="RLJ orchestrator")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# CORS locked to an env allowlist (the PulseGo frontends). Dev default = local Vite ports.
+# In prod set CORS_ORIGINS=https://app.pulsego.org,https://drive.pulsego.org,https://pulsego.org
+_CORS_ORIGINS = [o.strip() for o in os.environ.get(
+    "CORS_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS, allow_credentials=True,
+                   allow_methods=["*"], allow_headers=["*"])
 
 
 class State:
@@ -171,6 +180,51 @@ async def emit_dispatch_notification(job_id: str):
                 return
 
 
+# ----------------------------------------------------------------------------- auth
+class RegisterBody(BaseModel):
+    email: str
+    password: str
+    role: str = "dispatcher"
+
+
+class LoginBody(BaseModel):
+    email: str
+    password: str
+
+
+@app.post("/auth/register")
+async def auth_register(body: RegisterBody, user: CurrentUser = Depends(require_user)):
+    """Create a user. When AUTH_REQUIRED is on, only an admin may register others;
+    when off, registration is open (bootstrap/dev)."""
+    if auth.auth_required() and getattr(user, "role", None) != "admin":
+        raise HTTPException(status_code=403, detail="admin role required to register users")
+    try:
+        u = auth.create_user(body.email, body.password, role=body.role or "dispatcher")
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return {"id": u.id, "email": u.email, "role": u.role}
+
+
+@app.post("/auth/login")
+async def auth_login(body: LoginBody):
+    u = auth.authenticate(body.email, body.password)
+    if u is None:
+        raise HTTPException(status_code=401, detail="invalid email or password")
+    token = auth.create_access_token(u)
+    return {"access_token": token, "token_type": "bearer", "role": u.role}
+
+
+@app.get("/auth/me")
+async def auth_me(user: CurrentUser = Depends(current_user)):
+    return {"id": user.uid, "email": user.email, "role": user.role}
+
+
+@app.post("/auth/logout")
+async def auth_logout():
+    """Stateless JWT: the client simply drops the token. Endpoint exists for symmetry."""
+    return {"ok": True}
+
+
 # ----------------------------------------------------------------------------- REST
 @app.get("/healthz")
 async def healthz():
@@ -192,7 +246,7 @@ async def list_jobs():
 
 
 @app.post("/jobs")
-async def create_job(job: DeliveryJob):
+async def create_job(job: DeliveryJob, _user: CurrentUser = Depends(require_user)):
     if not job.id:
         S._job_n += 1
         job.id = f"job-{S._job_n}"
@@ -212,7 +266,7 @@ async def list_couriers():
 
 
 @app.post("/couriers")
-async def upsert_courier(courier: Courier):
+async def upsert_courier(courier: Courier, _user: CurrentUser = Depends(require_user)):
     if not courier.id:
         S._crt_n += 1
         courier.id = f"crt-{S._crt_n}"
@@ -221,7 +275,7 @@ async def upsert_courier(courier: Courier):
 
 
 @app.post("/disruptions")
-async def add_disruption(d: DisruptionEvent):
+async def add_disruption(d: DisruptionEvent, _user: CurrentUser = Depends(require_user)):
     if not d.id:
         S._dis_n += 1
         d.id = f"dis-{S._dis_n}"
@@ -236,7 +290,7 @@ async def add_disruption(d: DisruptionEvent):
 
 
 @app.post("/optimize")
-async def optimize():
+async def optimize(_user: CurrentUser = Depends(require_user)):
     plan = await run_optimize()
     return plan.model_dump(mode="json")
 
@@ -261,7 +315,7 @@ async def list_drivers():
 
 
 @app.post("/drivers")
-async def create_driver(driver: Driver):
+async def create_driver(driver: Driver, _user: CurrentUser = Depends(require_user)):
     if not driver.consent:
         raise HTTPException(status_code=422, detail="consent required to join the flywheel")
     if not driver.id:
@@ -274,7 +328,7 @@ async def create_driver(driver: Driver):
 
 
 @app.post("/telemetry")
-async def telemetry(batch: TelemetryBatch):
+async def telemetry(batch: TelemetryBatch, _user: CurrentUser = Depends(require_user)):
     raw = [p.model_dump(mode="json") for p in batch.pings]
     # only consenting, known drivers contribute
     consenting = {d.id for d in S.drivers.values() if d.consent}
@@ -343,7 +397,7 @@ async def get_signal_recs():
 
 
 @app.post("/signals/recommendations")
-async def post_signal_recs(body: SignalRecommendations):
+async def post_signal_recs(body: SignalRecommendations, _user: CurrentUser = Depends(require_user)):
     """The GB10 Nemotron NemoClaw agent posts traffic-signal recommendations here; they
     render on the map (junction markers) and narrate in the NemoClaw feed."""
     S.signal_recs = [r.model_dump(mode="json") for r in body.recommendations]
@@ -358,7 +412,7 @@ async def post_signal_recs(body: SignalRecommendations):
 
 # ----------------------------------------------------------------------------- agent channel
 @app.post("/agent/ask")
-async def agent_ask(body: AgentAsk):
+async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
     """Queue a question for the GB10 NemoClaw agent (it polls /agent/tasks and answers)."""
     S._task_n += 1
     task = {"id": f"task-{S._task_n}", "question": body.question,
@@ -376,7 +430,7 @@ async def agent_tasks():
 
 
 @app.post("/agent/answer")
-async def agent_answer(body: AgentAnswer):
+async def agent_answer(body: AgentAnswer, _user: CurrentUser = Depends(require_user)):
     """The GB10 agent posts its Nemotron answer here; it lands in the NemoClaw feed."""
     for t in S.agent_tasks:
         if t["id"] == body.task_id:
@@ -396,7 +450,7 @@ async def get_fleet_assessments():
 
 
 @app.post("/fleet/assessments")
-async def post_fleet_assessments(body: FleetAssessments):
+async def post_fleet_assessments(body: FleetAssessments, _user: CurrentUser = Depends(require_user)):
     """The agent's per-driver assessment (on_time / reroute_suggested / at_risk) shown on cards."""
     for a in body.assessments:
         S.fleet_assessments[a.courier_id] = a.model_dump(mode="json")
@@ -409,7 +463,7 @@ async def post_fleet_assessments(body: FleetAssessments):
 
 
 @app.post("/couriers/{courier_id}/redirect")
-async def redirect_courier(courier_id: str):
+async def redirect_courier(courier_id: str, _user: CurrentUser = Depends(require_user)):
     """Operator-triggered redirect: re-optimise (routes avoid live congestion) and narrate."""
     courier = S.couriers.get(courier_id)
     if courier is None:
@@ -495,6 +549,14 @@ async def _nemo_inject(d: dict):
 
 @app.on_event("startup")
 async def _start_background():
+    # Auth/DB: create tables and (optionally) seed the admin from env. Best-effort so a
+    # transient DB hiccup never stops the demo stack from booting.
+    try:
+        db.init_db()
+        auth.seed_admin()
+    except Exception as e:  # noqa: BLE001
+        await HUB.emit("agent_log", {"level": "warn",
+                                     "message": f"Auth DB init skipped: {type(e).__name__}: {e}"})
     asyncio.create_task(courier_mover())
     asyncio.create_task(nemo_agent.run(HUB.emit, _nemo_inject))
 

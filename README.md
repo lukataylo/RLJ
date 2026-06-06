@@ -1,4 +1,6 @@
-# RLJ — Time-Critical Medical Logistics for London
+# PulseGo — Time-Critical Medical Logistics for London
+
+> **PulseGo — live medical logistics for London.** · [pulsego.org](https://pulsego.org)
 
 > **Hack for Impact London (NVIDIA).** A local-first, **agentic** medical-courier optimiser
 > that runs entirely on a **DGX Spark (GB10)** — patient data never leaves the box — and where
@@ -87,7 +89,7 @@ an unanticipated bridge closure forces a backtracking detour.
 
 ## The live system: autonomous + self-improving
 
-Beyond the single optimiser, RLJ is a **multi-agent, self-improving** city system:
+Beyond the single optimiser, PulseGo is a **multi-agent, self-improving** city system:
 
 - **World-class routing.** The production solver is a portfolio — greedy + insertion +
   GPU-parallel ACO + **Google OR-Tools** (and **NVIDIA cuOpt** on the GB10), every candidate

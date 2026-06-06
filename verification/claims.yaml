@@ -335,6 +335,37 @@ claims:
     must_pass: true
     test: "tests/unit/test_signal_agent_tasks.py::test_assess_drivers_parses_and_filters"
 
+  # ---- auth (email+password+JWT, env-gated enforcement) -------------------
+  - id: auth-login
+    statement: "Register -> login returns a JWT and /auth/me works with it"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_register_then_login_returns_jwt_and_me_works"
+
+  - id: auth-protects-writes
+    statement: "With auth on, a protected write requires a valid token (401 without, ok with)"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_protected_write_with_token_succeeds"
+
+  - id: auth-rejects-no-token
+    statement: "With auth on, a protected write without a token is 401"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_protected_write_without_token_returns_401"
+
+  - id: auth-wrong-password
+    statement: "Login with the wrong password is rejected (401)"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_login_with_wrong_password_returns_401"
+
+  - id: auth-backward-compat
+    statement: "With auth off (dev/test default), writes work without a token"
+    category: security
+    must_pass: true
+    test: "tests/e2e/test_auth.py::test_post_jobs_works_without_token_when_auth_off"
+
   # ---- completeness (no stubs / unwired buttons / dead endpoints) ---------
   - id: completeness-no-stubs
     statement: "No unimplemented stubs in source outside the documented GB10 seams"

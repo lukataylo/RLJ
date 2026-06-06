@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-06T09:39:15.044538+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-06T10:51:34.985594+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (49/49) · verified 57/57 · failing 0 · unverified 0
+**Must-pass gate: ✅ GREEN** (60/60) · verified 68/68 · failing 0 · unverified 0
 
 ## impact
 
@@ -43,6 +43,7 @@ _Generated 2026-06-06T09:39:15.044538+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Traffic-signal junctions + green-wave advice are schema-valid within London | `test_junctions_valid` | verified |
 | ✅ ⭐ | Crowdsourced driver pings are schema-valid, in-bbox, and deterministic | `test_probe_pings_valid` | verified |
 | ✅ | Weather congestion multiplier is sane and deterministic | `test_weather_multiplier_sane` | verified |
+| ✅ ⭐ | Live London CCTV (TfL JamCams) endpoint returns curated cameras | `test_cctv_cameras_shape` | verified |
 
 ## research
 
@@ -77,6 +78,8 @@ _Generated 2026-06-06T09:39:15.044538+00:00 — machine output of `make verify`.
 | ✅ ⭐ | NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic) | `test_nemo_agent_offline_narrates_and_injects` | verified |
 | ✅ ⭐ | GB10 signal agent parses Nemotron JSON and keeps only well-formed recs | `test_ask_nemotron_parses_and_filters` | verified |
 | ✅ | GB10 signal agent handles non-JSON model output gracefully | `test_ask_nemotron_handles_non_json` | verified |
+| ✅ ⭐ | Box agent answers queued operator questions via local Nemotron | `test_answer_pending_tasks_posts_answer` | verified |
+| ✅ ⭐ | Box agent assesses each driver and filters invalid statuses | `test_assess_drivers_parses_and_filters` | verified |
 
 ## e2e
 
@@ -88,6 +91,9 @@ _Generated 2026-06-06T09:39:15.044538+00:00 — machine output of `make verify`.
 | ✅ | Clicking a delivery selects it and opens the inspector (browser e2e) | `test_click_delivery_highlights` | verified |
 | ✅ ⭐ | Signal recommendations POST/GET round-trip and appear in /state | `test_signals_post_get_roundtrip` | verified |
 | ✅ ⭐ | Posted signal recommendations broadcast to the map (WS + narration) | `test_signals_broadcast` | verified |
+| ✅ ⭐ | Operator can ask the GB10 agent; question queues, is answered, broadcasts | `test_ask_tasks_answer_flow` | verified |
+| ✅ ⭐ | Per-driver assessments round-trip and broadcast to the map | `test_fleet_assessments_roundtrip_and_broadcast` | verified |
+| ✅ ⭐ | Redirect a courier (200) re-optimises; unknown courier is 404 | `test_redirect_known_and_unknown` | verified |
 | ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
 | ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |
 | ✅ ⭐ | Telemetry -> congestion -> re-plan loop works end-to-end over the live stack | `test_telemetry_flywheel_loop` | verified |
@@ -101,6 +107,16 @@ _Generated 2026-06-06T09:39:15.044538+00:00 — machine output of `make verify`.
 | ✅ ⭐ | If the routing service is down, the orchestrator still returns a plan (greedy fallback) | `test_routing_down_uses_greedy_fallback` | verified |
 | ✅ ⭐ | Malformed job input is rejected (422) and the system stays healthy | `test_malformed_job_is_422_and_system_healthy` | verified |
 | ✅ ⭐ | Out-of-bounds / over-speed pings are rejected; valid ones still ingested | `test_bad_pings_rejected_good_accepted` | verified |
+
+## security
+
+| | claim | test | status |
+|--|--|--|--|
+| ✅ ⭐ | Register -> login returns a JWT and /auth/me works with it | `test_register_then_login_returns_jwt_and_me_works` | verified |
+| ✅ ⭐ | With auth on, a protected write requires a valid token (401 without, ok with) | `test_protected_write_with_token_succeeds` | verified |
+| ✅ ⭐ | With auth on, a protected write without a token is 401 | `test_protected_write_without_token_returns_401` | verified |
+| ✅ ⭐ | Login with the wrong password is rejected (401) | `test_login_with_wrong_password_returns_401` | verified |
+| ✅ ⭐ | With auth off (dev/test default), writes work without a token | `test_post_jobs_works_without_token_when_auth_off` | verified |
 
 ## completeness
 

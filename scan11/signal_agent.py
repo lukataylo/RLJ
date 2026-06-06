@@ -17,10 +17,20 @@ import os
 import time
 import urllib.request
 
-ORCH = os.environ.get("ORCH", "http://10.18.216.110:8000").rstrip("/")
-OLLAMA = os.environ.get("OLLAMA", "http://localhost:11434").rstrip("/")
-MODEL = os.environ.get("MODEL", "nemotron")
+ORCH = os.environ.get("ORCH", "http://localhost:8000").rstrip("/")
+MODEL = os.environ.get("LLM_MODEL", os.environ.get("MODEL", "nemotron"))
 INTERVAL_S = float(os.environ.get("INTERVAL_S", "60"))
+
+# LLM backend — env-driven so the SAME agent runs against local Ollama on the GB10 OR a
+# hosted OpenAI-compatible endpoint (e.g. Nebius Nemotron) with zero code change.
+#   LLM_BASE_URL : ollama base (…:11434) or OpenAI-style base (…/v1)
+#   LLM_API_KEY  : bearer token for hosted endpoints (empty for local Ollama)
+#   LLM_STYLE    : "ollama" | "openai"  (auto: openai if an API key is set)
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", os.environ.get("OLLAMA", "http://localhost:11434")).rstrip("/")
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
+LLM_STYLE = os.environ.get("LLM_STYLE", "openai" if LLM_API_KEY else "ollama")
+# Back-compat alias used in log lines.
+OLLAMA = LLM_BASE_URL
 
 # Central-London signalised junctions the agent reasons over (name, lat, lng, cycle_s).
 JUNCTIONS = [
@@ -47,11 +57,31 @@ def _get_json(url: str, timeout: float = 8.0):
         return json.loads(r.read().decode())
 
 
-def _post_json(url: str, payload: dict, timeout: float = 10.0):
+def _post_json(url: str, payload: dict, timeout: float = 10.0, headers: dict | None = None):
     data = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=data, headers={"content-type": "application/json"})
+    h = {"content-type": "application/json", **(headers or {})}
+    req = urllib.request.Request(url, data=data, headers=h)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
+
+
+def _chat(messages: list[dict], *, json_format: bool = False,
+          temperature: float = 0.3, timeout: float = 150.0) -> str:
+    """One chat call against the configured backend (Ollama or OpenAI-compatible/Nebius)."""
+    if LLM_STYLE == "openai":
+        body = {"model": MODEL, "messages": messages, "temperature": temperature}
+        if json_format:
+            body["response_format"] = {"type": "json_object"}
+        headers = {"authorization": f"Bearer {LLM_API_KEY}"} if LLM_API_KEY else None
+        resp = _post_json(f"{LLM_BASE_URL}/chat/completions", body, timeout=timeout, headers=headers)
+        choices = resp.get("choices") or [{}]
+        return (choices[0].get("message", {}).get("content") or "")
+    # ollama
+    body = {"model": MODEL, "stream": False, "messages": messages, "options": {"temperature": temperature}}
+    if json_format:
+        body["format"] = "json"
+    resp = _post_json(f"{LLM_BASE_URL}/api/chat", body, timeout=timeout)
+    return (resp.get("message", {}).get("content") or "")
 
 
 def fetch_congestion() -> list[dict]:
@@ -71,18 +101,11 @@ def ask_nemotron(cells: list[dict]) -> list[dict]:
         f"Congestion hotspots (lat,lng,level): {hot_txt}\n"
         "Recommend signal actions now."
     )
-    body = {
-        "model": MODEL,
-        "format": "json",
-        "stream": False,
-        "messages": [{"role": "system", "content": SYSTEM},
-                     {"role": "user", "content": prompt}],
-        "options": {"temperature": 0.2},
-    }
     t0 = time.time()
-    resp = _post_json(f"{OLLAMA}/api/chat", body, timeout=120.0)
+    content = _chat([{"role": "system", "content": SYSTEM},
+                     {"role": "user", "content": prompt}],
+                    json_format=True, temperature=0.2, timeout=120.0) or "{}"
     dt = time.time() - t0
-    content = resp.get("message", {}).get("content", "{}")
     try:
         recs = json.loads(content).get("recommendations", [])
     except json.JSONDecodeError:
@@ -121,13 +144,11 @@ def answer_pending_tasks(cells: list[dict]) -> None:
         return
     for t in tasks[:2]:
         ctx = f"Live congestion hotspots (lat,lng,level): {_hotspot_summary(cells)}. Junctions monitored: {len(JUNCTIONS)}."
-        body = {"model": MODEL, "stream": False, "options": {"temperature": 0.3},
-                "messages": [
-                    {"role": "system", "content": "You are NemoClaw, a London medical-courier traffic operations agent running locally on a DGX Spark. Answer the operator concisely (max 3 sentences), grounded in the live data."},
-                    {"role": "user", "content": f"{ctx}\nOperator question: {t['question']}"}]}
         try:
-            resp = _post_json(f"{OLLAMA}/api/chat", body, timeout=150.0)
-            ans = (resp.get("message", {}).get("content", "") or "").strip()[:400] or "(no answer)"
+            ans = (_chat([
+                {"role": "system", "content": "You are NemoClaw, a London medical-courier traffic operations agent. Answer the operator concisely (max 3 sentences), grounded in the live data."},
+                {"role": "user", "content": f"{ctx}\nOperator question: {t['question']}"}],
+                temperature=0.3, timeout=150.0) or "").strip()[:400] or "(no answer)"
         except Exception as e:  # noqa: BLE001
             ans = f"(agent error: {e})"
         try:
@@ -147,12 +168,11 @@ def assess_drivers(state: dict, cells: list[dict]) -> None:
     prompt = (f"Drivers: {json.dumps(drv)}\nCongestion hotspots (lat,lng,level): {_hotspot_summary(cells)}\n"
               "For each driver id, classify status as on_time|reroute_suggested|at_risk with a short note "
               '(<14 words). Reply ONLY JSON {"assessments":[{"courier_id":str,"status":str,"note":str}]}.')
-    body = {"model": MODEL, "format": "json", "stream": False, "options": {"temperature": 0.2},
-            "messages": [{"role": "system", "content": "You assess delivery drivers against live congestion. Reply only JSON."},
-                         {"role": "user", "content": prompt}]}
     try:
-        resp = _post_json(f"{OLLAMA}/api/chat", body, timeout=150.0)
-        items = json.loads(resp.get("message", {}).get("content", "{}")).get("assessments", [])
+        content = _chat([{"role": "system", "content": "You assess delivery drivers against live congestion. Reply only JSON."},
+                         {"role": "user", "content": prompt}],
+                        json_format=True, temperature=0.2, timeout=150.0) or "{}"
+        items = json.loads(content).get("assessments", [])
     except Exception as e:  # noqa: BLE001
         print(f"[warn] assess failed: {e}", flush=True)
         return
