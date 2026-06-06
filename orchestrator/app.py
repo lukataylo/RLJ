@@ -20,7 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from models import (DeliveryJob, Courier, DisruptionEvent, Notification,
                     Plan, OptimizeRequest, OptimizeResponse,
-                    Driver, DriverPing, TelemetryBatch)
+                    Driver, DriverPing, TelemetryBatch,
+                    SignalRecommendation, SignalRecommendations)
 from greedy import greedy_plan
 import congestion as congestion_mod
 import nemo_agent
@@ -40,6 +41,7 @@ class State:
         self.drivers: dict[str, Driver] = {}
         self.pings: list[dict] = []
         self.congestion: dict = {"cells": [], "generated_at": None}
+        self.signal_recs: list[dict] = []   # from the GB10 Nemotron agent
         self.couriers_helped: int = 0
         self.progress: dict[str, float] = {}   # courier_id -> fraction along current route
         self._job_n = 0
@@ -55,6 +57,7 @@ class State:
             "disruptions": [d.model_dump(mode="json") for d in self.disruptions],
             "drivers": [d.model_dump(mode="json") for d in self.drivers.values()],
             "congestion": self.congestion,
+            "signal_recs": self.signal_recs,
         }
 
     def all_disruptions(self) -> list[DisruptionEvent]:
@@ -292,6 +295,25 @@ async def telemetry(batch: TelemetryBatch):
 @app.get("/congestion")
 async def get_congestion():
     return S.congestion
+
+
+@app.get("/signals/recommendations")
+async def get_signal_recs():
+    return S.signal_recs
+
+
+@app.post("/signals/recommendations")
+async def post_signal_recs(body: SignalRecommendations):
+    """The GB10 Nemotron NemoClaw agent posts traffic-signal recommendations here; they
+    render on the map (junction markers) and narrate in the NemoClaw feed."""
+    S.signal_recs = [r.model_dump(mode="json") for r in body.recommendations]
+    await HUB.emit("signal_recs", S.signal_recs)
+    if S.signal_recs:
+        top = S.signal_recs[0]
+        await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
+                                     "message": f"Nemotron@GB10: {len(S.signal_recs)} signal rec(s) — "
+                                                f"{top['action']} at {top.get('name') or 'junction'}: {top['detail'][:80]}"})
+    return {"accepted": len(S.signal_recs)}
 
 
 @app.get("/driver/{driver_id}/guidance")

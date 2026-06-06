@@ -132,3 +132,19 @@ class DriverPing(BaseModel):
 
 class TelemetryBatch(BaseModel):
     pings: list[DriverPing]
+
+
+# ---- traffic-signal recommendations (from the GB10 Nemotron NemoClaw agent) --------
+class SignalRecommendation(BaseModel):
+    junction_id: Optional[str] = None
+    name: Optional[str] = None
+    lat: float
+    lng: float
+    action: Literal["retime", "green_wave", "hold", "clear"] = "retime"
+    detail: str
+    confidence: float = 0.5
+    source: str = "nemotron@scan-11"
+
+
+class SignalRecommendations(BaseModel):
+    recommendations: list[SignalRecommendation]
