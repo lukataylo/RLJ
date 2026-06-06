@@ -35,3 +35,6 @@ pulsego.db
 verification/.report.json
 __pycache__/
 .pytest_cache/
+
+# Generated audio
+*.mp3

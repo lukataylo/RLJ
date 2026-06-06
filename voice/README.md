@@ -114,3 +114,49 @@ in another. Watch a plain-English clinic "phone call" become a structured STAT j
 hub re-plan, and the voice agent place the outbound ETA "call" to the courier — all locally,
 with the local-LLM and ElevenLabs paths lighting up if keys/model are present and gracefully
 degrading to keyword NLU + console narration if you pull the network cable.
+
+
+
+## Running the full stack (integration notes)
+
+These notes cover getting the voice stream working end-to-end against the **live**
+orchestrator + model on the DGX, rather than the standalone fallback mode. Captured
+from a full integration run — read this before wiring up the demo.
+
+### Start order
+
+1. **On the DGX**, start the backend services (see `start-dgx.sh` in the repo root):
+   - Ollama: `OLLAMA_HOST=0.0.0.0 ollama serve &`
+   - Orchestrator: `~/.local/bin/uvicorn app:app --host 0.0.0.0 --port 8000 &`
+   - Routing service: start `routing/app.py` too (see below).
+2. **On your laptop**, point `.env` at the DGX:
+   ```
+   ORCHESTRATOR_URL=http://<dgx-ip>:8000 
+   LLM_BASE_URL=http://<dgx-ip>:11434/v1
+   ```
+3. Run the voice stream as normal (`python intake.py ...`, `python outbound.py`).
+
+### Gotchas found during integration
+
+- **Bind to `0.0.0.0`, not localhost.** Both Ollama and the orchestrator default to
+  listening on localhost only, so a laptop gets "connection refused" even when the
+  service is "up". Start them with `OLLAMA_HOST=0.0.0.0` and uvicorn `--host 0.0.0.0`.
+  (If the demo runs entirely on the DGX this doesn't matter — but it's harmless to set.)
+- **`uvicorn` isn't on PATH** after a `pip install --user` on the DGX. Call it by full
+  path: `~/.local/bin/uvicorn`.
+- **Model cold-start times out the first NLU call.** The 42GB model takes time to load
+  into memory; the first request can exceed the default timeout and fall back to the
+  keyword parser. Either warm it once (`curl .../api/generate -d '{"model":"nemotron",
+  "prompt":"ok","stream":false}'`) or raise `LLM_TIMEOUT_S` in `.env` (e.g. `60`).
+  Ollama also unloads the model after ~5 min idle (`OLLAMA_KEEP_ALIVE`), so it can go
+  cold again between tests.
+- **Routing service must be started separately.** If only the orchestrator is up, it
+  logs `Routing service unavailable (ConnectError); used greedy fallback` and produces
+  `0 routes`. The inbound→orchestrator→replan loop still narrates correctly, but no
+  courier routes are generated until `routing/app.py` is running.
+
+### Confirmed working in fallback mode (no DGX needed)
+
+Even with no model, no ElevenLabs key, and no orchestrator, the stream completes the
+full loop via keyword NLU + console output — so the demo can't fully break. The items
+above are only needed for the live (model + real routing) path.
