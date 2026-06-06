@@ -19,7 +19,18 @@ from contextlib import suppress
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import Response as HTTPResponse
+from pydantic import BaseModel, Field
+
+# Load ElevenLabs key (and other voice config) from voice/.env when not already set in
+# the shell environment. override=False means a real env var always wins.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _voice_env = pathlib.Path(__file__).parent.parent / "voice" / ".env"
+    if _voice_env.exists():
+        _load_dotenv(_voice_env, override=False)
+except ImportError:
+    pass
 
 from models import (DeliveryJob, Location, Courier, DisruptionEvent, Notification,
                     Plan, OptimizeRequest, OptimizeResponse,
@@ -607,20 +618,49 @@ def _fleet_context() -> str:
     return " ".join(parts)
 
 
+def _fallback_agent_answer(question: str) -> str:
+    """Deterministic answer when the configured LLM/worker is unavailable."""
+    low = question.lower()
+    courier_count = len(S.couriers)
+    job_count = len(S.jobs)
+    route_count = len(S.plan.routes) if S.plan else 0
+    if any(word in low for word in ("route", "window", "plan", "on time")):
+        if S.plan:
+            obj = S.plan.objective
+            return (
+                f"{route_count} routes are active. "
+                f"{obj.windows_met} of {obj.windows_total} delivery windows are currently met."
+            )
+        return "No route plan is active yet. Seed or create deliveries to start planning."
+    if any(word in low for word in ("courier", "driver", "job", "delivery", "fleet")):
+        return (
+            f"The fleet currently has {courier_count} couriers and {job_count} active jobs "
+            f"across {route_count} planned routes."
+        )
+    if any(word in low for word in ("traffic", "congestion", "disruption", "road")):
+        return (
+            f"There are {len(S.disruptions)} recorded disruptions and "
+            f"{len(S.congestion.get('cells', []))} live congestion cells."
+        )
+    return (
+        f"NemoClaw is online. I am monitoring {courier_count} couriers, "
+        f"{job_count} jobs and {route_count} routes."
+    )
+
+
 async def _openai_auto_answer(task_id: str, question: str):
-    """Prod path: with no on-box worker, the orchestrator answers via OpenAI."""
+    """Answer via the configured provider, with a deterministic fleet fallback."""
     try:
         answer = await asyncio.to_thread(llm.chat, question, system=_fleet_context())
     except Exception as e:  # noqa: BLE001 - llm.chat shouldn't raise, but be safe
-        answer = None
         await HUB.emit("agent_log", {"level": "warn", "source": "nemotron",
                                      "message": f"Agent answer failed ({type(e).__name__})."})
-        return
-    if answer:
-        await _record_agent_answer(task_id, answer)
-    else:
+        answer = None
+    if not answer:
         await HUB.emit("agent_log", {"level": "warn", "source": "nemotron",
-                                     "message": "Agent could not produce an answer."})
+                                     "message": "LLM unavailable; using live fleet fallback."})
+        answer = _fallback_agent_answer(question)
+    await _record_agent_answer(task_id, answer)
 
 
 @app.post("/agent/ask")
@@ -639,7 +679,7 @@ async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
                                  "message": f"Asked NemoClaw: {body.question[:120]}"})
     # In prod (no on-box worker) answer ourselves via OpenAI; locally the DGX worker
     # handles it, so we must NOT auto-answer or the feed gets double answers.
-    if not config.is_local() and config.openai_key():
+    if not config.is_local():
         asyncio.create_task(_openai_auto_answer(task["id"], body.question))
     return task
 
@@ -732,6 +772,40 @@ async def _start_background():
         await HUB.emit("agent_log", {"level": "warn",
                                      "message": f"Auth DB init skipped: {type(e).__name__}: {e}"})
     asyncio.create_task(nemo_agent.run(HUB.emit, _nemo_inject, interval_s=14))
+
+
+# ----------------------------------------------------------------------------- TTS proxy
+class TtsRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+
+@app.post("/tts")
+async def tts_proxy(body: TtsRequest, _user: CurrentUser = Depends(require_user)):
+    """Proxy ElevenLabs TTS so the API key never leaves the server.
+    Returns audio/mpeg on success; 503 if no key is configured."""
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="text required")
+    api_key = os.getenv("ELEVENLABS_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="ElevenLabs not configured — set ELEVENLABS_API_KEY")
+    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    payload = {
+        "text": text,
+        "model_id": os.getenv("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5"),
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                url,
+                headers={"xi-api-key": api_key, "accept": "audio/mpeg", "content-type": "application/json"},
+                json=payload,
+            )
+            r.raise_for_status()
+            return HTTPResponse(content=r.content, media_type="audio/mpeg")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"ElevenLabs TTS failed: {type(e).__name__}")
 
 
 # ----------------------------------------------------------------------------- WS

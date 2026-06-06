@@ -36,13 +36,18 @@ def model() -> str:
 
 
 def openai_key() -> str:
-    """The OpenAI API key (empty string if unset)."""
-    return os.getenv("OPENAI_API_KEY", "")
+    """Bearer key for the OpenAI-compatible provider (empty string if unset)."""
+    return os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY", "")
 
 
 def openai_model() -> str:
-    """The OpenAI chat model name."""
-    return os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    """Model name for the OpenAI-compatible provider."""
+    return os.getenv("OPENAI_MODEL") or os.getenv("LLM_MODEL", "gpt-4o-mini")
+
+
+def openai_base_url() -> str:
+    """OpenAI-compatible API base, supporting the repo's existing LLM_BASE_URL."""
+    return (os.getenv("LLM_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
 
 
 def valhalla_enabled() -> bool:

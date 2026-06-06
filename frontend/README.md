@@ -26,6 +26,18 @@ cd orchestrator && pip install -r requirements.txt && uvicorn app:app --reload -
 # optional: python seed.py   # to load demo couriers/jobs
 ```
 
+## NemoClaw voice check
+
+Use Chrome or Edge on `http://localhost:5173/app` and allow microphone access when
+prompted. The mic beside the NemoClaw input streams speech into the field and submits
+the final transcript. The larger NemoFace voice overlay uses the same recognition path.
+When the matching `agent_answer` WebSocket event arrives, the frontend requests
+ElevenLabs audio from `POST /tts`; if that request fails, browser speech synthesis is
+used as a fallback.
+
+Microphone recognition requires a secure browser context. `localhost` is accepted for
+development; a deployed site must use HTTPS.
+
 ## What it talks to
 
 - `GET http://localhost:8000/state` — hydrate on load (and after any WS drop).

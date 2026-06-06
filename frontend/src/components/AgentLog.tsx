@@ -11,7 +11,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { askAgent, postIntake } from "../api";
 import { useStore } from "../store";
 import NemoFace from "./NemoFace";
-import { speechSupported, startListening, speak, type Listener } from "../lib/voice";
+import {
+  speechSupported,
+  startListening,
+  prepareSpeech,
+  speakElevenLabs,
+  stopSpeaking,
+  type Listener,
+} from "../lib/voice";
 
 const MAX_LINES = 6;
 const LISTEN_SECONDS = 15;
@@ -21,11 +28,12 @@ const LISTEN_SECONDS = 15;
 // question routed to the NemoClaw agent.
 const DELIVERY_FROM_TO = /\bfrom\b[\s\S]*\bto\b/i;
 const DELIVERY_VERBS =
-  /(deliver|pick[\s-]?up|collect|drop[\s-]?off|sample|transport|courier|bring|take)\b/i;
+  /\b(deliver|pick[\s-]?up|collect|drop[\s-]?off|transport|bring|take)\b/i;
 const isDeliveryRequest = (text: string) =>
   DELIVERY_FROM_TO.test(text) || DELIVERY_VERBS.test(text);
 export default function AgentLog() {
   const logs = useStore((s) => s.logs);
+  const lastAgentAnswer = useStore((s) => s.lastAgentAnswer);
   const pushLog = useStore((s) => s.pushLog);
   const setFocusJob = useStore((s) => s.setFocusJob);
   const setFocusRoute = useStore((s) => s.setFocusRoute);
@@ -41,10 +49,48 @@ export default function AgentLog() {
   const [voicePhase, setVoicePhase] = useState<"listening" | "thinking" | "unsupported">("listening");
   const timerRef = useRef<number | null>(null);
   const recRef = useRef<Listener | null>(null);
-  const voiceAskAtRef = useRef<number>(0); // ts of last voice ask → speak the reply
-  const spokenRef = useRef<Set<string>>(new Set());
+  const pendingSpeechTasksRef = useRef<Set<string>>(new Set());
+  const spokenTaskIdsRef = useRef<Set<string>>(new Set());
+  const receivedAnswersRef = useRef<Map<string, string>>(new Map());
 
-  const stopRecognition = () => {
+  // Inline mic button state
+  const [micActive, setMicActive] = useState(false);
+  const inlineMicRef = useRef<Listener | null>(null);
+
+  const cancelInlineMic = () => {
+    inlineMicRef.current?.cancel();
+    inlineMicRef.current = null;
+    setMicActive(false);
+  };
+
+  const toggleMic = () => {
+    if (micActive) {
+      cancelInlineMic();
+      return;
+    }
+    if (!speechSupported()) return;
+    prepareSpeech();
+    setMicActive(true);
+    inlineMicRef.current = startListening({
+      onPartial: (t) => setQuestion(t),
+      onFinal: (t) => {
+        setQuestion(t);
+        inlineMicRef.current = null;
+        setMicActive(false);
+        void send(t);
+      },
+      onError: () => {
+        inlineMicRef.current = null;
+        setMicActive(false);
+      },
+      onEnd: () => {
+        inlineMicRef.current = null;
+        setMicActive(false);
+      },
+    });
+  };
+
+  const finishRecognition = () => {
     recRef.current?.stop();
     recRef.current = null;
     if (timerRef.current) {
@@ -54,11 +100,17 @@ export default function AgentLog() {
   };
 
   const closeVoice = () => {
-    stopRecognition();
+    recRef.current?.cancel();
+    recRef.current = null;
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     setVoiceOpen(false);
   };
 
   const openVoice = () => {
+    prepareSpeech();
     setSecs(LISTEN_SECONDS);
     setHeard("");
     setVoiceOpen(true);
@@ -72,9 +124,7 @@ export default function AgentLog() {
       onFinal: (t) => {
         setHeard(t);
         setVoicePhase("thinking");
-        voiceAskAtRef.current = Date.now();
         void send(t);
-        // brief "thinking" beat, then close — the reply lands in the feed + is spoken
         window.setTimeout(() => setVoiceOpen(false), 1400);
       },
       onError: (e) => {
@@ -90,7 +140,7 @@ export default function AgentLog() {
     timerRef.current = window.setInterval(() => {
       setSecs((s) => {
         if (s <= 1) {
-          stopRecognition();
+          finishRecognition();
           setVoiceOpen(false);
           return LISTEN_SECONDS;
         }
@@ -102,23 +152,26 @@ export default function AgentLog() {
     };
   }, [voiceOpen, voicePhase]);
 
-  // Speak NemoClaw's reply aloud after a VOICE question (first agent line that lands).
+  // Speak only the answer matching a question submitted from this component.
   useEffect(() => {
-    if (!voiceAskAtRef.current) return;
-    for (const l of logs) {
-      const t = new Date(l.ts).getTime();
-      const key = `${l.ts}|${l.message}`;
-      const isAnswer =
-        (l.source === "agent_log" || l.source === "notification") &&
-        !l.message.startsWith("You →");
-      if (t >= voiceAskAtRef.current && isAnswer && !spokenRef.current.has(key)) {
-        spokenRef.current.add(key);
-        speak(l.message);
-        voiceAskAtRef.current = 0; // speak only the first reply
-        break;
-      }
+    if (!lastAgentAnswer) return;
+    const taskId = lastAgentAnswer.task_id;
+    receivedAnswersRef.current.set(taskId, lastAgentAnswer.answer);
+    if (
+      pendingSpeechTasksRef.current.delete(taskId) &&
+      !spokenTaskIdsRef.current.has(taskId)
+    ) {
+      spokenTaskIdsRef.current.add(taskId);
+      void speakElevenLabs(lastAgentAnswer.answer);
     }
-  }, [logs]);
+  }, [lastAgentAnswer]);
+
+  useEffect(() => () => {
+    inlineMicRef.current?.cancel();
+    recRef.current?.cancel();
+    if (timerRef.current) window.clearInterval(timerRef.current);
+    stopSpeaking();
+  }, []);
 
   // Prefer the real agent narration (agent_log + notifications); fall back to all
   // lines so the feed is never empty before the first agent event arrives.
@@ -133,6 +186,7 @@ export default function AgentLog() {
   const send = async (q: string) => {
     const text = q.trim();
     if (!text || sending) return;
+    prepareSpeech();
     setSending(true);
 
     // A delivery request ("… from X to Y", "deliver sample …") goes to /intake,
@@ -207,7 +261,14 @@ export default function AgentLog() {
       source: "agent_log",
     });
     try {
-      await askAgent(text);
+      const task = await askAgent(text);
+      pendingSpeechTasksRef.current.add(task.id);
+      const earlyAnswer = receivedAnswersRef.current.get(task.id);
+      if (earlyAnswer && !spokenTaskIdsRef.current.has(task.id)) {
+        pendingSpeechTasksRef.current.delete(task.id);
+        spokenTaskIdsRef.current.add(task.id);
+        void speakElevenLabs(earlyAnswer);
+      }
       setQuestion("");
     } catch {
       pushLog({
@@ -311,6 +372,19 @@ export default function AgentLog() {
           void send(question);
         }}
       >
+        <button
+          type="button"
+          className={`nemo-ask-mic${micActive ? " active" : ""}`}
+          data-testid="ask-mic"
+          aria-label={micActive ? "Stop listening" : "Speak to NemoClaw"}
+          title={micActive ? "Stop" : "Speak"}
+          onClick={toggleMic}
+          disabled={sending}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden>
+            <path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4zm-2 4a2 2 0 0 1 4 0v7a2 2 0 0 1-4 0V5zm-5 6h2a5 5 0 0 0 10 0h2a7 7 0 0 1-6 6.92V21h3v2H8v-2h3v-3.08A7 7 0 0 1 5 11z" />
+          </svg>
+        </button>
         <input
           className="nemo-ask-input"
           data-testid="ask-input"
