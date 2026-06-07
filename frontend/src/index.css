@@ -186,16 +186,22 @@ button {
 .layer-dock {
   position: absolute;
   left: 16px;
-  top: 92px; /* anchored below the top nav so it never overlaps the NemoClaw card */
+  top: 92px; /* anchored below the top nav */
   z-index: 36;
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 6px;
   width: 44px;
-  overflow: hidden;
+  /* Cap the height + scroll so the long layer list never overlaps the NemoClaw card
+     in the lower-left. */
+  max-height: calc(100vh - 460px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
   transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.layer-dock::-webkit-scrollbar { width: 0; height: 0; }
 .layer-dock:hover {
   width: 166px;
 }
@@ -267,8 +273,8 @@ button {
 /* route/layer status chip (kept for tests + glance) */
 .route-status {
   position: absolute;
-  left: 18px;
-  bottom: 16px;
+  right: 18px; /* bottom-right — clear of the dock, NemoClaw card and Mapbox logo */
+  bottom: 18px;
   z-index: 25;
   display: flex;
   align-items: center;
@@ -289,6 +295,64 @@ button {
   border-radius: 50%;
   background: var(--lime);
   box-shadow: 0 0 8px var(--lime);
+}
+
+/* ------------------------------------------------- Markers legend chip ----- */
+.marker-legend {
+  position: absolute;
+  left: 18px;
+  bottom: 48px;
+  z-index: 24;
+  padding: 9px 11px;
+  border-radius: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text);
+  pointer-events: none;
+}
+.marker-legend .ml-title {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.marker-legend .ml-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+}
+.marker-legend .ml-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+.marker-legend .ml-text {
+  margin-left: 5px;
+  color: var(--faint);
+}
+.marker-legend .ml-rings {
+  margin-top: 5px;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--faint);
+}
+.marker-legend .ml-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0 2px 0 6px;
+}
+.marker-legend .ml-rings .ml-dot:first-child {
+  margin-left: 0;
+}
+.marker-legend .ml-hint {
+  margin-top: 5px;
+  color: var(--faint);
+  font-size: 10px;
+  opacity: 0.8;
 }
 
 /* ------------------------------------------------------- CCTV popover ------ */
@@ -418,7 +482,8 @@ button {
 }
 
 /* ------------------------------------------------------- top-center nav ---- */
-.nav-pill {
+/* top-centre row of separate pills: PulseGo · theme · account */
+.topbar-pills {
   position: absolute;
   top: 16px;
   left: 50%;
@@ -426,8 +491,26 @@ button {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 8px 14px;
+  gap: 10px;
+}
+.nav-pill {
+  display: flex;
+  align-items: center;
+  padding: 9px 16px;
+}
+.theme-pill {
+  display: flex;
+  align-items: center;
+  padding: 5px 7px;
+}
+.user-pill {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  padding: 5px 7px;
 }
 .nav-menu-wrap {
   position: relative;
@@ -530,7 +613,7 @@ button {
 .right-stack {
   position: absolute;
   right: 18px;
-  top: 16px;
+  top: 70px; /* clear the top-right account pill */
   z-index: 35;
   width: 318px;
   display: flex;
@@ -862,14 +945,107 @@ button {
   color: var(--lime);
 }
 
+/* Redirect a specific courier mid-delivery (Inspector). Ghost until armed, then a
+   Pulse-Red "CONFIRM" so it's a deliberate two-step action. */
+.btn-redirect {
+  background: var(--fill);
+  border: 1px solid var(--hair-strong);
+  border-radius: 11px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0 14px;
+  min-height: 38px;
+  transition: filter 0.15s, background 0.15s, color 0.15s;
+}
+.btn-redirect:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-redirect.confirm {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+.btn-redirect.done {
+  border-color: var(--green);
+  color: var(--green);
+}
+.btn-redirect.error {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-redirect:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/* Vehicle-type chip in the Inspector header (van / scooter / bike). */
+.insp-vehicle {
+  text-transform: uppercase;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
 /* ------------------------------------------------ active delivery list ----- */
 /* Headerless delivery stack — each delivery is its own floating glass card
    (the old "ACTIVE DELIVERIES" holding panel was removed per design feedback). */
+/* tabbed delivery sidebar (Active | Upcoming) */
+.delivery-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dl-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 8px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+}
+.dl-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+.dl-tab:hover { color: var(--text); }
+.dl-tab.on { background: var(--fill); color: var(--text); }
+.dl-tab-n {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(200, 220, 180, 0.1);
+  border-radius: 6px;
+  padding: 0 5px;
+}
+.dl-tab.on .dl-tab-n { color: var(--accent, var(--lime)); }
+
 .delivery-stack {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  gap: 10px;
+  gap: 8px;
   overflow-y: auto;
   padding-right: 4px;
   min-height: 0;
@@ -880,6 +1056,116 @@ button {
   padding: 12px 14px;
   border-radius: 16px;
 }
+
+/* ---- delivery card · Option 3 (single line + progress underline) ---- */
+.dcard.dc3 {
+  padding: 10px 12px;
+}
+.dc3-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.dc3 .dc-veh {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+.dc3-od {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.dc3-od .dc-from, .dc3-od .dc-to {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46%;
+}
+.dc3-arrow { color: var(--accent, var(--yellow)); flex: 0 0 auto; }
+.dc3-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lime);
+}
+.dc3-dot.risk { background: var(--amber); }
+.dc3-dot.late { background: var(--red); }
+.dc3-pct {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.dc3-track {
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(200, 220, 180, 0.1);
+  overflow: hidden;
+  margin-top: 9px;
+}
+.dc3-track i {
+  display: block;
+  height: 100%;
+  background: var(--lime);
+  transition: width 0.5s ease;
+}
+.dc3-track i.risk { background: var(--amber); }
+.dc3-track i.late { background: var(--red); }
+
+/* hover / selected detail reveal */
+.dc3-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.18s ease, opacity 0.18s ease, margin-top 0.18s ease;
+}
+.dcard.dc3:hover .dc3-details,
+.dcard.dc3.selected .dc3-details {
+  max-height: 40px;
+  opacity: 1;
+  margin-top: 8px;
+}
+.dc3-meta {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dc3-redirect {
+  flex: 0 0 auto;
+  background: rgba(242, 194, 26, 0.12);
+  border: 1px solid rgba(242, 194, 26, 0.32);
+  border-radius: 999px;
+  padding: 4px 11px;
+  color: var(--yellow);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.dc3-redirect:hover { background: rgba(242, 194, 26, 0.22); }
+.dc3-redirect.done { color: var(--bg); background: var(--lime); border-color: var(--lime); }
+.dc3-redirect.error { color: #fff; background: var(--red); border-color: var(--red); }
 
 /* one delivery card — iOS-style glassmorphic */
 .dcard {
@@ -892,7 +1178,7 @@ button {
   border: 1px solid var(--hair);
   border-radius: 13px;
   padding: 9px 11px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
   transition: background 0.18s, border-color 0.18s, transform 0.1s, box-shadow 0.18s;
 }
 .dcard:hover {
@@ -904,12 +1190,12 @@ button {
 }
 .dcard.stat {
   border-color: rgba(255, 59, 48, 0.34);
-  box-shadow: var(--shadow), inset 3px 0 0 var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .dcard.selected {
   background: var(--accent-soft);
   border-color: rgba(255, 59, 48, 0.5);
-  box-shadow: 0 0 0 1px rgba(255, 59, 48, 0.28), var(--shadow);
+  box-shadow: 0 0 0 1px rgba(255, 59, 48, 0.28);
 }
 .dc-top {
   display: flex;
@@ -1157,7 +1443,7 @@ button {
 .nemoclaw {
   position: absolute;
   left: 18px;
-  bottom: 52px;
+  bottom: 14px; /* sit low so the map control dock above never overlaps the card */
   z-index: 35;
   width: 440px;
   padding: 14px 16px;
@@ -1219,7 +1505,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 210px;
+  max-height: 150px; /* shorter feed so the map control dock above clears the card */
   overflow-y: auto;
 }
 .nemo-empty {
@@ -1254,6 +1540,147 @@ button {
   border-left: 2px solid var(--hair-strong);
   padding-left: 6px;
   margin-left: -8px;
+}
+
+/* --- NemoClaw answer: reasoning (dimmed) + Markdown body + decision card --- */
+.nemo-line.is-answer {
+  align-items: flex-start;
+}
+.nemo-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.nemo-reasoning {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 8px;
+  border-left: 2px solid var(--hair);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+  opacity: 0.78;
+}
+.nemo-reason-tag {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9.5px;
+  color: var(--faint);
+}
+.nemo-reason-text {
+  font-style: italic;
+  white-space: pre-wrap;
+}
+/* Markdown-rendered answer body */
+.nemo-md {
+  color: var(--text);
+}
+.nemo-md > :first-child {
+  margin-top: 0;
+}
+.nemo-md > :last-child {
+  margin-bottom: 0;
+}
+.nemo-md p {
+  margin: 4px 0;
+}
+.nemo-md h4,
+.nemo-md h5,
+.nemo-md h6 {
+  margin: 6px 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.nemo-md ul,
+.nemo-md ol {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.nemo-md li {
+  margin: 2px 0;
+}
+.nemo-md code {
+  background: var(--hair);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+.nemo-md pre {
+  background: var(--hair);
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+.nemo-md pre code {
+  background: none;
+  padding: 0;
+}
+.nemo-md a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+/* Yes/No decision card for an agent-proposed action */
+.nemo-decision {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--hair-strong);
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+.nemo-decision-label {
+  font-size: 12.5px;
+  color: var(--text);
+}
+.nemo-decision-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.nemo-decision-yes,
+.nemo-decision-no {
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.nemo-decision-yes {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.nemo-decision-yes:hover:not(:disabled) {
+  background: var(--accent-press);
+}
+.nemo-decision-no {
+  background: transparent;
+  border-color: var(--hair-strong);
+  color: var(--muted);
+}
+.nemo-decision-yes:disabled,
+.nemo-decision-no:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.nemo-decision.done,
+.nemo-decision.declined {
+  background: transparent;
+  border-style: dashed;
+}
+.nemo-decision-result {
+  font-size: 12px;
+  color: var(--muted);
+}
+.nemo-decision.done .nemo-decision-result {
+  color: var(--green);
 }
 
 /* Ask NemoClaw — input + send + preset prompts */
@@ -1574,20 +2001,6 @@ button {
   align-items: center;
   gap: 10px;
 }
-.nvo-close {
-  z-index: 2;
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--hair-strong);
-  color: var(--muted);
-  font-size: 12px;
-}
-.nvo-close:hover { color: var(--text); border-color: var(--text); }
 .nvo-status {
   display: inline-flex;
   align-items: center;
@@ -2558,6 +2971,20 @@ button {
   padding: 9px 10px;
   transition: background 0.15s, color 0.15s;
 }
+.user-dd-item.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.user-dd-item.between:hover { background: var(--fill); color: var(--text); }
+.dd-verify {
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dd-verify.ok { color: var(--lime); }
+.dd-verify.fail { color: var(--red); }
 .user-dd-item:hover {
   background: rgba(255, 77, 77, 0.1);
   color: var(--red);
@@ -2566,7 +2993,7 @@ button {
 /* ---- View toggle: LiDAR point cloud ⇄ operations map ---- */
 .view-toggle {
   position: absolute;
-  top: 104px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 40;
@@ -2930,6 +3357,10 @@ button {
   height: 15px;
 }
 
+/* assessment pill colours when shown inline in the dc3 details */
+.dc-assess-pill.reroute_suggested { color: var(--bg); background: var(--amber); }
+.dc-assess-pill.at_risk { color: #fff; background: var(--red); }
+
 /* Route-source switch reuses the .theme-toggle pill but holds text labels. */
 .route-source-toggle button {
   width: auto;
@@ -2939,3 +3370,40 @@ button {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+/* ===== Navbar v3: merged brand+RTX pill (left) · account pill (right) ========= */
+.brand-pill {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 15px 8px 11px;
+}
+.brand-mark { width: 30px; height: 30px; display: block; flex: 0 0 auto; }
+.brand-lines { display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
+.brand-name { font-family: var(--head); font-weight: 800; font-size: 16px; letter-spacing: -0.01em; color: var(--text); }
+.brand-name b { color: var(--accent); font-weight: 800; }
+.brand-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.account-pill {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 42;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+}
+.account-sep { width: 1px; height: 24px; background: var(--hair); }
+.user-dd-rowctl { display: flex; padding: 2px 10px 6px; }

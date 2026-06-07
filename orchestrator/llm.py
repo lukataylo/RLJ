@@ -79,6 +79,8 @@ def resolve_model(*, timeout: float = 3.0) -> str:
 
 def complete_json(prompt: str, *, timeout: float = 20.0) -> Optional[dict]:
     """Ask the active LLM for a JSON object. Returns the parsed dict, or None on any failure."""
+    if not config.llm_enabled_runtime():
+        return None
     try:
         if config.is_local():
             payload = {
@@ -123,6 +125,8 @@ def complete_json(prompt: str, *, timeout: float = 20.0) -> Optional[dict]:
 
 def chat(prompt: str, *, system: Optional[str] = None, timeout: float = 30.0) -> Optional[str]:
     """Free-text answer from the active LLM. Returns the text, or None on failure / no provider."""
+    if not config.llm_enabled_runtime():
+        return None  # operator turned the model off → caller uses deterministic fallback
     try:
         if config.is_local():
             full = f"{system}\n\n{prompt}" if system else prompt

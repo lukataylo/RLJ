@@ -13,8 +13,11 @@ import os
 import json
 import pathlib
 import asyncio
-from datetime import datetime, timezone
+import sys
+import math
+from datetime import datetime, timezone, timedelta
 from contextlib import suppress
+from typing import Optional
 
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
@@ -33,7 +36,7 @@ except ImportError:
     pass
 
 from models import (DeliveryJob, Location, Courier, DisruptionEvent, Notification,
-                    Plan, OptimizeRequest, OptimizeResponse,
+                    Plan, OptimizeRequest, OptimizeResponse, LatLng,
                     Driver, DriverPing, TelemetryBatch,
                     SignalRecommendation, SignalRecommendations,
                     AgentAsk, AgentAnswer, FleetAssessments)
@@ -41,22 +44,34 @@ from greedy import greedy_plan
 import congestion as congestion_mod
 import nemo_agent
 import geocode
-from intake import parse_delivery
+from nl_intake import parse_delivery
 import route_preview
 import config
 import llm
+import agent_actions
 import db
 import auth
 from auth import require_user, current_user, CurrentUser
 
 ROUTING_URL = os.getenv("ROUTING_URL", "http://localhost:8100")
+# NemoClaw operator Q&A uses the shared llm.chat seam (config.py / llm.py).
 
 app = FastAPI(title="RLJ orchestrator")
 # CORS locked to an env allowlist (the PulseGo frontends). Dev default = local Vite ports.
 # In prod set CORS_ORIGINS=https://app.pulsego.org,https://drive.pulsego.org,https://pulsego.org
 _CORS_ORIGINS = [o.strip() for o in os.environ.get(
-    "CORS_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",") if o.strip()]
-app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS, allow_credentials=True,
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:5174,"
+    "http://127.0.0.1:5173,http://127.0.0.1:5174").split(",") if o.strip()]
+# Also allow any localhost / private-LAN origin on any port, so the console + driver PWA
+# work when opened from a phone/another machine on the same network during the demo
+# (e.g. http://10.x.x.x:5173). Prod still uses the explicit CORS_ORIGINS allowlist.
+_CORS_ORIGIN_REGEX = os.environ.get(
+    "CORS_ORIGIN_REGEX",
+    r"https?://(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?")
+app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS,
+                   allow_origin_regex=_CORS_ORIGIN_REGEX, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
 
@@ -248,7 +263,43 @@ async def healthz():
     with suppress(Exception):
         async with httpx.AsyncClient(timeout=2.0) as c:
             routing_ok = (await c.get(f"{ROUTING_URL}/healthz")).status_code == 200
-    return {"status": "ok", "routing_service": routing_ok}
+    # Which LLM is in play, so the UI can show the on-prem DGX Spark indicator only when
+    # the model truly runs locally and hide it when a cloud model is active.
+    local = config.is_local()
+    has_cloud_key = bool(config.openai_key())
+    provider = "local" if local else ("cloud" if has_cloud_key else "none")
+    return {
+        "status": "ok",
+        "routing_service": routing_ok,
+        "llm_provider": provider,           # "local" | "cloud" | "none"
+        "llm_model": (config.model() if local else (config.openai_model() if has_cloud_key else None)),
+        "llm_label": config.active_model_label(),
+        "llm_enabled": config.llm_enabled_runtime(),
+        "active_provider": config.active_provider(),   # "nemotron" | "openai"
+        "local_model": local,               # local Ollama/Nemotron on the DGX Spark
+        "cloud_model": (not local) and has_cloud_key,  # OpenAI-compatible cloud provider
+    }
+
+
+class LlmToggle(BaseModel):
+    provider: Optional[str] = None   # "nemotron" | "openai"
+    enabled: Optional[bool] = None
+
+
+@app.post("/admin/llm")
+async def admin_llm(body: LlmToggle, _user: CurrentUser = Depends(require_user)):
+    """Operator control for the live model: switch provider (nemotron/openai) and/or
+    enable/disable it (off → deterministic fallback)."""
+    if body.provider is not None:
+        config.set_provider(body.provider)
+    if body.enabled is not None:
+        config.set_llm_enabled(body.enabled)
+    await HUB.emit("agent_log", {"level": "info", "source": "system",
+                                 "message": f"Live model: {config.active_model_label()}"
+                                            f"{'' if config.llm_enabled_runtime() else ' (disabled)'}."})
+    return {"active_provider": config.active_provider(),
+            "llm_label": config.active_model_label(),
+            "llm_enabled": config.llm_enabled_runtime()}
 
 
 @app.get("/state")
@@ -589,24 +640,40 @@ async def post_signal_recs(body: SignalRecommendations, _user: CurrentUser = Dep
 
 
 # ----------------------------------------------------------------------------- agent channel
-async def _record_agent_answer(task_id: str, answer: str):
+def _fleet_for_actions() -> list[dict]:
+    """Light courier view (id/name/phone) for grounding proposed decision-card actions."""
+    return [{"id": c.id, "name": c.name, "phone": c.phone} for c in S.couriers.values()]
+
+
+async def _record_agent_answer(task_id: str, answer: str, reasoning: str = "",
+                               action: Optional[dict] = None):
     """Mark a queued task answered + emit the NemoClaw-feed events. Shared by the GB10
-    worker path (POST /agent/answer) and the prod OpenAI auto-answer path below."""
+    worker path (POST /agent/answer) and the direct answer path below. ``reasoning`` is
+    the model's chain-of-thought (shown dimmed in chat); ``action`` is an optional
+    operator action rendered as a Yes/No decision card."""
     for t in S.agent_tasks:
         if t["id"] == task_id:
             t["status"] = "answered"
             t["answer"] = answer
+            t["reasoning"] = reasoning
+            t["action"] = action
             break
     await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
-                                 "message": f"Nemotron@GB10: {answer[:240]}"})
-    await HUB.emit("agent_answer", {"task_id": task_id, "answer": answer})
+                                 "message": f"NemoClaw: {answer[:280]}"})
+    payload = {"task_id": task_id, "answer": answer}
+    if reasoning:
+        payload["reasoning"] = reasoning
+    if action:
+        payload["action"] = action
+    await HUB.emit("agent_answer", payload)
 
 
 def _fleet_context() -> str:
     """A light fleet-context system prompt for the LLM (no heavy state dumps)."""
     parts = [
-        "You are PulseGo's dispatch assistant for a time-critical medical courier "
-        "fleet in London. Answer the operator's question concisely.",
+        "You are PulseGo's on-prem dispatch assistant for a time-critical medical "
+        "courier fleet in London, running locally on an NVIDIA DGX Spark (zero cloud "
+        "egress). Answer the operator's question concisely in 1-3 sentences.",
         f"Fleet now: {len(S.couriers)} courier(s), {len(S.jobs)} job(s), "
         f"{len(S.drivers)} signed-up driver(s).",
     ]
@@ -648,28 +715,29 @@ def _fallback_agent_answer(question: str) -> str:
     )
 
 
-async def _openai_auto_answer(task_id: str, question: str):
-    """Answer via the configured provider, with a deterministic fleet fallback."""
+async def _answer_question(question: str) -> tuple[str, str]:
+    """Answer via the LLM seam (OpenAI/Ollama per config), returning ``(answer, reasoning)``.
+
+    Reasoning models (local Nemotron) wrap their chain-of-thought in ``<think>…</think>``;
+    we lift that out so the spoken/markdown answer stays clean while the UI can still show
+    it. Falls back to a deterministic keyword-aware summary (no reasoning) so Ask NemoClaw
+    always responds, even with no model and no on-box worker."""
+    raw = None
     try:
-        answer = await asyncio.to_thread(llm.chat, question, system=_fleet_context())
-    except Exception as e:  # noqa: BLE001 - llm.chat shouldn't raise, but be safe
-        await HUB.emit("agent_log", {"level": "warn", "source": "nemotron",
-                                     "message": f"Agent answer failed ({type(e).__name__})."})
-        answer = None
-    if not answer:
-        await HUB.emit("agent_log", {"level": "warn", "source": "nemotron",
-                                     "message": "LLM unavailable; using live fleet fallback."})
-        answer = _fallback_agent_answer(question)
-    await _record_agent_answer(task_id, answer)
+        raw = await asyncio.to_thread(llm.chat, question, system=_fleet_context())
+    except Exception:  # noqa: BLE001 - never let the chat hang the request
+        raw = None
+    if raw:
+        reasoning, answer = agent_actions.split_reasoning(raw)
+        if answer:
+            return answer, reasoning
+    return _fallback_agent_answer(question), ""
 
 
 @app.post("/agent/ask")
 async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
-    """Queue a question for the NemoClaw agent.
-
-    LOCAL (GB10): the on-box worker polls /agent/tasks and posts to /agent/answer.
-    PRODUCTION (no DGX): the orchestrator answers itself via OpenAI in the background.
-    """
+    """Answer an operator question directly (LLM seam → deterministic fallback) so the
+    chat always responds. The answer is also recorded for the optional GB10 worker."""
     S._task_n += 1
     task = {"id": f"task-{S._task_n}", "question": body.question,
             "ts": _now_iso(), "status": "pending"}
@@ -677,10 +745,9 @@ async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
     S.agent_tasks = S.agent_tasks[-50:]
     await HUB.emit("agent_log", {"level": "info", "source": "operator",
                                  "message": f"Asked NemoClaw: {body.question[:120]}"})
-    # In prod (no on-box worker) answer ourselves via OpenAI; locally the DGX worker
-    # handles it, so we must NOT auto-answer or the feed gets double answers.
-    if not config.is_local():
-        asyncio.create_task(_openai_auto_answer(task["id"], body.question))
+    answer, reasoning = await _answer_question(body.question)
+    action = agent_actions.propose_action(body.question, answer, _fleet_for_actions())
+    await _record_agent_answer(task["id"], answer, reasoning, action)
     return task
 
 
@@ -691,8 +758,17 @@ async def agent_tasks():
 
 @app.post("/agent/answer")
 async def agent_answer(body: AgentAnswer, _user: CurrentUser = Depends(require_user)):
-    """The GB10 agent posts its Nemotron answer here; it lands in the NemoClaw feed."""
-    await _record_agent_answer(body.task_id, body.answer)
+    """The GB10 agent posts its Nemotron answer here; it lands in the NemoClaw feed.
+
+    The worker may post a plain answer (older clients) or include ``reasoning``/``action``.
+    Either way we strip any ``<think>`` chain-of-thought and, if no action was supplied,
+    derive one from the original question + answer so the chat still offers a decision card."""
+    reasoning, answer = agent_actions.split_reasoning(body.answer)
+    answer = answer or body.answer
+    reasoning = body.reasoning or reasoning
+    question = next((t.get("question", "") for t in S.agent_tasks if t["id"] == body.task_id), "")
+    action = body.action or agent_actions.propose_action(question, answer, _fleet_for_actions())
+    await _record_agent_answer(body.task_id, answer, reasoning, action)
     return {"ok": True}
 
 
@@ -715,16 +791,219 @@ async def post_fleet_assessments(body: FleetAssessments, _user: CurrentUser = De
     return {"accepted": len(body.assessments)}
 
 
+# ----------------------------------------------------------------- upcoming conditions
+_CONDITIONS_PATH = pathlib.Path(__file__).resolve().parent.parent / "data" / "conditions.json"
+
+
+def _parse_iso(ts: str) -> datetime:
+    dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _haversine_km(a_lat: float, a_lng: float, b_lat: float, b_lng: float) -> float:
+    r = 6371.0
+    p1, p2 = math.radians(a_lat), math.radians(b_lat)
+    dp = math.radians(b_lat - a_lat)
+    dl = math.radians(b_lng - a_lng)
+    h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(min(1.0, math.sqrt(h)))
+
+
+@app.get("/conditions/upcoming")
+async def conditions_upcoming(
+    within_hours: float = 6.0,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    radius_km: float = 3.0,
+    now: Optional[str] = None,
+):
+    """Forward-looking conditions on a courier's horizon: planned works, bridge lifts,
+    events, floods (time-windowed) plus standing major developments. Reads the merged
+    data/conditions.json pipeline; optionally filters to those near a point. Public (the
+    driver app calls it). Never 5xx — returns an empty feed if the artifact is missing."""
+    try:
+        payload = json.loads(_CONDITIONS_PATH.read_text())
+    except Exception:  # noqa: BLE001 - artifact missing/unreadable → empty, never crash
+        return {"now": now, "within_hours": within_hours, "count": 0, "conditions": []}
+
+    base_now = now or payload.get("scenario_now") or _now_iso()
+    now_dt = _parse_iso(base_now)
+    until = now_dt + timedelta(hours=within_hours)
+
+    out: list[dict] = []
+    for c in payload.get("conditions", []):
+        starts = c.get("starts")
+        ends = c.get("ends")
+        if starts:  # time-windowed: keep only those overlapping [now, now+within]
+            s = _parse_iso(starts)
+            e = _parse_iso(ends) if ends else until
+            if not (s < until and e > now_dt):
+                continue
+        # developments (no start) are standing context — always included
+        if lat is not None and lng is not None:
+            if _haversine_km(lat, lng, c["lat"], c["lng"]) > radius_km:
+                continue
+        item = dict(c)
+        item["starts_in_min"] = (
+            int((_parse_iso(starts) - now_dt).total_seconds() // 60) if starts else None
+        )
+        out.append(item)
+
+    # Soonest first; standing developments (no start) last.
+    out.sort(key=lambda x: (x["starts_in_min"] is None, x["starts_in_min"] or 0))
+    return {"now": now_dt.isoformat(), "within_hours": within_hours, "count": len(out), "conditions": out}
+
+
+# Tower Bridge bascule-lift closure across the A100 river crossing (north→south span).
+_TOWER_BRIDGE_GEOM = [
+    {"lat": 51.5072, "lng": -0.0757},
+    {"lat": 51.5055, "lng": -0.0754},
+    {"lat": 51.5039, "lng": -0.0750},
+]
+_TOWER_BRIDGE_CENTRE = (51.5055, -0.0754)
+
+
+def _courier_nearest_bridge() -> Optional[Courier]:
+    """The courier currently closest to Tower Bridge — the one a closure most affects."""
+    best, best_d = None, float("inf")
+    for c in S.couriers.values():
+        loc = getattr(c, "location", None)
+        if not loc:
+            continue
+        d = _haversine_km(_TOWER_BRIDGE_CENTRE[0], _TOWER_BRIDGE_CENTRE[1], loc.lat, loc.lng)
+        if d < best_d:
+            best, best_d = c, d
+    return best
+
+
+@app.post("/scenario/bridge-closure")
+async def scenario_bridge_closure(_user: CurrentUser = Depends(require_user)):
+    """Demo scenario: Tower Bridge lifts and closes the A100 crossing.
+
+    Injects the closure into live state (so the planner will avoid it), then narrates it
+    through NemoClaw's reasoning chain and offers a *reroute decision card*. The plan is
+    deliberately NOT re-optimised here — confirming the card calls the redirect endpoint,
+    which re-plans via the routing service (now avoiding the bridge) so the fleet visibly
+    updates in real time."""
+    S._dis_n += 1
+    disr = DisruptionEvent(
+        id=f"bridge-closure-{S._dis_n}",
+        kind="road_closure",
+        geometry=[LatLng(**p) for p in _TOWER_BRIDGE_GEOM],
+        source="manual",
+        at=datetime.now(timezone.utc),
+    )
+    S.disruptions.append(disr)
+    await HUB.emit("disruption", disr.model_dump(mode="json"))
+
+    courier = _courier_nearest_bridge()
+    S._task_n += 1
+    task = {"id": f"task-{S._task_n}", "question": "Tower Bridge closure",
+            "ts": _now_iso(), "status": "pending"}
+    S.agent_tasks.append(task)
+    S.agent_tasks = S.agent_tasks[-50:]
+
+    if courier is not None:
+        who = courier.name or courier.id
+        reasoning = (
+            "Tower Bridge has just lifted and closed the A100 river crossing. "
+            f"{who} is the courier nearest the bridge and their route relies on it; "
+            "waiting for the bascules to lower could add 12–18 minutes. Rerouting now via "
+            "the next downstream crossing protects the STAT delivery window."
+        )
+        answer = f"**Tower Bridge has closed.** I recommend rerouting **{who}** around it now."
+        action = {
+            "type": "redirect",
+            "courier_id": courier.id,
+            "label": f"Reroute {who} around the Tower Bridge closure?",
+            "confirm": "Reroute",
+            "endpoint": f"/couriers/{courier.id}/redirect",
+            "method": "POST",
+        }
+    else:
+        reasoning = (
+            "Tower Bridge has just lifted and closed the A100 river crossing. "
+            "Re-optimising the fleet now routes every courier around it."
+        )
+        answer = "**Tower Bridge has closed.** I recommend re-optimising the fleet to route around it."
+        action = {
+            "type": "optimize",
+            "label": "Re-optimise the fleet around the Tower Bridge closure?",
+            "confirm": "Re-plan",
+            "endpoint": "/optimize",
+            "method": "POST",
+        }
+
+    await _record_agent_answer(task["id"], answer, reasoning, action)
+    return {"ok": True, "disruption_id": disr.id,
+            "courier_id": (courier.id if courier else None), "task_id": task["id"]}
+
+
+def _avoidance_box(lat: float, lng: float, pad: float = 0.0016) -> list[LatLng]:
+    """A small square avoidance footprint around a point (a localized 'incident ahead')."""
+    return [
+        LatLng(lat=round(lat + pad, 6), lng=round(lng - pad, 6)),
+        LatLng(lat=round(lat + pad, 6), lng=round(lng + pad, 6)),
+        LatLng(lat=round(lat - pad, 6), lng=round(lng + pad, 6)),
+        LatLng(lat=round(lat - pad, 6), lng=round(lng - pad, 6)),
+        LatLng(lat=round(lat + pad, 6), lng=round(lng - pad, 6)),
+    ]
+
+
 @app.post("/couriers/{courier_id}/redirect")
-async def redirect_courier(courier_id: str, _user: CurrentUser = Depends(require_user)):
-    """Operator-triggered redirect: re-optimise (routes avoid live congestion) and narrate."""
+async def redirect_courier(courier_id: str, reason: str = "", targeted: bool = True,
+                           _user: CurrentUser = Depends(require_user)):
+    """Redirect ONE courier (scooter/van) mid-delivery.
+
+    When ``targeted`` (default), inject a localized avoidance just ahead of this courier —
+    on the leg between their current position and their next stop — so the re-plan genuinely
+    bends *their* route around it (not a no-op fleet re-optimise). Narrates it and pushes a
+    notification to that driver so the in-cab app updates. ``reason`` is free-text context."""
     courier = S.couriers.get(courier_id)
     if courier is None:
         raise HTTPException(status_code=404, detail="unknown courier")
+    vt = getattr(courier, "vehicle_type", "courier")
+    who = courier.name or courier_id
+    detail = (reason or "").strip() or "an incident ahead"
+
+    # Place an avoidance midway between the courier and their next stop, so the solver
+    # has to route this specific courier a different way.
+    injected = None
+    route = next((r for r in (S.plan.routes if S.plan else []) if r.courier_id == courier_id), None)
+    loc = getattr(courier, "location", None)
+    if targeted and route and loc:
+        nxt = next((s for s in sorted(route.stops, key=lambda s: s.sequence)), None)
+        if nxt and nxt.location:
+            mlat = (loc.lat + nxt.location.lat) / 2
+            mlng = (loc.lng + nxt.location.lng) / 2
+            S._dis_n += 1
+            injected = DisruptionEvent(
+                id=f"redirect-{courier_id}-{S._dis_n}", kind="traffic",
+                geometry=_avoidance_box(mlat, mlng), source="manual",
+                courier_id=courier_id, at=datetime.now(timezone.utc))
+            S.disruptions.append(injected)
+            await HUB.emit("disruption", injected.model_dump(mode="json"))
+
     await HUB.emit("agent_log", {"level": "info", "source": "operator",
-                                 "message": f"Redirecting {courier.name or courier_id} around current congestion."})
+                                 "message": f"Redirecting {who} ({vt}) mid-delivery around {detail}."})
     plan = await run_optimize()
-    return {"ok": True, "courier_id": courier_id,
+
+    # Tell that driver their route changed (the in-cab app surfaces redirect notifications).
+    with suppress(Exception):
+        n = Notification(channel="redirect", to=(courier.phone or courier.id), job_id=None,
+                         message=f"Dispatch redirected you around {detail}. Follow the new route.")
+        await HUB.emit("notification", n.model_dump(mode="json"))
+
+    # This courier's new next-stop ETA, so the UI can confirm the change landed.
+    next_eta = None
+    new_route = next((r for r in (plan.routes or []) if r.courier_id == courier_id), None)
+    if new_route:
+        nstop = next((s for s in sorted(new_route.stops, key=lambda s: s.sequence) if s.eta), None)
+        if nstop and nstop.eta:
+            next_eta = nstop.eta.strftime("%H:%M")
+
+    return {"ok": True, "courier_id": courier_id, "vehicle_type": vt, "reason": detail,
+            "targeted": bool(injected), "next_eta": next_eta,
             "windows_met": plan.objective.windows_met, "solver": plan.objective.solver}
 
 
@@ -753,6 +1032,101 @@ async def signals_advice(driver_id: str = "", lat: float = 0.0, lng: float = 0.0
             "message": "Maintain ~28 km/h to catch the next green.",
             "target_speed_mps": 7.8, "junction": {"lat": lat, "lng": lng},
             "seconds_to_green": 18.0, "confidence": 0.4}
+
+
+# ----------------------------------------------------------------------------- in-cab Q&A
+def _driver_route(courier_id: str):
+    """The route a driver is on: their courier's route, else the first active route."""
+    if not S.plan or not S.plan.routes:
+        return None
+    if courier_id:
+        return next((r for r in S.plan.routes if r.courier_id == courier_id), None)
+    return S.plan.routes[0]
+
+
+def _driver_next_stops(courier_id: str, n: int = 4) -> list[str]:
+    route = _driver_route(courier_id)
+    if not route:
+        return []
+    out = []
+    for s in sorted(route.stops, key=lambda s: s.sequence)[:n]:
+        where = s.location.name or f"({s.location.lat:.3f},{s.location.lng:.3f})"
+        eta = f" by {s.eta.strftime('%H:%M')}" if s.eta else ""
+        out.append(f"{s.kind} at {where}{eta}")
+    return out
+
+
+def _driver_context(courier_id: str, lat: float, lng: float) -> str:
+    """System prompt grounding the in-cab assistant in this driver's live run."""
+    parts = [
+        "You are NemoClaw, the in-cab navigation assistant for a London medical courier.",
+        "Answer the driver's question in 1-2 short, practical sentences, like a co-pilot.",
+        "Use ONLY the live facts below; if something isn't given, say you don't have it yet.",
+    ]
+    stops = _driver_next_stops(courier_id)
+    if stops:
+        parts.append("Upcoming stops: " + "; ".join(stops) + ".")
+    cells = S.congestion.get("cells", [])
+    if cells:
+        worst = max(cells, key=lambda c: c["congestion"])
+        if worst["congestion"] >= congestion_mod.BUSY:
+            parts.append(
+                f"Heavy traffic near ({worst['lat']:.3f},{worst['lng']:.3f}) — easing off smooths the run.")
+    if S.disruptions:
+        parts.append(f"{len(S.disruptions)} disruption(s) are active on the network.")
+    if lat or lng:
+        parts.append(f"Driver position: ({lat:.4f},{lng:.4f}).")
+    return " ".join(parts)
+
+
+def _driver_directions_fallback(question: str, courier_id: str) -> str:
+    """Deterministic in-cab answer when no model is available (never silent)."""
+    low = question.lower()
+    if any(w in low for w in ("speed", "green", "light", "signal", "fast", "slow down")):
+        return "Hold around 28 km/h to catch the next green wave."
+    if any(w in low for w in ("traffic", "congestion", "busy", "jam")):
+        cells = S.congestion.get("cells", [])
+        if cells:
+            worst = max(cells, key=lambda c: c["congestion"])
+            return (f"Busiest cell is near ({worst['lat']:.3f},{worst['lng']:.3f}); "
+                    "ease your speed and I'll smooth the green wave.")
+        return "Traffic looks clear on your route right now."
+    if any(w in low for w in ("closed", "closure", "blocked", "bridge")):
+        return (f"There are {len(S.disruptions)} reported closures; "
+                "I'll keep your route clear of them.")
+    stops = _driver_next_stops(courier_id, 1)
+    if stops:
+        return f"Your next stop is {stops[0]}."
+    return "I'm your in-cab guide — ask about your next stop, traffic, or the best speed."
+
+
+class DriverAsk(BaseModel):
+    question: str = Field(min_length=1, max_length=300)
+    courier_id: str = ""
+    driver_id: str = ""
+    lat: float = 0.0
+    lng: float = 0.0
+    heading: float = 0.0
+
+
+@app.post("/driver/ask")
+async def driver_ask(body: DriverAsk):
+    """In-cab directions Q&A. Answers via the local-model LLM seam (Ollama on the
+    GB10, OpenAI in prod) grounded in the driver's live route + congestion, with a
+    deterministic fallback so it always replies. No operator auth — drivers ask
+    straight from the cab; pair with /tts for a spoken answer."""
+    q = body.question.strip()
+    answer = None
+    try:
+        answer = await asyncio.to_thread(
+            llm.chat, q, system=_driver_context(body.courier_id, body.lat, body.lng))
+    except Exception:  # noqa: BLE001 - never let the cab assistant hang
+        answer = None
+    if not answer:
+        answer = _driver_directions_fallback(q, body.courier_id)
+    await HUB.emit("agent_log", {"level": "info", "source": "driver",
+                                 "message": f"Driver asked: {q[:80]}"})
+    return {"answer": answer, "driver_id": body.driver_id, "courier_id": body.courier_id}
 
 
 

@@ -14,24 +14,58 @@ import Signup from "./components/Signup";
 import DriverMap from "./components/DriverMap";
 import GreenWaveCard from "./components/GreenWaveCard";
 import ContributionStats from "./components/ContributionStats";
+import ActiveDelivery from "./components/ActiveDelivery";
+import JobsView from "./components/JobsView";
 import BottomNav, { type Tab } from "./components/BottomNav";
 import VoiceOverlay from "./components/VoiceOverlay";
-import { useStore } from "./store";
+import { selectActiveRoute, useStore } from "./store";
 import {
   getCongestion,
   getGuidance,
   getGeoFix,
+  getJobs,
+  getPlan,
   getSignalAdvice,
   health,
   postTelemetry,
   simulateGps,
 } from "./api";
-import { demoCongestion, demoGuidance } from "./lib/demo";
-import type { DriverPing, GpsFix } from "./types";
+import { getDirections } from "./lib/directions";
+import { haversine } from "./lib/geo";
+import { demoCongestion, demoGuidance, demoJobs, demoPlan } from "./lib/demo";
+import type { DriverPing, GpsFix, Maneuver, Route } from "./types";
 
 const PING_MS = 5000;
 const CONGESTION_MS = 6000;
 const GUIDANCE_MS = 4000;
+const JOBS_MS = 8000;
+
+const ANNOUNCE_FAR = 250;
+const ANNOUNCE_NEAR = 60;
+const ARRIVE = 25;
+
+function speak(text: string) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-GB";
+  window.speechSynthesis.speak(u);
+}
+
+function shortInstruction(m: Maneuver): string {
+  if (m.type === "arrive") return "Arriving now.";
+  const mod = m.modifier ?? "";
+  if (mod.includes("left")) return "Turn left now.";
+  if (mod.includes("right")) return "Turn right now.";
+  if (mod.includes("straight")) return "Continue straight.";
+  return m.instruction;
+}
+
+function routeKey(r: Route | null): string {
+  if (!r) return "";
+  return r.stops.map((s) => `${s.location.lat},${s.location.lng}`).join("|") +
+    `#${(r.polyline || []).length}`;
+}
 
 export default function App() {
   const driver = useStore((s) => s.driver);
@@ -163,6 +197,94 @@ function DriverHome() {
     };
   }, []);
 
+  // -- jobs + plan poll (active delivery + upcoming/past) -------------------
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      const st = useStore.getState();
+      const [jobsRes, planRes] = await Promise.all([getJobs(), getPlan()]);
+      if (!alive) return;
+      if (jobsRes.ok && jobsRes.data && jobsRes.data.length) {
+        st.setJobs(jobsRes.data, "live");
+        st.setPlan(planRes.ok ? (planRes.data ?? null) : null);
+        st.setOrchestratorOnline(true);
+      } else if (jobsRes.status === 0 || !st.orchestratorOnline) {
+        // Offline (or server has no jobs) -> demo jobs + plan.
+        st.setJobs(demoJobs(), "demo");
+        st.setPlan(demoPlan());
+      } else {
+        st.setJobs([], "off");
+        st.setPlan(null);
+      }
+    };
+    poll();
+    const id = window.setInterval(poll, JOBS_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  // -- directions: (re)build when the active route geometry changes ---------
+  const keyRef = useRef("");
+  const activeRoute = useStore(selectActiveRoute);
+  const key = routeKey(activeRoute);
+  useEffect(() => {
+    if (!activeRoute || activeRoute.stops.length < 1) {
+      useStore.getState().setDirections(null);
+      return;
+    }
+    let cancelled = false;
+    const navWas = useStore.getState().navigating;
+    (async () => {
+      const dir = await getDirections(activeRoute, activeRoute.polyline || []);
+      if (cancelled) return;
+      useStore.getState().setDirections(dir);
+      if (navWas && keyRef.current && keyRef.current !== key) speak("Route updated.");
+      keyRef.current = key;
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // -- turn-by-turn: announce maneuvers as the driver approaches them --------
+  const navigating = useStore((s) => s.navigating);
+  const directions = useStore((s) => s.directions);
+  const lastFix = useStore((s) => s.lastFix);
+  const maneuverIdx = useRef(0);
+  const announced = useRef<Record<number, Set<string>>>({});
+  useEffect(() => {
+    maneuverIdx.current = directions && directions.maneuvers.length > 1 ? 1 : 0;
+    announced.current = {};
+  }, [directions]);
+  useEffect(() => {
+    if (!navigating || !directions || !lastFix) return;
+    const mans = directions.maneuvers;
+    if (!mans.length) return;
+    const idx = Math.min(maneuverIdx.current, mans.length - 1);
+    const target = mans[idx];
+    const d = haversine(lastFix, target.location);
+    useStore.getState().setManeuver(target, d);
+    const fired = (announced.current[idx] ||= new Set<string>());
+    if (d <= ANNOUNCE_FAR && !fired.has("far")) {
+      fired.add("far");
+      speak(target.instruction);
+    }
+    if (d <= ANNOUNCE_NEAR && !fired.has("near")) {
+      fired.add("near");
+      speak(shortInstruction(target));
+    }
+    if (d <= ARRIVE) {
+      if (idx < mans.length - 1) maneuverIdx.current = idx + 1;
+      else if (!fired.has("arrived")) {
+        fired.add("arrived");
+        speak("You have arrived.");
+      }
+    }
+  }, [lastFix, navigating, directions]);
+
   // -- telemetry: send a ping every PING_MS while sharing -------------------
   useEffect(() => {
     if (!sharing) return;
@@ -271,10 +393,11 @@ function DriverHome() {
       </div>
 
       <main className="main">
-        {tab === "drive" ? (
+        {tab === "drive" && (
           <>
             <DriverMap />
             <div className="cards">
+              <ActiveDelivery />
               <GreenWaveCard />
               {congestionSource === "demo" && (
                 <p className="demo-foot">
@@ -284,7 +407,13 @@ function DriverHome() {
               )}
             </div>
           </>
-        ) : (
+        )}
+        {tab === "jobs" && (
+          <div className="cards">
+            <JobsView />
+          </div>
+        )}
+        {tab === "impact" && (
           <div className="cards">
             <ContributionStats />
           </div>

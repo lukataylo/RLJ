@@ -17,6 +17,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "^56.0.9",
     "expo-asset": "~56.0.16",
+    "expo-av": "~56.0.3",
     "expo-constants": "~56.0.17",
     "expo-font": "~56.0.5",
     "expo-keep-awake": "~56.0.3",

@@ -59,7 +59,7 @@ TfL feed (disruptions) — both behind NemoClaw egress allowlists.
 | If this fails… | Fall back to |
 |---|---|
 | Custom GPU solver | NVIDIA cuOpt, then OR-tools, then orchestrator's greedy router |
-| Custom travel-time kernel | OSMnx/networkx shortest paths, then haversine |
+| Custom travel-time kernel | local Valhalla matrix (real London streets), then OSMnx/networkx, then haversine |
 | Live TfL feed | pre-recorded / manual disruption injection |
 | ElevenLabs voice | text intake + on-screen `agent_log` narration |
 | Local model NLU flaky | constrained JSON-output prompt + canned demo requests |

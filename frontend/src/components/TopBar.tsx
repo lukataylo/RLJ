@@ -1,12 +1,14 @@
-// Top floating row of the command center: PulseGo wordmark · verification badge ·
-// theme toggle · account avatar. The avatar dropdown holds the account, the
-// Demo-mode toggle, the Operational-Efficiency toggle, and the Scenario Actions.
+// Top floating row of the command center:
+//   LEFT  — merged brand + local-RTX indicator (PulseGo · DGX Spark · re-plan ms)
+//   CENTRE— Map ⇄ LiDAR toggle (rendered by App, sits on this same line)
+//   RIGHT — theme toggle + account avatar (dropdown: Verification, Demo, Efficiency,
+//           map-source toggle, Scenario actions, Log out)
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
-import { seedDemo, clearDemo } from "../api";
+import { seedDemo, clearDemo, getHealth, injectBridgeClosure, setLlmProvider } from "../api";
 import DemoControls from "./DemoControls";
 import ThemeToggle from "./ThemeToggle";
 import RouteSourceToggle from "./RouteSourceToggle";
@@ -29,6 +31,11 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
   const [userOpen, setUserOpen] = useState(false);
   const [demoOn, setDemoOn] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
+  // Whether a cloud model is active. Defaults false so the on-prem DGX Spark indicator
+  // shows on localhost / local model and is hidden only once we learn it's a cloud model.
+  const [cloudModel, setCloudModel] = useState(false);
+  // Live cloud-model provider (nemotron ⇄ openai), reflected from /healthz.
+  const [provider, setProvider] = useState<"nemotron" | "openai">("nemotron");
   const userRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -39,10 +46,30 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Reflect whether a scenario is loaded so the toggle reads correctly on (re)connect.
+  // Keep the Demo-mode switch in sync with reality BOTH ways, so it never desyncs after
+  // a clear/seed (was set-true-only, which left the toggle stuck on after clearing).
   useEffect(() => {
-    if ((plan?.routes?.length ?? 0) > 0) setDemoOn(true);
+    setDemoOn((plan?.routes?.length ?? 0) > 0);
   }, [plan]);
+
+  // Ask the orchestrator which LLM is active; re-check periodically in case it restarts
+  // into a different mode (local DGX vs cloud). Hide the DGX indicator when cloud.
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      const h = await getHealth();
+      if (alive && h) {
+        setCloudModel(h.cloud_model);
+        setProvider(h.active_provider ?? "nemotron");
+      }
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const summary = status.report?.summary;
   const mustPassGreen = summary?.must_pass_green ?? false;
@@ -50,6 +77,7 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
   const mpTotal = summary?.must_pass_total ?? 0;
   const userLabel = authUser?.email ?? role ?? "signed in";
   const initial = (authUser?.email ?? role ?? "U").trim().charAt(0).toUpperCase();
+  const solveMs = plan?.objective?.solve_ms;
 
   const handleLogout = () => {
     clearAuth();
@@ -64,111 +92,146 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
     try {
       await (next ? seedDemo() : clearDemo());
     } catch {
-      setDemoOn(!next); // revert on failure
+      setDemoOn(!next);
     } finally {
       setDemoBusy(false);
     }
   };
 
-  const solveMs = plan?.objective?.solve_ms;
-
   return (
     <>
-      {/* TOP-LEFT provenance pill — the "local" story at a glance */}
-      <div className="prov-pill glass">
-        <span className="prov-shield" aria-hidden>⛨</span>
-        <div className="prov-lines">
-          <div className="prov-line-1">Local · DGX Spark GB10</div>
-          <div className="prov-line-2">
-            <span className={`prov-dot ${connected ? "live" : "off"}`} />
-            zero egress · {solveMs != null ? Math.round(solveMs) : "—"} ms re-plan
-          </div>
-        </div>
-      </div>
-
-      <nav className="nav-pill glass">
-      <span className="nav-mark">Pulse<b>Go</b></span>
-
-      <span className="nav-spacer" />
-
-      <button
-        type="button"
-        className={`nav-verify ${status.loaded ? (mustPassGreen ? "ok" : "fail") : "unknown"}`}
-        data-testid="verification-badge"
-        data-must-pass-green={String(mustPassGreen)}
-        onClick={onOpenVerification}
-        title="Open verification panel"
-      >
-        <span className="nav-verify-dot" />
-        {status.loaded ? `${mpVerified}/${mpTotal}` : "—/—"}
-      </button>
-
-      <RouteSourceToggle />
-      <ThemeToggle />
-
-      {token && (
-        <div className="nav-user" ref={userRef}>
-          <button
-            type="button"
-            className="nav-avatar"
-            data-testid="user-menu"
-            aria-haspopup="menu"
-            aria-expanded={userOpen}
-            aria-label="Account & controls"
-            title={userLabel}
-            onClick={() => setUserOpen((v) => !v)}
-          >
-            {initial}
-          </button>
-          {userOpen && (
-            <div className="user-dropdown glass" role="menu">
-              <div className="user-dd-email" title={userLabel}>{userLabel}</div>
-              {role && <div className="user-dd-role">{role}</div>}
-
-              <button
-                type="button"
-                className="user-dd-toggle"
-                data-testid="demo-mode"
-                role="menuitemcheckbox"
-                aria-checked={demoOn}
-                disabled={demoBusy}
-                onClick={toggleDemo}
-              >
-                <span>Demo mode</span>
-                <span className={`dd-switch ${demoOn ? "on" : ""}`}><i /></span>
-              </button>
-
-              <button
-                type="button"
-                className="user-dd-toggle"
-                data-testid="toggle-efficiency"
-                role="menuitemcheckbox"
-                aria-checked={showEfficiency}
-                onClick={onToggleEfficiency}
-              >
-                <span>Efficiency panel</span>
-                <span className={`dd-switch ${showEfficiency ? "on" : ""}`}><i /></span>
-              </button>
-
-              <div className="user-dd-sep" />
-              <div className="user-dd-section">Scenario actions</div>
-              <DemoControls />
-
-              <div className="user-dd-sep" />
-              <button
-                type="button"
-                className="user-dd-item"
-                data-testid="btn-logout"
-                role="menuitem"
-                onClick={handleLogout}
-              >
-                Log out
-              </button>
+      {/* LEFT — brand + local RTX indicator, merged */}
+      <div className="brand-pill glass">
+        <img src="/pulsego.svg" className="brand-mark" alt="" aria-hidden />
+        <div className="brand-lines">
+          <div className="brand-name">Pulse<b>Go</b></div>
+          {/* On-prem DGX Spark indicator — shown only when the model runs locally;
+              hidden when a cloud model is active (e.g. OpenAI in production). */}
+          {!cloudModel && (
+            <div className="brand-sub" data-testid="dgx-indicator">
+              <span className={`prov-dot ${connected ? "live" : "off"}`} />
+              Local · DGX Spark GB10 · {solveMs != null ? Math.round(solveMs) : "—"} ms
             </div>
           )}
         </div>
-      )}
-      </nav>
+      </div>
+
+      {/* RIGHT — theme toggle next to the account avatar. The controls menu is always
+          available (Demo mode, Verification, Scenario actions) — it does not require a
+          login; account-only items (email, Log out) are gated on the token below. */}
+      <div className="account-pill glass" ref={userRef}>
+        <ThemeToggle />
+        <span className="account-sep" />
+        <button
+          type="button"
+          className="nav-avatar"
+          data-testid="user-menu"
+          aria-haspopup="menu"
+          aria-expanded={userOpen}
+          aria-label="Account & controls"
+          title={token ? userLabel : "Controls"}
+          onClick={() => setUserOpen((v) => !v)}
+        >
+          {token ? initial : "≡"}
+        </button>
+        {userOpen && (
+          <div className="user-dropdown glass" role="menu">
+            {token && <div className="user-dd-email" title={userLabel}>{userLabel}</div>}
+            {token && role && <div className="user-dd-role">{role}</div>}
+
+            <button
+              type="button"
+              className="user-dd-item between"
+              data-testid="verification-badge"
+              data-must-pass-green={String(mustPassGreen)}
+              role="menuitem"
+              onClick={() => { setUserOpen(false); onOpenVerification(); }}
+            >
+              <span>Verification</span>
+              <span className={`dd-verify ${status.loaded ? (mustPassGreen ? "ok" : "fail") : ""}`}>
+                {status.loaded ? `${mpVerified}/${mpTotal}` : "—/—"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className="user-dd-toggle"
+              data-testid="demo-mode"
+              role="menuitemcheckbox"
+              aria-checked={demoOn}
+              disabled={demoBusy}
+              onClick={toggleDemo}
+            >
+              <span>Demo mode</span>
+              <span className={`dd-switch ${demoOn ? "on" : ""}`}><i /></span>
+            </button>
+
+            <button
+              type="button"
+              className="user-dd-toggle"
+              data-testid="toggle-efficiency"
+              role="menuitemcheckbox"
+              aria-checked={showEfficiency}
+              onClick={onToggleEfficiency}
+            >
+              <span>Efficiency panel</span>
+              <span className={`dd-switch ${showEfficiency ? "on" : ""}`}><i /></span>
+            </button>
+
+            <button
+              type="button"
+              className="user-dd-toggle"
+              data-testid="toggle-model"
+              role="menuitemcheckbox"
+              aria-checked={provider === "nemotron"}
+              title="Switch the live model between Nemotron and OpenAI"
+              onClick={() => {
+                const next = provider === "nemotron" ? "openai" : "nemotron";
+                setProvider(next); // optimistic
+                void setLlmProvider(next).catch(() => setProvider(provider));
+              }}
+            >
+              <span>Model · {provider === "nemotron" ? "Nemotron" : "OpenAI"}</span>
+              <span className={`dd-switch ${provider === "nemotron" ? "on" : ""}`}><i /></span>
+            </button>
+
+            <div className="user-dd-sep" />
+            <div className="user-dd-section">Map routing source</div>
+            <div className="user-dd-rowctl"><RouteSourceToggle /></div>
+
+            <div className="user-dd-sep" />
+            <div className="user-dd-section">Scenario actions</div>
+            <button
+              type="button"
+              className="user-dd-item"
+              data-testid="scenario-bridge"
+              role="menuitem"
+              onClick={() => {
+                setUserOpen(false);
+                void injectBridgeClosure().catch(() => {});
+              }}
+            >
+              Tower Bridge closure
+            </button>
+            <DemoControls />
+
+            {token && (
+              <>
+                <div className="user-dd-sep" />
+                <button
+                  type="button"
+                  className="user-dd-item"
+                  data-testid="btn-logout"
+                  role="menuitem"
+                  onClick={handleLogout}
+                >
+                  Log out
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </>
   );
 }

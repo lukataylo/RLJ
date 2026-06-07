@@ -123,6 +123,33 @@ def test_nemoclaw_feed_live(page):
     assert feed.locator(".nemo-line").count() >= 1, "nemoclaw feed has no log lines"
 
 
+def test_agent_decision_card_reroute(page):
+    """Asking NemoClaw to reroute a specific courier renders a styled answer plus a Yes/No
+    decision card; clicking Yes executes the redirect against the orchestrator and the
+    card resolves to its done state (no console errors)."""
+    expect(page.get_by_test_id("delivery-list")).to_be_visible(timeout=WAIT)
+    card = page.get_by_test_id("delivery-card").first
+    expect(card).to_be_visible(timeout=WAIT)
+    courier_id = card.get_attribute("data-courier")
+    assert courier_id, "delivery card missing data-courier"
+
+    page.get_by_test_id("ask-input").fill(f"reroute courier {courier_id} around congestion")
+    page.get_by_test_id("ask-send").click()
+
+    # The answer renders in its Markdown container, and a decision card is offered.
+    expect(page.get_by_test_id("agent-answer").first).to_be_visible(timeout=WAIT)
+    decision = page.get_by_test_id("decision-card").first
+    expect(decision).to_be_visible(timeout=WAIT)
+    expect(page.get_by_test_id("decision-yes").first).to_be_visible(timeout=WAIT)
+
+    page.get_by_test_id("decision-yes").first.click()
+    # Yes hit /couriers/{id}/redirect; the card resolves to its done state.
+    expect(page.locator(".nemo-decision.done").first).to_be_visible(timeout=WAIT)
+
+    app_errors = [e for e in page.app_errors if _is_app_error(*e)]
+    assert not app_errors, f"console errors after decision: {app_errors}"
+
+
 def test_nemoclaw_inline_microphone_submits_transcript(page):
     """A browser SpeechRecognition final result fills and submits the NemoClaw input."""
     page.add_init_script(

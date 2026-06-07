@@ -11,6 +11,8 @@ import type {
   DeliveryJob,
   DisruptionEvent,
   Driver,
+  DriverAnswer,
+  DriverAsk,
   DriverGuidance,
   LoginResponse,
   Me,
@@ -142,6 +144,45 @@ export function getCongestion(): Promise<ApiResult<CongestionField>> {
 /** GET /driver/{id}/guidance — route + green-wave + contribution. */
 export function getGuidance(id: string): Promise<ApiResult<DriverGuidance>> {
   return call<DriverGuidance>(`/driver/${encodeURIComponent(id)}/guidance`);
+}
+
+// ---- in-cab driver assistant ----------------------------------------------
+
+/**
+ * POST /driver/ask — ask the in-cab local model a directions question. No auth
+ * required (demo). Returns { answer } or { ok:false } on any failure.
+ */
+export function askDriver(q: DriverAsk): Promise<ApiResult<DriverAnswer>> {
+  return call<DriverAnswer>("/driver/ask", {
+    method: "POST",
+    body: JSON.stringify(q),
+  });
+}
+
+/**
+ * POST /tts — ElevenLabs speech synthesis. Returns the raw audio/mpeg bytes
+ * for playback, or null on any failure (callers fall back to expo-speech).
+ * Attaches the stored JWT if present (server requires auth only when AUTH is on;
+ * in the demo AUTH is off so the token is optional). Does NOT use call<T>()
+ * because the response body is binary, not JSON.
+ */
+export async function ttsSpeak(text: string): Promise<ArrayBuffer | null> {
+  try {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+    };
+    const t = getToken();
+    if (t) headers["authorization"] = `Bearer ${t}`;
+    const res = await fetch(`${getApiUrl()}/tts`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) return null;
+    return await res.arrayBuffer();
+  } catch {
+    return null;
+  }
 }
 
 /** GET /signals/advice — green-wave speed-to-next-green hint. */

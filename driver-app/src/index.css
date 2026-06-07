@@ -519,13 +519,22 @@ body { overflow: hidden; }
   left: 0; right: 0;
   bottom: 0;
   z-index: 40;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: end;
+  justify-content: space-between;
+  gap: 8px;
   padding: 10px 26px calc(12px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, transparent, rgba(15, 8, 9, 0.85) 38%);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
+}
+/* equal side groups so the central mic FAB stays centred regardless of count */
+.bn-side {
+  flex: 1;
+  display: flex;
+  align-items: end;
+  justify-content: space-evenly;
+  gap: 8px;
 }
 .bn-tab {
   display: flex;
@@ -659,6 +668,120 @@ body { overflow: hidden; }
   cursor: pointer;
 }
 .vo-cancel:hover { background: rgba(255, 255, 255, 0.1); }
+.vo-textform { display: flex; gap: 8px; width: min(440px, 86vw); }
+.vo-textinput {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 12px 18px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+}
+.vo-textinput::placeholder { color: var(--muted); }
+.vo-textinput:focus { outline: none; border-color: var(--accent); }
+.vo-textsend {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 12px 22px;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-weight: 600;
+  cursor: pointer;
+}
+.vo-textsend:disabled { opacity: 0.5; cursor: default; }
+
+/* ===========================================================================
+   ACTIVE DELIVERY + TURN-BY-TURN  (bold · minimal · icon-led)
+   =========================================================================== */
+.ad-card { display: flex; flex-direction: column; gap: 14px; }
+.ad-card--empty {
+  flex-direction: row; align-items: center; justify-content: center; gap: 10px;
+  color: var(--muted); font-family: var(--font-display); font-weight: 600; font-size: 15px;
+  padding: 22px;
+}
+
+/* maneuver banner — the hero while navigating */
+.mb {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--accent); color: #fff;
+  border-radius: var(--radius-sm); padding: 14px 16px;
+}
+.mb-ico {
+  width: 52px; height: 52px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.18); border-radius: 14px;
+}
+.mb-txt { display: flex; flex-direction: column; min-width: 0; }
+.mb-dist { font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; opacity: 0.85; }
+.mb-instr { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.15; }
+
+/* head row: priority + status pills, big ETA */
+.ad-head { display: flex; align-items: center; gap: 8px; }
+.pill {
+  font-family: var(--font-display); font-weight: 700; font-size: 11px; letter-spacing: 0.06em;
+  border: 1.5px solid; border-radius: 999px; padding: 3px 10px;
+}
+.pill.ghost { border-color: var(--line-strong); }
+.ad-eta { margin-left: auto; font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--text); }
+
+/* hero: destination headline */
+.ad-hero { display: flex; flex-direction: column; gap: 5px; }
+.ad-from { font-size: 13px; color: var(--muted); }
+.ad-to {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1.1;
+}
+.ad-to svg { color: var(--accent); flex: 0 0 auto; }
+.ad-cold { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #64D2FF; }
+
+/* actions */
+.ad-actions { display: flex; gap: 10px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  font-family: var(--font-display); font-weight: 700; font-size: 16px;
+  border: none; border-radius: 14px; padding: 15px; cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+.btn:active { transform: translateY(1px); }
+.btn-go { flex: 1; background: var(--accent); color: #fff; box-shadow: 0 8px 22px rgba(255, 59, 48, 0.32); }
+.btn-go:hover { filter: brightness(1.06); }
+.btn-stop { flex: 1; background: var(--card-2); color: var(--text); border: 1px solid var(--line-strong); }
+.btn-alert { width: 54px; flex: 0 0 auto; background: var(--accent-soft); color: var(--accent); }
+.btn-reroute { flex: 1; background: var(--card-2); color: var(--text); border: 1px solid var(--line-strong); }
+.btn-reroute.is-ok { color: #34d399; border-color: #34d399; }
+.btn-reroute.is-err { color: #f87171; border-color: #f87171; }
+.btn-reroute:disabled { opacity: 0.6; cursor: default; }
+
+/* ===========================================================================
+   JOBS VIEW (upcoming / past)
+   =========================================================================== */
+.jobs-view { display: flex; flex-direction: column; gap: 14px; }
+.seg { display: flex; gap: 4px; background: var(--card-2); border-radius: 14px; padding: 4px; }
+.seg-btn {
+  flex: 1; border: none; background: transparent; color: var(--muted);
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  padding: 10px; border-radius: 11px; cursor: pointer; transition: all 0.15s;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+}
+.seg-btn b { font-variant-numeric: tabular-nums; opacity: 0.6; }
+.seg-btn.on { background: var(--accent); color: #fff; }
+.seg-btn.on b { opacity: 0.85; }
+.jobs-list { display: flex; flex-direction: column; gap: 8px; }
+.ad-empty { margin: 0; color: var(--muted); text-align: center; padding: 24px 0; font-weight: 600; }
+.jr {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card-2); border-radius: 14px; padding: 12px 14px 12px 12px; overflow: hidden;
+}
+.jr-bar { width: 4px; align-self: stretch; border-radius: 4px; flex: 0 0 auto; }
+.jr-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.jr-to { font-family: var(--font-display); font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jr-from { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jr-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: 0 0 auto; }
+.jr-when { font-family: var(--font-display); font-weight: 700; font-size: 14px; }
+.jr-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; }
 
 /* ---- responsive: roomier on wider screens -------------------------------- */
 @media (min-width: 720px) {

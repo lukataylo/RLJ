@@ -6,14 +6,24 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassCard } from "../../src/components/GlassCard";
 import { GreenWaveCard } from "../../src/components/GreenWaveCard";
 import { ManeuverBanner } from "../../src/components/ManeuverBanner";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { RouteMap } from "../../src/components/RouteMap";
-import { postDisruption, redirectCourier } from "../../src/lib/api";
+import { askDriver, postDisruption, redirectCourier, ttsSpeak } from "../../src/lib/api";
+import { speakAnswer } from "../../src/lib/audio";
 import { getDirections } from "../../src/lib/directions";
 import { etaMinutes, fmtTime } from "../../src/lib/format";
 import {
@@ -25,6 +35,14 @@ import type { DirectionsResult } from "../../src/lib/types";
 import { useNavEngine } from "../../src/lib/navigation";
 import { useTheme } from "../../src/theme/ThemeProvider";
 import { FONT } from "../../src/theme/tokens";
+
+// Tappable quick prompts for the in-cab assistant (speech-to-text is heavy on
+// RN, so we pair a TextInput with these one-tap questions).
+const QUICK_QUESTIONS = [
+  "Where's my next stop?",
+  "How's traffic?",
+  "What speed for the green?",
+];
 
 export default function Navigate() {
   const { theme } = useTheme();
@@ -38,11 +56,18 @@ export default function Navigate() {
   const route = useStore(selectMyRoute);
   const plan = useStore((s) => s.plan);
   const congestion = useStore((s) => s.congestion);
+  const lastFix = useStore((s) => s.lastFix);
 
   const [navigating, setNavigating] = useState(false);
   const [muted, setMuted] = useState(false);
   const [directions, setDirections] = useState<DirectionsResult | null>(null);
   const [rerouting, setRerouting] = useState(false);
+
+  // "Ask NemoClaw" — in-cab directions Q&A to the local model + spoken answer.
+  const [askOpen, setAskOpen] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
 
   // Stable signature of the route geometry so we only recompute on real changes.
   const routeKey = useMemo(() => {
@@ -112,6 +137,36 @@ export default function Navigate() {
       Alert.alert("Reported", "Blockage sent. The route will re-plan around it.");
     } else {
       Alert.alert("Report failed", "Couldn't reach the server.");
+    }
+  }
+
+  // Ask the in-cab local model a directions question, then speak the answer
+  // (ElevenLabs via /tts → expo-av; falls back to expo-speech).
+  async function submitAsk(raw: string) {
+    const q = raw.trim();
+    if (!q || asking) return;
+    setQuestion(q);
+    setAsking(true);
+    setAnswer(null);
+    const fix = nav.fix ?? lastFix;
+    const res = await askDriver({
+      question: q,
+      courier_id: courierId ?? undefined,
+      driver_id: driverId ?? undefined,
+      lat: fix?.lat,
+      lng: fix?.lng,
+      heading: fix?.heading_deg,
+    });
+    setAsking(false);
+    if (!res.ok || !res.data) {
+      setAnswer("Sorry — I couldn't reach NemoClaw just now. Try again in a moment.");
+      return;
+    }
+    const text = res.data.answer;
+    setAnswer(text);
+    if (!muted) {
+      const bytes = await ttsSpeak(text);
+      await speakAnswer(bytes, text);
     }
   }
 
@@ -241,8 +296,150 @@ export default function Navigate() {
               </View>
             </>
           )}
+
+          {/* In-cab assistant — always available, even before a route lands. */}
+          <View style={{ marginTop: route ? 10 : 0 }}>
+            <PrimaryButton
+              label="Ask NemoClaw"
+              variant="primary"
+              onPress={() => setAskOpen(true)}
+            />
+          </View>
         </GlassCard>
       </View>
+
+      {/* "Ask NemoClaw" sheet: type or tap a question → local-model answer,
+          spoken back via ElevenLabs (expo-speech fallback). */}
+      <Modal
+        visible={askOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAskOpen(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "flex-end",
+            backgroundColor: "rgba(0,0,0,0.45)",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.panelSolid,
+              borderTopLeftRadius: theme.radius,
+              borderTopRightRadius: theme.radius,
+              borderColor: theme.hair,
+              borderWidth: 1,
+              paddingTop: 16,
+              paddingHorizontal: 16,
+              paddingBottom: insets.bottom + 16,
+              gap: 12,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <MaterialCommunityIcons name="robot-happy-outline" size={22} color={theme.accent} />
+              <Text style={{ color: theme.text, fontFamily: FONT.headSemi, fontSize: 17, flex: 1 }}>
+                Ask NemoClaw
+              </Text>
+              <Pressable
+                onPress={() => setAskOpen(false)}
+                hitSlop={10}
+                style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}
+              >
+                <MaterialCommunityIcons name="close" size={22} color={theme.muted} />
+              </Pressable>
+            </View>
+
+            <Text style={{ color: theme.muted, fontFamily: FONT.bodyMed, fontSize: 12 }}>
+              In-cab directions, answered on-device and spoken back to you.
+            </Text>
+
+            {/* Quick questions */}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {QUICK_QUESTIONS.map((q) => (
+                <Pressable
+                  key={q}
+                  disabled={asking}
+                  onPress={() => submitAsk(q)}
+                  style={{
+                    backgroundColor: theme.fill,
+                    borderColor: theme.hair,
+                    borderWidth: 1,
+                    borderRadius: 999,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    opacity: asking ? 0.5 : 1,
+                  }}
+                >
+                  <Text style={{ color: theme.text, fontFamily: FONT.bodyMed, fontSize: 13 }}>{q}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Free-text ask field */}
+            <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+              <TextInput
+                value={question}
+                onChangeText={setQuestion}
+                placeholder="Type a question…"
+                placeholderTextColor={theme.faint}
+                editable={!asking}
+                returnKeyType="send"
+                onSubmitEditing={() => submitAsk(question)}
+                style={{
+                  flex: 1,
+                  color: theme.text,
+                  fontFamily: FONT.body,
+                  fontSize: 15,
+                  backgroundColor: theme.fill,
+                  borderColor: theme.hair,
+                  borderWidth: 1,
+                  borderRadius: theme.radiusBtn,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                }}
+              />
+              <Pressable
+                onPress={() => submitAsk(question)}
+                disabled={asking || !question.trim()}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: theme.radiusBtn,
+                  backgroundColor: theme.accent,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: asking || !question.trim() ? 0.5 : 1,
+                }}
+              >
+                {asking ? (
+                  <ActivityIndicator color={theme.accentContrast} />
+                ) : (
+                  <MaterialCommunityIcons name="send" size={20} color={theme.accentContrast} />
+                )}
+              </Pressable>
+            </View>
+
+            {/* Answer */}
+            {(asking || answer) && (
+              <ScrollView
+                style={{ maxHeight: 220 }}
+                contentContainerStyle={{
+                  backgroundColor: theme.fill,
+                  borderColor: theme.hair,
+                  borderWidth: 1,
+                  borderRadius: theme.radiusCard,
+                  padding: 12,
+                }}
+              >
+                <Text style={{ color: theme.text, fontFamily: FONT.body, fontSize: 15, lineHeight: 22 }}>
+                  {asking ? "Thinking…" : answer}
+                </Text>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

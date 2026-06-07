@@ -214,7 +214,8 @@ export default function DriverMap() {
     const pushToMap = (s: ReturnType<typeof useStore.getState>) => {
       if (!readyRef.current) return;
       setData("congestion", congestionFC(s.congestion));
-      setData("route", routeFC(s.guidance?.route_polyline));
+      // Prefer the active-delivery directions geometry; fall back to guidance.
+      setData("route", routeFC(s.directions?.geometry ?? s.guidance?.route_polyline));
       setData("junction", junctionFC(s.advice?.junction));
 
       if (s.position) {

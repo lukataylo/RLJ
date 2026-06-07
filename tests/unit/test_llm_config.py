@@ -20,10 +20,18 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 _COLLIDING = (
-    "app", "models", "seed", "greedy", "congestion", "geocode", "intake",
+    "app", "models", "seed", "greedy", "congestion", "geocode", "intake", "nl_intake",
     "solver", "solver_baseline", "solver_ortools", "solver_aco", "solver_ls",
     "traveltime",
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_provider():
+    """Each test starts on the default provider; the openai-path tests opt in explicitly."""
+    config.set_provider("nemotron")
+    yield
+    config.set_provider("nemotron")
 
 
 def _load_app():
@@ -58,9 +66,12 @@ def test_config_helpers_defaults(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     assert config.ollama_url() == "http://localhost:11434"
     assert config.model() == "nemotron"
+    # provider-aware: check the OpenAI provider's defaults explicitly, then restore.
+    config.set_provider("openai")
     assert config.openai_key() == ""
     assert config.openai_model() == "gpt-4o-mini"
     assert config.openai_base_url() == "https://api.openai.com/v1"
+    config.set_provider("nemotron")
     assert config.valhalla_enabled() is False
     assert config.llm_available() is False
 
@@ -283,6 +294,7 @@ def test_complete_json_openai(monkeypatch):
     monkeypatch.delenv("LLM_BASE_URL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
     monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
+    config.set_provider("openai")
     cap = _install_fake_httpx(
         monkeypatch, lambda url: _openai_body(json.dumps({"answer": 42})))
     out = llm.complete_json("give me json")
@@ -299,6 +311,7 @@ def test_chat_openai(monkeypatch):
     monkeypatch.delenv("LOCAL", raising=False)
     monkeypatch.delenv("LLM_BASE_URL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
+    config.set_provider("openai")
     cap = _install_fake_httpx(monkeypatch, lambda url: _openai_body("fleet looks healthy"))
     out = llm.chat("status?", system="you are a dispatcher")
     assert out == "fleet looks healthy"
@@ -329,43 +342,78 @@ def _capture_emits(app_mod, monkeypatch):
     return events
 
 
-def test_agent_ask_prod_auto_answers_via_openai(monkeypatch):
-    # Prod mode (no on-box worker): the orchestrator answers /agent/ask itself via OpenAI.
+def test_agent_ask_answers_via_llm(monkeypatch):
+    # The orchestrator answers /agent/ask itself via the LLM seam (OpenAI/Ollama).
     monkeypatch.delenv("LOCAL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
     app_mod = _load_app()
     events = _capture_emits(app_mod, monkeypatch)
     monkeypatch.setattr(app_mod.llm, "chat", lambda *a, **k: "Two couriers are en route.")
 
+    ans, reasoning = asyncio.run(app_mod._answer_question("status?"))
+    assert ans == "Two couriers are en route."
+    assert reasoning == ""  # no <think> markers in this answer
+
     app_mod.S.agent_tasks.append({"id": "task-77", "question": "status?",
                                   "ts": "now", "status": "pending"})
-    asyncio.run(app_mod._openai_auto_answer("task-77", "status?"))
+    asyncio.run(app_mod._record_agent_answer("task-77", ans))
 
     types = [t for t, _ in events]
     assert "agent_answer" in types
     answer_payload = next(p for t, p in events if t == "agent_answer")
     assert answer_payload == {"task_id": "task-77", "answer": "Two couriers are en route."}
-    # the queued task is marked answered
     task = next(t for t in app_mod.S.agent_tasks if t["id"] == "task-77")
     assert task["status"] == "answered"
-    # nemotron-sourced narration is emitted too (same as POST /agent/answer)
     assert any(t == "agent_log" and p.get("source") == "nemotron" for t, p in events)
 
 
-def test_agent_ask_prod_falls_back_when_no_answer(monkeypatch):
+def test_agent_ask_falls_back_when_no_llm(monkeypatch):
+    # No model available -> deterministic keyword-aware fleet fallback (chat is never silent).
     monkeypatch.delenv("LOCAL", raising=False)
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     app_mod = _load_app()
-    events = _capture_emits(app_mod, monkeypatch)
     monkeypatch.setattr(app_mod.llm, "chat", lambda *a, **k: None)
 
-    app_mod.S.agent_tasks.append({"id": "task-88", "question": "?",
-                                  "ts": "now", "status": "pending"})
-    asyncio.run(app_mod._openai_auto_answer("task-88", "?"))
+    ans, _ = asyncio.run(app_mod._answer_question("anything at all?"))
+    assert ans and "NemoClaw is online" in ans
 
-    types = [t for t, _ in events]
-    assert "agent_answer" in types
-    assert any(t == "agent_log" and p.get("level") == "warn" for t, p in events)
-    answer_payload = next(p for t, p in events if t == "agent_answer")
-    assert answer_payload["task_id"] == "task-88"
-    assert "NemoClaw is online" in answer_payload["answer"]
+
+# ------------------------------------------------------------ /healthz LLM provider
+# The brand pill shows the on-prem DGX Spark indicator only when the model runs
+# locally, and hides it when a cloud model is active. /healthz exposes which it is.
+def _health(app_mod):
+    from fastapi.testclient import TestClient
+    return TestClient(app_mod.app).get("/healthz").json()
+
+
+def test_healthz_reports_local_model(monkeypatch):
+    # config reads env at call time, so set the flags AFTER import (importing app may
+    # load voice/.env). LOCAL wins regardless of any cloud key present.
+    app_mod = _load_app()
+    monkeypatch.setenv("LOCAL", "true")
+    body = _health(app_mod)
+    assert body["llm_provider"] == "local"
+    assert body["local_model"] is True
+    assert body["cloud_model"] is False  # DGX indicator stays SHOWN
+
+
+def test_healthz_reports_cloud_model(monkeypatch):
+    app_mod = _load_app()
+    monkeypatch.delenv("LOCAL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
+    body = _health(app_mod)
+    assert body["llm_provider"] == "cloud"
+    assert body["local_model"] is False
+    assert body["cloud_model"] is True  # DGX indicator gets HIDDEN
+
+
+def test_healthz_no_provider_is_not_cloud(monkeypatch):
+    # No model configured at all: treated as on-prem, so the indicator shows. Clear the
+    # keys AFTER import to undo any voice/.env injection.
+    app_mod = _load_app()
+    monkeypatch.delenv("LOCAL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    body = _health(app_mod)
+    assert body["llm_provider"] == "none"
+    assert body["cloud_model"] is False

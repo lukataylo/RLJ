@@ -168,6 +168,21 @@ export interface DriverGuidance {
   contribution?: DriverContribution;
 }
 
+// ---- In-cab driver Q&A (POST /driver/ask) ---------------------------------
+
+export interface DriverAsk {
+  question: string;
+  courier_id?: string;
+  driver_id?: string;
+  lat?: number;
+  lng?: number;
+  heading?: number;
+}
+
+export interface DriverAnswer {
+  answer: string;
+}
+
 // ---- Auth -----------------------------------------------------------------
 
 export interface LoginResponse {

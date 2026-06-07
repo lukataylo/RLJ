@@ -16,7 +16,7 @@ const FEATURES = [
       </svg>
     ),
     title: "Private by design",
-    body: "Patient data never leaves the building. The optimiser and the AI dispatcher run on a single on-prem DGX Spark GB10 — zero cloud egress, NHS-grade data sovereignty, no third party ever sees a sample.",
+    body: "Patient data never leaves the building.",
   },
   {
     icon: (
@@ -26,8 +26,8 @@ const FEATURES = [
         <path d="m9 12 2 2 4-4" />
       </svg>
     ),
-    title: "Anticipatory, not reactive",
-    body: "The whole fleet re-plans in under a second — before closures, courier-down events and demand spikes bite. Cold-chain aware dispatch never mis-assigns a temperature-critical sample.",
+    title: "Plans ahead",
+    body: "The fleet re-routes before traffic bites.",
   },
   {
     icon: (
@@ -37,8 +37,8 @@ const FEATURES = [
         <circle cx="12" cy="10" r="2.5" />
       </svg>
     ),
-    title: "One box. No cloud bill.",
-    body: "A single appliance fuses a world-class routing solver, live London data (TfL, NHS, air, flood) and a local Nemotron agent. No per-API fees, no internet dependency — it keeps dispatching even if the line drops.",
+    title: "One box. No cloud",
+    body: "World-class routing and a local agent. Even offline.",
   },
 ];
 
@@ -100,16 +100,14 @@ export default function Landing() {
       <main className="site-main">
         <section className="hero">
           <div className="hero-copy">
-            <div className="hero-eyebrow">Local-first medical logistics · DGX Spark GB10</div>
+            <div className="hero-eyebrow">On-prem AI dispatch · DGX Spark GB10</div>
             <h1 className="hero-title">
               Critical samples,<br />re-routed before<br />
               <span className="hero-accent">delays hit.</span>
             </h1>
             <p className="hero-sub">
-              PulseGo runs the entire dispatch optimiser <b>and</b> its AI agent on a single
-              on-prem DGX Spark — so patient data never leaves the building, the fleet
-              re-plans in under a second with no cloud cost, and it keeps moving even if the
-              internet drops. The cloud can't promise any of that.
+              The whole optimiser runs on one local box. Nothing touches the cloud.
+              The fleet re-plans in under a second.
             </p>
             <div className="hero-cta-row">
               <Link className="site-btn primary" to={ctaHref} data-testid="landing-cta">
@@ -142,22 +140,22 @@ export default function Landing() {
             <div className="how-step">
               <span className="how-num">1</span>
               <div>
-                <h4>Job comes in</h4>
-                <p>A STAT sample, transplant box or routine collection is logged by an operator or partner system.</p>
+                <h4>A sample is logged</h4>
+                <p>A STAT sample or transplant box enters the queue.</p>
               </div>
             </div>
             <div className="how-step">
               <span className="how-num">2</span>
               <div>
                 <h4>PulseGo plans</h4>
-                <p>Local-first AI assigns the right courier and the fastest live path — cold-chain and capacity aware.</p>
+                <p>The right courier. The fastest live path.</p>
               </div>
             </div>
             <div className="how-step">
               <span className="how-num">3</span>
               <div>
-                <h4>It moves with purpose</h4>
-                <p>The fleet re-plans around closures and delays in real time, every sample tracked to the door.</p>
+                <h4>It moves</h4>
+                <p>Re-routed in real time. Tracked to the door.</p>
               </div>
             </div>
           </div>
@@ -167,8 +165,7 @@ export default function Landing() {
           <div>
             <h2 className="cta-band-title">See it run — entirely on-prem.</h2>
             <p className="cta-band-sub">
-              Step into the live console: real London routes, live traffic, and an AI
-              dispatcher — all computed locally, nothing in the cloud.
+              Live London routes. Live traffic. A local AI dispatcher.
             </p>
           </div>
           <Link className="site-btn primary" to={ctaHref}>

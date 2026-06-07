@@ -30,6 +30,11 @@ import streetworks as streetworks_mod
 import nhspressure as nhspressure_mod
 import cycleinfra as cycleinfra_mod
 import floodwarnings as floodwarnings_mod
+import kerbside as kerbside_mod
+import roadsigns as roadsigns_mod
+import hazards as hazards_mod
+import planning as planning_mod
+import conditions as conditions_mod
 from loader import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -265,11 +270,12 @@ def build(
         "dq_suite": "tests/data_quality/test_airquality.py",
     }
 
-    # ---- streetworks ------------------------------------------------------ #
+    # ---- streetworks (LIVE: TfL planned works, bundled fallback) ----------- #
     sw_path = streetworks_mod.STREETWORKS_PATH
-    sw_passed, sw_rows = True, 0
+    sw_passed, sw_rows, sw_live = True, 0, False
     try:
-        streetworks_mod.write_streetworks(sw_path)
+        sw_payload = streetworks_mod.write_streetworks(sw_path, allow_network=allow_network)
+        sw_live = bool(sw_payload.get("live", False))
         disruptions = streetworks_mod.streetwork_disruptions(sample_date)
         sw_rows = len(disruptions)
         quality.validate_timed_events(disruptions)
@@ -277,7 +283,8 @@ def build(
         sw_passed = False
         print(f"[streetworks] DQ FAILED: {e}")
     datasets["streetworks"] = {
-        "source": "scheduled",
+        "source": "live-with-fallback",
+        "live": sw_live,
         "path": _rel(sw_path),
         "rows": sw_rows,
         "sha256": sha256_file(sw_path) if sw_path.exists() else "",
@@ -345,6 +352,112 @@ def build(
         "fetched_at": _now_iso(),
         "dq_passed": fld_passed,
         "dq_suite": "tests/data_quality/test_floodwarnings.py",
+    }
+
+    # ---- kerbside loading / handoff points -------------------------------- #
+    kerb_path = kerbside_mod.KERBSIDE_PATH
+    kerb_passed, kerb_rows = True, 0
+    try:
+        payload = kerbside_mod.write_kerbside(kerb_path)
+        kerb_rows = len(payload.get("loading_zones", []))
+        quality.validate_kerbside(payload)
+    except Exception as e:  # noqa: BLE001
+        kerb_passed = False
+        print(f"[kerbside] DQ FAILED: {e}")
+    datasets["kerbside"] = {
+        "source": "scheduled",
+        "path": _rel(kerb_path),
+        "rows": kerb_rows,
+        "sha256": sha256_file(kerb_path) if kerb_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": kerb_passed,
+        "dq_suite": "tests/data_quality/test_kerbside.py",
+    }
+
+    # ---- TfL roadside variable message signs ------------------------------ #
+    rs_path = roadsigns_mod.ROADSIGNS_PATH
+    rs_passed, rs_rows, rs_live = True, 0, False
+    try:
+        payload = roadsigns_mod.write_roadsigns(rs_path, allow_network=allow_network)
+        rs_rows = len(payload.get("signs", []))
+        rs_live = bool(payload.get("live", False))
+        quality.validate_roadsigns(payload)
+    except Exception as e:  # noqa: BLE001
+        rs_passed = False
+        print(f"[roadsigns] DQ FAILED: {e}")
+    datasets["roadsigns"] = {
+        "source": "live-with-fallback",
+        "live": rs_live,
+        "path": _rel(rs_path),
+        "rows": rs_rows,
+        "sha256": sha256_file(rs_path) if rs_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": rs_passed,
+        "dq_suite": "tests/data_quality/test_roadsigns.py",
+    }
+
+    # ---- hazards: TfL live road disruptions / hazards --------------------- #
+    haz_path = hazards_mod.HAZARDS_PATH
+    haz_passed, haz_rows, haz_live = True, 0, False
+    try:
+        payload = hazards_mod.write_hazards(haz_path)
+        haz_rows = len(payload.get("hazards", []))
+        haz_live = bool(payload.get("live", False))
+        quality.validate_hazards(payload)
+    except Exception as e:  # noqa: BLE001
+        haz_passed = False
+        print(f"[hazards] DQ FAILED: {e}")
+    datasets["hazards"] = {
+        "source": "live-with-fallback",
+        "live": haz_live,
+        "path": _rel(haz_path),
+        "rows": haz_rows,
+        "sha256": sha256_file(haz_path) if haz_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": haz_passed,
+        "dq_suite": "tests/data_quality/test_hazards.py",
+    }
+
+    # ---- planning: major developments (LIVE: planning.data.gov.uk, fallback) #
+    pln_path = planning_mod.PLANNING_PATH
+    pln_passed, pln_rows, pln_live = True, 0, False
+    try:
+        pln_payload = planning_mod.write_planning(pln_path, allow_network=allow_network)
+        pln_rows = len(pln_payload.get("applications", []))
+        pln_live = bool(pln_payload.get("live", False))
+        quality.validate_planning(pln_payload)
+    except Exception as e:  # noqa: BLE001
+        pln_passed = False
+        print(f"[planning] DQ FAILED: {e}")
+    datasets["planning"] = {
+        "source": "live-with-fallback",
+        "live": pln_live,
+        "path": _rel(pln_path),
+        "rows": pln_rows,
+        "sha256": sha256_file(pln_path) if pln_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": pln_passed,
+        "dq_suite": "tests/data_quality/test_planning.py",
+    }
+
+    # ---- conditions: merged forward-looking timeline ---------------------- #
+    cnd_path = conditions_mod.CONDITIONS_PATH
+    cnd_passed, cnd_rows = True, 0
+    try:
+        cnd_payload = conditions_mod.write_conditions(now, cnd_path, allow_network=allow_network)
+        cnd_rows = len(cnd_payload.get("conditions", []))
+        quality.validate_conditions(cnd_payload)
+    except Exception as e:  # noqa: BLE001
+        cnd_passed = False
+        print(f"[conditions] DQ FAILED: {e}")
+    datasets["conditions"] = {
+        "source": "derived",
+        "path": _rel(cnd_path),
+        "rows": cnd_rows,
+        "sha256": sha256_file(cnd_path) if cnd_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": cnd_passed,
+        "dq_suite": "tests/data_quality/test_conditions.py",
     }
 
     manifest = {"generated_at": _now_iso(), "scenario_now": now, "datasets": datasets}

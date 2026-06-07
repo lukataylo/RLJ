@@ -8,8 +8,10 @@
 // "nemotron" (plus a WS "agent_answer" event the store also surfaces here).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { askAgent, postIntake } from "../api";
+import { askAgent, executeAgentAction, postIntake } from "../api";
 import { useStore } from "../store";
+import { renderMarkdown } from "../lib/markdown";
+import type { LogLine } from "../store";
 import NemoFace from "./NemoFace";
 import {
   speechSupported,
@@ -31,6 +33,76 @@ const DELIVERY_VERBS =
   /\b(deliver|pick[\s-]?up|collect|drop[\s-]?off|transport|bring|take)\b/i;
 const isDeliveryRequest = (text: string) =>
   DELIVERY_FROM_TO.test(text) || DELIVERY_VERBS.test(text);
+
+// A Yes/No card the operator approves to run an agent-proposed action (reroute a
+// courier, re-optimise the fleet, send a heads-up). "Yes" executes the action against
+// its real orchestrator endpoint; the resulting plan/notification flows back over the
+// WS like any other operator action.
+function DecisionCard({ action }: { action: NonNullable<LogLine["action"]> }) {
+  const pushLog = useStore((s) => s.pushLog);
+  const [status, setStatus] =
+    useState<"idle" | "running" | "done" | "declined">("idle");
+
+  const approve = async () => {
+    setStatus("running");
+    try {
+      await executeAgentAction(action);
+      setStatus("done");
+      pushLog({
+        level: "info",
+        message: `✓ ${action.confirm ?? "Done"} — ${action.label.replace(/\?$/, "")}.`,
+        source: "agent_log",
+      });
+    } catch {
+      setStatus("idle");
+      pushLog({
+        level: "warn",
+        message: `Couldn't ${(action.confirm ?? "run that").toLowerCase()} — try again.`,
+        source: "system",
+      });
+    }
+  };
+
+  if (status === "done")
+    return (
+      <div className="nemo-decision done" data-testid="decision-card">
+        <span className="nemo-decision-result">✓ {action.confirm ?? "Done"}</span>
+      </div>
+    );
+  if (status === "declined")
+    return (
+      <div className="nemo-decision declined" data-testid="decision-card">
+        <span className="nemo-decision-result">Dismissed</span>
+      </div>
+    );
+
+  return (
+    <div className="nemo-decision" data-testid="decision-card">
+      <span className="nemo-decision-label">{action.label}</span>
+      <div className="nemo-decision-btns">
+        <button
+          type="button"
+          className="nemo-decision-yes"
+          data-testid="decision-yes"
+          disabled={status === "running"}
+          onClick={approve}
+        >
+          {status === "running" ? "…" : (action.confirm ?? "Yes")}
+        </button>
+        <button
+          type="button"
+          className="nemo-decision-no"
+          data-testid="decision-no"
+          disabled={status === "running"}
+          onClick={() => setStatus("declined")}
+        >
+          No
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AgentLog() {
   const logs = useStore((s) => s.logs);
   const lastAgentAnswer = useStore((s) => s.lastAgentAnswer);
@@ -42,13 +114,21 @@ export default function AgentLog() {
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Voice console: real browser speech recognition → /agent/ask → spoken reply.
+  // Voice console: a hands-free back-and-forth conversation. Each turn we listen
+  // (browser speech recognition) → ask NemoClaw / create a delivery → speak the
+  // reply (ElevenLabs) → automatically listen again, until the operator ends it.
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [secs, setSecs] = useState(LISTEN_SECONDS);
   const [heard, setHeard] = useState("");
-  const [voicePhase, setVoicePhase] = useState<"listening" | "thinking" | "unsupported">("listening");
+  const [voicePhase, setVoicePhase] =
+    useState<"listening" | "thinking" | "speaking" | "unsupported">("listening");
   const timerRef = useRef<number | null>(null);
   const recRef = useRef<Listener | null>(null);
+  // True while the conversation overlay is live; gates the auto-listen loop so a
+  // closed/cancelled session never re-opens the mic after a reply finishes.
+  const convActiveRef = useRef(false);
+  // Stable handle to "start the next listen turn", called from speech-end callbacks.
+  const listenTurnRef = useRef<() => void>(() => {});
   const pendingSpeechTasksRef = useRef<Set<string>>(new Set());
   const spokenTaskIdsRef = useRef<Set<string>>(new Set());
   const receivedAnswersRef = useRef<Map<string, string>>(new Map());
@@ -90,9 +170,7 @@ export default function AgentLog() {
     });
   };
 
-  const finishRecognition = () => {
-    recRef.current?.stop();
-    recRef.current = null;
+  const clearTimer = () => {
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
@@ -100,14 +178,35 @@ export default function AgentLog() {
   };
 
   const closeVoice = () => {
+    convActiveRef.current = false;
     recRef.current?.cancel();
     recRef.current = null;
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    clearTimer();
+    stopSpeaking();
     setVoiceOpen(false);
   };
+
+  // Start one listen turn. Stays within the live conversation (convActiveRef);
+  // onFinal hands the transcript to send(), which (after the reply is spoken)
+  // loops back here for the next turn.
+  const beginListenTurn = () => {
+    if (!convActiveRef.current) return;
+    setHeard("");
+    setSecs(LISTEN_SECONDS);
+    setVoicePhase("listening");
+    recRef.current = startListening({
+      onPartial: (t) => setHeard(t),
+      onFinal: (t) => {
+        setHeard(t);
+        setVoicePhase("thinking");
+        void send(t, { fromConversation: true });
+      },
+      onError: (e) => {
+        if (e === "unsupported") setVoicePhase("unsupported");
+      },
+    });
+  };
+  listenTurnRef.current = beginListenTurn;
 
   const openVoice = () => {
     prepareSpeech();
@@ -118,30 +217,20 @@ export default function AgentLog() {
       setVoicePhase("unsupported");
       return;
     }
-    setVoicePhase("listening");
-    recRef.current = startListening({
-      onPartial: (t) => setHeard(t),
-      onFinal: (t) => {
-        setHeard(t);
-        setVoicePhase("thinking");
-        void send(t);
-        window.setTimeout(() => setVoiceOpen(false), 1400);
-      },
-      onError: (e) => {
-        if (e === "unsupported") setVoicePhase("unsupported");
-      },
-    });
+    convActiveRef.current = true;
+    beginListenTurn();
   };
 
   // Listening countdown (visual + safety stop if the speaker goes quiet too long).
+  // Only runs during a listen turn; thinking/speaking phases pause it. Silence to
+  // zero ends the whole conversation.
   useEffect(() => {
     if (!voiceOpen || voicePhase !== "listening") return;
     setSecs(LISTEN_SECONDS);
     timerRef.current = window.setInterval(() => {
       setSecs((s) => {
         if (s <= 1) {
-          finishRecognition();
-          setVoiceOpen(false);
+          closeVoice();
           return LISTEN_SECONDS;
         }
         return s - 1;
@@ -153,6 +242,7 @@ export default function AgentLog() {
   }, [voiceOpen, voicePhase]);
 
   // Speak only the answer matching a question submitted from this component.
+  // In a live voice conversation, resume listening once the reply finishes.
   useEffect(() => {
     if (!lastAgentAnswer) return;
     const taskId = lastAgentAnswer.task_id;
@@ -162,7 +252,10 @@ export default function AgentLog() {
       !spokenTaskIdsRef.current.has(taskId)
     ) {
       spokenTaskIdsRef.current.add(taskId);
-      void speakElevenLabs(lastAgentAnswer.answer);
+      if (convActiveRef.current) setVoicePhase("speaking");
+      void speakElevenLabs(lastAgentAnswer.answer, () => {
+        if (convActiveRef.current) listenTurnRef.current();
+      });
     }
   }, [lastAgentAnswer]);
 
@@ -183,11 +276,22 @@ export default function AgentLog() {
     return [...base].slice(-MAX_LINES).reverse(); // newest first
   }, [logs]);
 
-  const send = async (q: string) => {
+  const send = async (q: string, opts: { fromConversation?: boolean } = {}) => {
     const text = q.trim();
     if (!text || sending) return;
     prepareSpeech();
     setSending(true);
+
+    // In a live voice conversation, speak `line` then resume listening; otherwise
+    // a no-op. Used for delivery confirmations and error feedback so the loop
+    // never stalls waiting on a reply that won't arrive over the answer channel.
+    const speakAndContinue = (line: string) => {
+      if (!opts.fromConversation || !convActiveRef.current) return;
+      setVoicePhase("speaking");
+      void speakElevenLabs(line, () => {
+        if (convActiveRef.current) listenTurnRef.current();
+      });
+    };
 
     // A delivery request ("… from X to Y", "deliver sample …") goes to /intake,
     // which creates the job + re-plans; everything else is a question for the agent.
@@ -231,6 +335,7 @@ export default function AgentLog() {
           ];
           setFocusStops(stops.length ? stops : null);
           setQuestion("");
+          speakAndContinue(`Done. Created a delivery from ${o} to ${d}.`);
         } else {
           const suffix = res.suggestions?.length
             ? ` Did you mean: ${res.suggestions.join(", ")}?`
@@ -241,6 +346,9 @@ export default function AgentLog() {
             source: "agent_log",
           });
           // keep the text so the user can edit and retry
+          speakAndContinue(
+            `${res.error || "I couldn't create that delivery."}${suffix}`,
+          );
         }
       } catch {
         pushLog({
@@ -248,13 +356,15 @@ export default function AgentLog() {
           message: "Could not reach the orchestrator — delivery not created.",
           source: "system",
         });
+        speakAndContinue("I couldn't reach the dispatcher to create that delivery.");
       } finally {
         setSending(false);
       }
       return;
     }
 
-    // Question → NemoClaw agent (unchanged path).
+    // Question → NemoClaw agent. The spoken reply + auto-resume are driven by the
+    // lastAgentAnswer effect (answers arrive over the WS channel).
     pushLog({
       level: "info",
       message: `You → NemoClaw: ${text}`,
@@ -267,7 +377,10 @@ export default function AgentLog() {
       if (earlyAnswer && !spokenTaskIdsRef.current.has(task.id)) {
         pendingSpeechTasksRef.current.delete(task.id);
         spokenTaskIdsRef.current.add(task.id);
-        void speakElevenLabs(earlyAnswer);
+        if (convActiveRef.current) setVoicePhase("speaking");
+        void speakElevenLabs(earlyAnswer, () => {
+          if (convActiveRef.current) listenTurnRef.current();
+        });
       }
       setQuestion("");
     } catch {
@@ -276,6 +389,7 @@ export default function AgentLog() {
         message: "Could not reach NemoClaw — question not queued.",
         source: "system",
       });
+      speakAndContinue("I couldn't reach NemoClaw just now. Try again.");
     } finally {
       setSending(false);
     }
@@ -300,25 +414,18 @@ export default function AgentLog() {
       {voiceOpen && (
         <div className="nemo-voice-ov" data-testid="nemo-voice">
           {/* eyes are part of a full-bleed background dot field (no frame) */}
-          <NemoFace variant="field" listening />
-          <button
-            type="button"
-            className="nvo-close"
-            data-testid="nemo-voice-close"
-            aria-label="Close voice"
-            onClick={closeVoice}
-          >
-            ✕
-          </button>
+          <NemoFace variant="field" listening={voicePhase === "listening"} />
           <div className="nvo-content">
             <div className="nvo-top">
               <div className="nvo-status">
                 <span className="nvo-rec" />{" "}
                 {voicePhase === "thinking"
                   ? "THINKING…"
-                  : voicePhase === "unsupported"
-                    ? "VOICE UNAVAILABLE"
-                    : `LISTENING · ${secs}s`}
+                  : voicePhase === "speaking"
+                    ? "SPEAKING…"
+                    : voicePhase === "unsupported"
+                      ? "VOICE UNAVAILABLE"
+                      : `LISTENING · ${secs}s`}
               </div>
               <div className="nvo-prompt" data-testid="nemo-voice-transcript">
                 {voicePhase === "unsupported"
@@ -330,7 +437,11 @@ export default function AgentLog() {
             </div>
             <div className="nvo-bottom">
               <div className="nvo-hint">
-                {voicePhase === "thinking" ? "asking NemoClaw…" : "speak naturally"}
+                {voicePhase === "thinking"
+                  ? "asking NemoClaw…"
+                  : voicePhase === "speaking"
+                    ? "NemoClaw is replying…"
+                    : "speak naturally — I'll keep listening"}
               </div>
               <button
                 type="button"
@@ -338,7 +449,7 @@ export default function AgentLog() {
                 data-testid="nemo-voice-cancel"
                 onClick={closeVoice}
               >
-                Cancel
+                End
               </button>
             </div>
           </div>
@@ -351,14 +462,41 @@ export default function AgentLog() {
           // Tint lines narrated by the GB10 Nemotron agent (signal recs / answers).
           const nemotron =
             l.nemotron === true || /nemotron|gb10|green wave|re-?time/i.test(l.message);
+          const ts = new Date(l.ts)
+            .toLocaleTimeString("en-GB", { hour12: false })
+            .slice(0, 5);
+          if (l.agentAnswer) {
+            // A NemoClaw answer: reasoning dimmed above, Markdown-styled answer, and
+            // a Yes/No decision card when the agent proposed an action.
+            return (
+              <div
+                key={l.taskId ?? `${l.ts}-${i}`}
+                className="nemo-line lvl-info src-nemotron is-answer"
+              >
+                <span className="nemo-ts">{ts}</span>
+                <div className="nemo-answer">
+                  {l.reasoning && (
+                    <div className="nemo-reasoning" data-testid="agent-reasoning">
+                      <span className="nemo-reason-tag">Agent reasoning</span>
+                      <span className="nemo-reason-text">{l.reasoning}</span>
+                    </div>
+                  )}
+                  <div
+                    className="nemo-md"
+                    data-testid="agent-answer"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(l.message) }}
+                  />
+                  {l.action && <DecisionCard action={l.action} />}
+                </div>
+              </div>
+            );
+          }
           return (
             <div
               key={`${l.ts}-${i}`}
               className={`nemo-line lvl-${l.level}${nemotron ? " src-nemotron" : ""}`}
             >
-              <span className="nemo-ts">
-                {new Date(l.ts).toLocaleTimeString("en-GB", { hour12: false }).slice(0, 5)}
-              </span>
+              <span className="nemo-ts">{ts}</span>
               <span className="nemo-msg">{l.message}</span>
             </div>
           );

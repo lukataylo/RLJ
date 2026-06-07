@@ -145,30 +145,48 @@ export function stopSpeaking(): void {
   }
 }
 
-/** Speak `text` aloud via the browser's speech synthesiser (best-effort). */
-export function speak(text: string): void {
+/** Speak `text` aloud via the browser's speech synthesiser (best-effort).
+ *  `onEnd` fires when the utterance finishes (or immediately if unavailable). */
+export function speak(text: string, onEnd?: () => void): void {
   try {
     const synth = window.speechSynthesis;
-    if (!synth || !text) return;
+    if (!synth || !text) {
+      onEnd?.();
+      return;
+    }
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-GB";
     u.rate = 1.05;
     u.pitch = 1.0;
+    if (onEnd) {
+      u.onend = () => onEnd();
+      u.onerror = () => onEnd();
+    }
     synth.speak(u);
   } catch {
     /* synthesis unavailable */
+    onEnd?.();
   }
 }
 
 /** Speak `text` via ElevenLabs TTS (proxied through the orchestrator /tts endpoint).
- *  Falls back to browser synthesis if the proxy is unavailable or not configured. */
-export async function speakElevenLabs(text: string): Promise<void> {
-  if (!text) return;
+ *  Falls back to browser synthesis if the proxy is unavailable or not configured.
+ *  `onEnd` fires exactly once when playback finishes naturally — never when the
+ *  speech was interrupted by a newer utterance (so a cancelled turn won't resume). */
+export async function speakElevenLabs(text: string, onEnd?: () => void): Promise<void> {
+  if (!text) {
+    onEnd?.();
+    return;
+  }
   stopSpeaking();
   const sequence = speechSequence;
   const controller = new AbortController();
   activeRequest = controller;
+  // Fire onEnd only if this is still the current utterance (not superseded).
+  const done = () => {
+    if (sequence === speechSequence) onEnd?.();
+  };
   try {
     const token = getToken();
     const res = await fetch(`${_BASE}/tts`, {
@@ -195,6 +213,7 @@ export async function speakElevenLabs(text: string): Promise<void> {
           source.disconnect();
           activeSource = null;
         }
+        done();
       };
       source.start();
       return;
@@ -208,13 +227,16 @@ export async function speakElevenLabs(text: string): Promise<void> {
     const cleanup = () => {
       if (activeAudio === audio) cleanupAudio();
     };
-    audio.onended = cleanup;
+    audio.onended = () => {
+      cleanup();
+      done();
+    };
     audio.onerror = cleanup;
     await audio.play();
   } catch (err) {
     if (sequence === speechSequence && !(err instanceof DOMException && err.name === "AbortError")) {
       cleanupAudio();
-      speak(text); // fallback: browser synthesis
+      speak(text, onEnd); // fallback: browser synthesis (also signals onEnd)
     }
   } finally {
     if (activeRequest === controller) activeRequest = null;

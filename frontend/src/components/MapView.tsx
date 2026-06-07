@@ -23,7 +23,7 @@ import maplibregl from "maplibre-gl";
 import mapboxgl from "mapbox-gl";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { Layer, PickingInfo } from "@deck.gl/core";
-import { ScatterplotLayer, PathLayer, TextLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, PathLayer, TextLayer, IconLayer } from "@deck.gl/layers";
 import { useStore } from "../store";
 import type {
   CctvCamera,
@@ -32,6 +32,7 @@ import type {
   Courier,
   DeliveryJob,
   DisruptionEvent,
+  Location,
   Plan,
   SignalRec,
 } from "../types";
@@ -60,6 +61,7 @@ import {
   type Facility,
 } from "../lib/datasets";
 import { getRoadRoute, routeSignature, clearRouteCache, type LngLat, type RoadGeom } from "../lib/routing";
+import { sticker, vehicleEmoji, pickupEmoji, dropoffEmoji, facilityEmoji } from "../lib/emojiMarkers";
 
 // Waze-style live-traffic colour for a Mapbox congestion_numeric value (0–100).
 // -1 (unknown) returns null so the caller uses the neutral free-flow colour.
@@ -105,16 +107,41 @@ function courierOffset(id: string): number {
   return h / 997;
 }
 
-// Animated demo position: progress the courier along its road-following path over
-// time (desynced per courier). Falls back to the courier's static location.
+// Realistic cruise speed per vehicle (m/s). Driving the animation off a constant speed
+// (period ∝ actual path length) means a courier on a long route no longer blurs across
+// London faster than one on a short hop — they all move at a believable pace.
+const SPEED_MPS: Record<string, number> = { van: 8, scooter: 9, bike: 5 }; // ~29/32/18 km/h
+const MIN_TRAVERSE_S = 150; // floor so very short paths don't teleport
+
+// Approximate polyline length in metres (London-local equirectangular projection).
+function pathMeters(coords: LngLat[]): number {
+  if (coords.length < 2) return 0;
+  const kLat = 111_320;
+  const kLng = 111_320 * Math.cos((coords[0][1] * Math.PI) / 180);
+  let m = 0;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const dLng = (coords[i + 1][0] - coords[i][0]) * kLng;
+    const dLat = (coords[i + 1][1] - coords[i][1]) * kLat;
+    m += Math.hypot(dLng, dLat);
+  }
+  return m;
+}
+
+// Animated demo position: progress the courier along its road-following path at a
+// vehicle-appropriate pace. Ping-pongs (start→end→start) so there's no teleport
+// jump at the loop boundary. Falls back to the courier's static location.
 function courierAnimPos(
   c: Courier,
   roadPaths: Record<string, RoadGeom | null>,
-  phase: number,
+  tSec: number,
 ): [number, number] {
   const road = roadPaths[c.id];
   if (road && road.coords.length >= 2 && c.status !== "offline" && c.status !== "idle") {
-    const f = (phase + courierOffset(c.id)) % 1;
+    const speed = SPEED_MPS[c.vehicle_type ?? "van"] ?? 8;
+    // One-way traversal time at a constant realistic speed (floored for tiny paths).
+    const period = Math.max(MIN_TRAVERSE_S, pathMeters(road.coords) / speed);
+    const u = (tSec / period + courierOffset(c.id)) % 2; // 0..2
+    const f = u <= 1 ? u : 2 - u; // triangle wave → smooth out-and-back
     return posAlong(road.coords, f);
   }
   return [c.location.lng, c.location.lat];
@@ -138,13 +165,36 @@ import {
   mdiTrafficCone,
   mdiWaves,
   mdiBike,
+  mdiWeatherPouring,
+  mdiCarBrakeAlert,
+  mdiCrane,
+  mdiCalendarClock,
 } from "@mdi/js";
 
 // Civic real-data feeds (published to /data/*.json by data/build.py).
 interface AirBorough { id: string; name: string; lat: number; lng: number; aqi: number }
 interface PointFeature { id: string; description: string; lat: number; lng: number; severity?: string }
+interface PlanningApp { id: string; description: string; lat: number; lng: number; scale?: string; authority?: string; status?: string; category?: string }
+interface Condition { id: string; category: string; title: string; severity: string; starts?: string | null; ends?: string | null; lat: number; lng: number; source?: string }
 interface CycleStation { id: string; name: string; lat: number; lng: number; capacity: number }
 interface CycleHighway { id: string; name: string; geometry: { lat: number; lng: number }[] }
+interface LoadingZone {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  restriction: string;
+  max_stay_min: number;
+  clinical_priority: string;
+}
+interface RoadSign {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  message: string;
+  severity: "low" | "moderate" | "severe";
+}
 
 // Inline Material Design icon (24×24 path data from @mdi/js).
 function McIcon({ path, size = 18 }: { path: string; size?: number }) {
@@ -193,6 +243,26 @@ const mapStyle = (theme: Theme): maplibregl.StyleSpecification => ({
   ],
 });
 
+// RainViewer precipitation radar (open, NO API key). The index lists past radar
+// frames; we render the most recent as a semi-transparent raster overlay. Returns
+// a ready-to-use tile URL template, or null on any failure (degrades to no radar).
+const RAINVIEWER_INDEX = "https://api.rainviewer.com/public/weather-maps.json";
+async function fetchLatestRadarTileUrl(): Promise<string | null> {
+  try {
+    const res = await fetch(RAINVIEWER_INDEX);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { host?: string; radar?: { past?: { path?: string }[] } };
+    const host = data.host;
+    const past = data.radar?.past ?? [];
+    const path = past.length ? past[past.length - 1]?.path : undefined;
+    if (!host || !path) return null;
+    // {host}{path}/256/{z}/{x}/{y}/2/1_1.png — 256px tiles, scheme 2 (colour), smoothed+snow.
+    return `${host}${path}/256/{z}/{x}/{y}/2/1_1.png`;
+  } catch {
+    return null;
+  }
+}
+
 // Static London district labels — atmosphere, drawn muted/uppercase.
 const DISTRICTS: { name: string; lng: number; lat: number }[] = [
   { name: "ISLINGTON", lng: -0.103, lat: 51.538 },
@@ -205,7 +275,7 @@ const DISTRICTS: { name: string; lng: number; lat: number }[] = [
 ];
 
 // Toggleable layers shown in the left control stack.
-type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "flood" | "cycle";
+type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "kerb" | "roadsigns" | "flood" | "cycle" | "weather" | "hazards" | "planning" | "conditions";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
@@ -215,9 +285,15 @@ const DEFAULT_VIS: LayerVis = {
   signals: true, // GB10 Nemotron signal recs — default ON
   cctv: false, // live CCTV cameras — default OFF to keep the map clean
   air: false, // London air quality (LAQN) — default OFF
-  roadworks: false, // TfL streetworks — default OFF
+  roadworks: true, // planned works — default ON for the first-60-second story
+  kerb: true, // medical loading/handoff points — default ON
+  roadsigns: true, // TfL variable-message signs — default ON
   flood: false, // EA flood warnings — default OFF
   cycle: false, // TfL cycle infra + hire — default OFF
+  weather: false, // RainViewer precipitation radar — default OFF
+  hazards: false, // TfL live road disruptions/hazards — default OFF
+  planning: false, // major developments (planning) — default OFF
+  conditions: false, // merged upcoming-conditions feed — default OFF
 };
 
 // Cap on simultaneously rendered camera icons so a dense viewport never clutters.
@@ -250,14 +326,20 @@ interface OptionalData {
   venues: EventVenue[];
   air: AirBorough[];
   roadworks: PointFeature[];
+  kerb: LoadingZone[];
+  roadsigns: RoadSign[];
   floods: PointFeature[];
   cycleStations: CycleStation[];
   cycleHighways: CycleHighway[];
+  hazards: PointFeature[];
+  planning: PlanningApp[];
+  conditions: Condition[];
 }
 
 const EMPTY_OPTIONAL: OptionalData = {
   roads: [], facilities: [], venues: [],
-  air: [], roadworks: [], floods: [], cycleStations: [], cycleHighways: [],
+  air: [], roadworks: [], kerb: [], roadsigns: [], floods: [], cycleStations: [], cycleHighways: [],
+  hazards: [], planning: [], conditions: [],
 };
 
 const EMPTY_SNAP: Snapshot = {
@@ -280,14 +362,6 @@ const SIGNAL_ACTION_LABEL: Record<string, string> = {
   retime: "RETIME",
   hold: "HOLD",
   clear: "CLEAR",
-};
-
-const FACILITY_GLYPH: Record<string, string> = {
-  hospital: "H",
-  lab: "L",
-  gp: "G",
-  clinic: "C",
-  pharmacy: "P",
 };
 
 // Ordered stop coords for a route (courier start + stops in sequence), de-duped.
@@ -418,6 +492,7 @@ function buildLayers(
   phase: number,
   roadPaths: Record<string, RoadGeom | null>,
   bounds: Bounds,
+  tSec: number,
 ): Layer[] {
   const { jobs, couriers, plan, disruptions, congestion, signalRecs, cctv, selectedCourierId, focusJobId, focusRoute, focusStops } = snap;
   const layers: Layer[] = [];
@@ -694,73 +769,57 @@ function buildLayers(
       const selRoute = plan?.routes?.find((r) => r.courier_id === selectedCourierId);
       for (const s of selRoute?.stops ?? []) selectedJobIds.add(s.job_id);
     }
-    const dimA = (jobId: string, base: number) =>
-      !selActive || selectedJobIds.has(jobId) ? base : Math.round(base * 0.18);
-    const pickups = jobs.map((j) => ({ job: j, loc: j.origin }));
-    const drops = jobs.map((j) => ({ job: j, loc: j.destination }));
-    layers.push(
-      new ScatterplotLayer<(typeof pickups)[number]>({
-        id: "job-pickups",
-        data: pickups,
+    // Emoji "sticker" pins: white teardrop + accent ring (priority for pickups,
+    // lime for dropoffs) with the job-type glyph inside. Jobs not on the selected
+    // courier's route fade into a dimmed layer.
+    type JobNode = { job: DeliveryJob; loc: Location };
+    const isDim = (jobId: string) => selActive && !selectedJobIds.has(jobId);
+    const DROP_RGB: [number, number, number] = [191, 227, 107];
+    const pickIcon = (d: JobNode) => sticker(pickupEmoji(d.job.type), PRIORITY_RGB[d.job.priority], true);
+    const dropIcon = (d: JobNode) => sticker(dropoffEmoji(d.job.type), DROP_RGB, true);
+    const jobLayer = (
+      id: string,
+      rows: JobNode[],
+      getIcon: (d: JobNode) => ReturnType<typeof sticker>,
+      dim: boolean,
+    ) =>
+      new IconLayer<JobNode>({
+        id,
+        data: rows,
         getPosition: (d) => [d.loc.lng, d.loc.lat],
-        getRadius: 7,
-        radiusUnits: "pixels",
-        radiusMinPixels: 5,
-        stroked: true,
-        lineWidthMinPixels: 2,
-        getLineColor: (d) => [...PRIORITY_RGB[d.job.priority], dimA(d.job.id, 230)] as [number, number, number, number],
-        getFillColor: (d) => [...PRIORITY_RGB[d.job.priority], dimA(d.job.id, 90)] as [number, number, number, number],
-        pickable: true,
-        updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
-      }),
-    );
-    layers.push(
-      new ScatterplotLayer<(typeof drops)[number]>({
-        id: "job-drops",
-        data: drops,
-        getPosition: (d) => [d.loc.lng, d.loc.lat],
-        getRadius: 6,
-        radiusUnits: "pixels",
-        radiusMinPixels: 4,
-        stroked: true,
-        lineWidthMinPixels: 1,
-        getLineColor: (d) => [5, 9, 11, dimA(d.job.id, 220)] as [number, number, number, number],
-        getFillColor: (d) => [191, 227, 107, dimA(d.job.id, 235)] as [number, number, number, number],
-        pickable: true,
-        updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
-      }),
-    );
+        getIcon,
+        getSize: 34,
+        sizeUnits: "pixels",
+        sizeMinPixels: 22,
+        sizeMaxPixels: 48,
+        opacity: dim ? 0.22 : 1,
+        pickable: !dim,
+        updateTriggers: { getIcon: selectedCourierId },
+      });
+    const pickups: JobNode[] = jobs.map((j) => ({ job: j, loc: j.origin }));
+    const drops: JobNode[] = jobs.map((j) => ({ job: j, loc: j.destination }));
+    const pickDim = pickups.filter((d) => isDim(d.job.id));
+    const dropDim = drops.filter((d) => isDim(d.job.id));
+    if (dropDim.length) layers.push(jobLayer("job-drops-dim", dropDim, dropIcon, true));
+    if (pickDim.length) layers.push(jobLayer("job-pickups-dim", pickDim, pickIcon, true));
+    layers.push(jobLayer("job-drops", drops.filter((d) => !isDim(d.job.id)), dropIcon, false));
+    layers.push(jobLayer("job-pickups", pickups.filter((d) => !isDim(d.job.id)), pickIcon, false));
   }
 
-  // 5. NHS facilities — subtle markers + glyph (atmosphere / context).
+  // 5. NHS facilities — subtle emoji sticker badges (🏥/🔬/🩺/🩹/💊), ring by type.
   if (data.facilities.length) {
     layers.push(
-      new ScatterplotLayer<Facility>({
+      new IconLayer<Facility>({
         id: "facilities",
         data: data.facilities,
         getPosition: (f) => [f.lng, f.lat],
-        getRadius: 90,
-        radiusUnits: "meters",
-        radiusMinPixels: 5,
-        radiusMaxPixels: 12,
-        stroked: true,
-        lineWidthMinPixels: 1,
-        getLineColor: [5, 9, 11, 220],
-        getFillColor: (f) => [...facilityRGB(f.type), 200] as [number, number, number, number],
+        getIcon: (f) => sticker(facilityEmoji(f.type), facilityRGB(f.type), false),
+        getSize: 26,
+        sizeUnits: "pixels",
+        sizeMinPixels: 16,
+        sizeMaxPixels: 34,
+        opacity: 0.95,
         pickable: true,
-      }),
-    );
-    layers.push(
-      new TextLayer<Facility>({
-        id: "facilities-glyph",
-        data: data.facilities,
-        getPosition: (f) => [f.lng, f.lat],
-        getText: (f) => FACILITY_GLYPH[f.type] ?? "•",
-        getSize: 10,
-        getColor: [5, 9, 11, 255],
-        fontWeight: 700,
-        getTextAnchor: "middle",
-        getAlignmentBaseline: "center",
       }),
     );
   }
@@ -772,34 +831,37 @@ function buildLayers(
     new ScatterplotLayer<Courier>({
       id: "couriers-glow",
       data: couriers,
-      getPosition: (c) => courierAnimPos(c, roadPaths, phase),
+      getPosition: (c) => courierAnimPos(c, roadPaths, tSec),
       getRadius: 280,
       radiusUnits: "meters",
       radiusMinPixels: 12,
       radiusMaxPixels: 38,
       getFillColor: (c) =>
         [...(COURIER_RGB[c.status] ?? [200, 200, 200]), c.id === selectedCourierId ? 90 : selActive ? 14 : 45] as [number, number, number, number],
-      updateTriggers: { getFillColor: selectedCourierId, getPosition: phase },
+      updateTriggers: { getFillColor: selectedCourierId, getPosition: tSec },
     }),
   );
-  layers.push(
-    new ScatterplotLayer<Courier>({
-      id: "couriers",
-      data: couriers,
-      getPosition: (c) => courierAnimPos(c, roadPaths, phase),
-      getRadius: 110,
-      radiusUnits: "meters",
-      radiusMinPixels: 6,
-      radiusMaxPixels: 16,
-      stroked: true,
-      lineWidthMinPixels: 2,
-      getLineColor: (c) => (c.id === selectedCourierId ? [232, 237, 230, 255] : [5, 9, 11, 255]),
-      getFillColor: (c) =>
-        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), selActive && c.id !== selectedCourierId ? 70 : 255] as [number, number, number, number],
-      pickable: true,
-      updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId, getPosition: phase },
-    }),
-  );
+  // Vehicle emoji "sticker" badge: white round badge + status-coloured ring with the
+  // 🚚/🛵/🚲 glyph. The selected courier is enlarged; the rest fade into a dimmed layer
+  // while a route is selected (IconLayer can't tint full-colour emoji, so we dim via opacity).
+  const courierIconLayer = (id: string, rows: Courier[], dim: boolean) =>
+    new IconLayer<Courier>({
+      id,
+      data: rows,
+      getPosition: (c) => courierAnimPos(c, roadPaths, tSec),
+      getIcon: (c) => sticker(vehicleEmoji(c.vehicle_type), COURIER_RGB[c.status] ?? [200, 200, 200], false),
+      getSize: (c) => (c.id === selectedCourierId ? 46 : 36),
+      sizeUnits: "pixels",
+      sizeMinPixels: 24,
+      sizeMaxPixels: 56,
+      opacity: dim ? 0.35 : 1,
+      pickable: !dim,
+      updateTriggers: { getIcon: selectedCourierId, getSize: selectedCourierId, getPosition: tSec },
+    });
+  const courierDim = selActive ? couriers.filter((c) => c.id !== selectedCourierId) : [];
+  const courierLit = selActive ? couriers.filter((c) => c.id === selectedCourierId) : couriers;
+  if (courierDim.length) layers.push(courierIconLayer("couriers-dim", courierDim, true));
+  layers.push(courierIconLayer("couriers", courierLit, false));
 
   // 8. Disruptions — pulsing markers; red ✕ glyph for road closures.
   if (vis.incidents) {
@@ -1018,6 +1080,52 @@ function buildLayers(
     );
   }
 
+  // Kerbside handoff/loading zones — legal stop points that make routing operational.
+  if (vis.kerb && data.kerb.length) {
+    layers.push(
+      new ScatterplotLayer<LoadingZone>({
+        id: "kerbside-loading",
+        data: data.kerb,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: (d) => (d.clinical_priority === "stat" ? 10 : 8),
+        radiusUnits: "pixels",
+        getFillColor: (d) =>
+          d.clinical_priority === "stat"
+            ? [232, 60, 50, 240]
+            : d.clinical_priority === "urgent"
+              ? [242, 194, 26, 230]
+              : [80, 200, 120, 210],
+        getLineColor: [255, 255, 255, 230],
+        lineWidthMinPixels: 1.5,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
+  // TfL roadside Variable Message Signs — the human-readable reason for a reroute.
+  if (vis.roadsigns && data.roadsigns.length) {
+    layers.push(
+      new ScatterplotLayer<RoadSign>({
+        id: "roadside-signs",
+        data: data.roadsigns,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: (d) => (d.severity === "severe" ? 11 : 8),
+        radiusUnits: "pixels",
+        getFillColor: (d) =>
+          d.severity === "severe"
+            ? [232, 60, 50, 245]
+            : d.severity === "moderate"
+              ? [230, 140, 40, 230]
+              : [80, 200, 120, 210],
+        getLineColor: [8, 8, 8, 255],
+        lineWidthMinPixels: 2,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
   // Flood warnings — Environment Agency (blue).
   if (vis.flood && data.floods.length) {
     layers.push(
@@ -1030,6 +1138,88 @@ function buildLayers(
         getFillColor: [60, 150, 230, 230],
         getLineColor: [10, 30, 60, 255],
         lineWidthMinPixels: 1.5,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
+  // Road hazards — TfL live road disruptions the driver should avoid
+  // (accidents, closures, obstructions), coloured by severity with a ✕ glyph
+  // for severe ones so a closure reads at a glance.
+  if (vis.hazards && data.hazards.length) {
+    const hazards = data.hazards.map((h) => ({ ...h, _t: "hazard" as const }));
+    const hazardRGB = (s?: string): [number, number, number] =>
+      s === "severe" ? [232, 60, 50] : s === "moderate" ? [230, 140, 40] : [242, 194, 26];
+    layers.push(
+      new ScatterplotLayer<(typeof hazards)[number]>({
+        id: "hazards",
+        data: hazards,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: (d) => (d.severity === "severe" ? 11 : 8),
+        radiusUnits: "pixels",
+        getFillColor: (d) => [...hazardRGB(d.severity), 235] as [number, number, number, number],
+        getLineColor: [20, 8, 4, 255],
+        lineWidthMinPixels: 2,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+    const severe = hazards.filter((h) => h.severity === "severe");
+    if (severe.length) {
+      layers.push(
+        new TextLayer<(typeof severe)[number]>({
+          id: "hazards-severe-glyph",
+          data: severe,
+          getPosition: (d) => [d.lng, d.lat],
+          getText: () => "✕",
+          getSize: 16,
+          getColor: [255, 240, 235, 255],
+          fontWeight: 700,
+          getTextAnchor: "middle",
+          getAlignmentBaseline: "center",
+          characterSet: "auto",
+          fontSettings: { sdf: true },
+          pickable: true,
+        }),
+      );
+    }
+  }
+
+  // Major developments (planning) — diamond markers flagging future road impact.
+  if (vis.planning && data.planning.length) {
+    const apps = data.planning.map((p) => ({ ...p, _t: "planning" as const }));
+    layers.push(
+      new ScatterplotLayer<(typeof apps)[number]>({
+        id: "planning",
+        data: apps,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: (d) => (d.scale === "major" ? 12 : 9),
+        radiusUnits: "pixels",
+        getFillColor: [156, 102, 224, 220], // violet — distinct from hazards/works
+        getLineColor: [24, 12, 40, 255],
+        lineWidthMinPixels: 2,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
+  // Upcoming conditions — the merged forward-looking feed, coloured by severity.
+  if (vis.conditions && data.conditions.length) {
+    const conds = data.conditions.map((c) => ({ ...c, _t: "condition" as const }));
+    const condRGB = (s?: string): [number, number, number] =>
+      s === "severe" ? [232, 60, 50] : s === "moderate" ? [230, 140, 40] : [60, 170, 120];
+    layers.push(
+      new ScatterplotLayer<(typeof conds)[number]>({
+        id: "conditions",
+        data: conds,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 9,
+        radiusUnits: "pixels",
+        getFillColor: (d) => [...condRGB(d.severity), 210] as [number, number, number, number],
+        getLineColor: [12, 20, 16, 255],
+        lineWidthMinPixels: 2,
         stroked: true,
         pickable: true,
       }),
@@ -1100,6 +1290,42 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
     const tag = s.index === 0 ? "pickup" : `stop ${s.index}`;
     return { className: "deck-tip", html: `<b>${s.name}</b><br/><span class="tip-dim">${tag} · optimized route</span>` };
   }
+  if (o._t === "hazard") {
+    const h = object as PointFeature & { category?: string };
+    return {
+      className: "deck-tip",
+      html: `<b>${h.description}</b><br/><span class="tip-dim">TfL road hazard · ${h.category ?? "disruption"} · ${h.severity ?? "moderate"}</span>`,
+    };
+  }
+  if (o._t === "planning") {
+    const p = object as PlanningApp;
+    return {
+      className: "deck-tip",
+      html: `<b>${p.description}</b><br/><span class="tip-dim">${p.authority ?? "LPA"} · ${p.scale ?? "major"} development · ${p.status ?? "pending"}</span>`,
+    };
+  }
+  if (o._t === "condition") {
+    const c = object as Condition;
+    const when = c.starts ? new Date(c.starts).toLocaleString("en-GB", { hour12: false }).slice(0, 17) : "ongoing";
+    return {
+      className: "deck-tip",
+      html: `<b>${c.title}</b><br/><span class="tip-dim">${c.category} · ${c.severity} · ${when}</span>`,
+    };
+  }
+  if ("restriction" in o && "max_stay_min" in o) {
+    const k = object as LoadingZone;
+    return {
+      className: "deck-tip",
+      html: `<b>${k.name}</b><br/>${k.restriction} · ${k.max_stay_min} min<br/><span class="tip-dim">${k.clinical_priority.toUpperCase()} handoff zone</span>`,
+    };
+  }
+  if ("message" in o && "severity" in o && "lat" in o && "lng" in o) {
+    const s = object as RoadSign;
+    return {
+      className: "deck-tip",
+      html: `<b>${s.name}</b><br/>${s.message}<br/><span class="tip-dim">TfL roadside sign · ${s.severity}</span>`,
+    };
+  }
   if ("congestion" in o && "path" in o) {
     const r = object as RoadPath;
     return { className: "deck-tip", html: `<b>Traffic ${(r.congestion * 100).toFixed(0)}%</b><br/><span class="tip-dim">road segment</span>` };
@@ -1137,8 +1363,14 @@ const LEFT_LAYERS: { key: LayerKey; label: string; icon: string; testid: string 
   { key: "cctv", label: "CCTV", icon: mdiCctv, testid: "layer-toggle-cctv" },
   { key: "air", label: "Air quality", icon: mdiAirFilter, testid: "layer-toggle-air" },
   { key: "roadworks", label: "Roadworks", icon: mdiTrafficCone, testid: "layer-toggle-roadworks" },
+  { key: "kerb", label: "Kerb", icon: mdiCrosshairsGps, testid: "layer-toggle-kerb" },
+  { key: "roadsigns", label: "Signs", icon: mdiAlertOutline, testid: "layer-toggle-roadsigns" },
   { key: "flood", label: "Flood", icon: mdiWaves, testid: "layer-toggle-flood" },
   { key: "cycle", label: "Cycle", icon: mdiBike, testid: "layer-toggle-cycle" },
+  { key: "weather", label: "Weather", icon: mdiWeatherPouring, testid: "layer-toggle-weather" },
+  { key: "hazards", label: "Hazards", icon: mdiCarBrakeAlert, testid: "layer-toggle-hazards" },
+  { key: "conditions", label: "Upcoming", icon: mdiCalendarClock, testid: "layer-toggle-conditions" },
+  { key: "planning", label: "Works", icon: mdiCrane, testid: "layer-toggle-planning" },
 ];
 
 export default function MapView() {
@@ -1338,14 +1570,19 @@ export default function MapView() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, fldRaw, cycRaw] = await Promise.all([
+      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, kerbRaw, signsRaw, fldRaw, cycRaw, hazRaw, plnRaw, cndRaw] = await Promise.all([
         fetchOptionalJson("/data/roads.geojson"),
         fetchOptional<unknown>("/data/facilities.json"),
         fetchOptional<unknown>("/data/events.json"),
         fetchOptional<{ boroughs?: AirBorough[] }>("/data/airquality.json"),
         fetchOptional<{ streetworks?: PointFeature[] }>("/data/streetworks.json"),
+        fetchOptional<{ loading_zones?: LoadingZone[] }>("/data/kerbside.json"),
+        fetchOptional<{ signs?: RoadSign[] }>("/data/roadsigns.json"),
         fetchOptional<{ floods?: PointFeature[] }>("/data/floodwarnings.json"),
         fetchOptional<{ stations?: CycleStation[]; highways?: CycleHighway[] }>("/data/cycleinfra.json"),
+        fetchOptional<{ hazards?: PointFeature[] }>("/data/hazards.json"),
+        fetchOptional<{ applications?: PlanningApp[] }>("/data/planning.json"),
+        fetchOptional<{ conditions?: Condition[] }>("/data/conditions.json"),
       ]);
       if (cancelled) return;
       const roads = parseRoads(roadsGj);
@@ -1353,18 +1590,28 @@ export default function MapView() {
       const venues = parseEventVenues(evtRaw);
       const air = aqRaw?.boroughs ?? [];
       const roadworks = swRaw?.streetworks ?? [];
+      const kerb = kerbRaw?.loading_zones ?? [];
+      const roadsigns = signsRaw?.signs ?? [];
       const floods = fldRaw?.floods ?? [];
       const cycleStations = cycRaw?.stations ?? [];
       const cycleHighways = cycRaw?.highways ?? [];
-      setOptional({ roads, facilities, venues, air, roadworks, floods, cycleStations, cycleHighways });
+      const hazards = hazRaw?.hazards ?? [];
+      const planning = plnRaw?.applications ?? [];
+      const conditions = cndRaw?.conditions ?? [];
+      setOptional({ roads, facilities, venues, air, roadworks, kerb, roadsigns, floods, cycleStations, cycleHighways, hazards, planning, conditions });
       const loaded: string[] = [];
       if (roads.length) loaded.push(`${roads.length} roads`);
       if (facilities.length) loaded.push(`${facilities.length} facilities`);
       if (venues.length) loaded.push(`${venues.length} event venues`);
       if (air.length) loaded.push(`${air.length} AQ boroughs`);
       if (roadworks.length) loaded.push(`${roadworks.length} roadworks`);
+      if (kerb.length) loaded.push(`${kerb.length} kerb handoffs`);
+      if (roadsigns.length) loaded.push(`${roadsigns.length} roadside signs`);
       if (floods.length) loaded.push(`${floods.length} flood warnings`);
       if (cycleHighways.length) loaded.push(`${cycleHighways.length} cycle routes`);
+      if (hazards.length) loaded.push(`${hazards.length} road hazards`);
+      if (planning.length) loaded.push(`${planning.length} major works`);
+      if (conditions.length) loaded.push(`${conditions.length} upcoming conditions`);
       if (loaded.length) {
         useStore.getState().pushLog({
           level: "info",
@@ -1377,6 +1624,62 @@ export default function MapView() {
       cancelled = true;
     };
   }, []);
+
+  // Weather radar (RainViewer) — add/remove a semi-transparent precipitation
+  // raster overlay on the basemap when the "Weather" layer is toggled. It sits
+  // above the basemap but BELOW the deck.gl courier/route overlay (a separate
+  // canvas control), and degrades to nothing if the RainViewer fetch fails.
+  useEffect(() => {
+    const SRC = "rainviewer-src";
+    const LYR = "rainviewer-layer";
+    const m = mapRef.current as maplibregl.Map | null;
+    if (!m) return;
+    let cancelled = false;
+
+    const removeRadar = () => {
+      try {
+        if (m.getLayer(LYR)) m.removeLayer(LYR);
+        if (m.getSource(SRC)) m.removeSource(SRC);
+      } catch {
+        /* layer/source absent — non-fatal */
+      }
+    };
+
+    if (!vis.weather) {
+      removeRadar();
+      return;
+    }
+
+    const addRadar = async () => {
+      const tile = await fetchLatestRadarTileUrl();
+      if (cancelled || !tile) return; // fetch failed → simply no radar
+      const apply = () => {
+        try {
+          removeRadar();
+          m.addSource(SRC, {
+            type: "raster",
+            tiles: [tile],
+            tileSize: 256,
+            attribution: "© RainViewer",
+          });
+          m.addLayer({ id: LYR, type: "raster", source: SRC, paint: { "raster-opacity": 0.6 } });
+        } catch {
+          /* style not ready / add failed — non-fatal */
+        }
+      };
+      if (m.isStyleLoaded()) apply();
+      else m.once("load", apply);
+    };
+
+    void addRadar();
+    // Optional refresh: pull a fresh radar frame every 5 minutes while enabled.
+    const t = window.setInterval(() => void addRadar(), 5 * 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+      removeRadar();
+    };
+  }, [vis.weather]);
 
   // Swap the basemap live when the dark/light theme toggles. CARTO raster tiles
   // (tokenless path) swap in place; Mapbox falls back to a full setStyle.
@@ -1479,10 +1782,12 @@ export default function MapView() {
     overlayRef.current = overlay;
 
     let last = performance.now();
+    let elapsed = 0; // monotonic seconds, drives courier movement along roads
     const LOOP_SECONDS = 14;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
+      elapsed += dt;
       phaseRef.current = (phaseRef.current + dt / LOOP_SECONDS) % 1;
       overlay.setProps({
         layers: buildLayers(
@@ -1492,6 +1797,7 @@ export default function MapView() {
           phaseRef.current,
           roadPathsRef.current,
           boundsRef.current,
+          elapsed,
         ),
       });
       rafRef.current = requestAnimationFrame(tick);
@@ -1555,6 +1861,20 @@ export default function MapView() {
           <span className="ld-icon"><McIcon path={mdiMinus} /></span>
           <span className="ld-label">Zoom out</span>
         </button>
+      </div>
+
+      {/* Markers legend — what the on-map emoji stickers + ring colours mean. */}
+      <div className="marker-legend glass" data-testid="marker-legend">
+        <div className="ml-title">Markers</div>
+        <div className="ml-row"><span className="ml-emoji">🚚</span><span className="ml-emoji">🛵</span><span className="ml-emoji">🚲</span><span className="ml-text">couriers</span></div>
+        <div className="ml-row"><span className="ml-emoji">🩸</span><span className="ml-emoji">💊</span><span className="ml-text">pickup</span></div>
+        <div className="ml-row"><span className="ml-emoji">🔬</span><span className="ml-emoji">🏥</span><span className="ml-text">dropoff</span></div>
+        <div className="ml-row ml-rings">
+          <span className="ml-dot" style={{ background: "rgb(255,77,77)" }} />stat
+          <span className="ml-dot" style={{ background: "rgb(224,162,58)" }} />urgent
+          <span className="ml-dot" style={{ background: "rgb(159,184,90)" }} />routine
+        </div>
+        <div className="ml-hint">ring colour = priority / status</div>
       </div>
 
       {/* Route/layer status — kept for tests + at-a-glance health */}

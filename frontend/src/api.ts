@@ -2,8 +2,10 @@
 // Base URL comes from VITE_ORCHESTRATOR_URL, default http://localhost:8000.
 
 import type {
+  AgentAction,
   AgentTask,
   CctvCamera,
+  Health,
   CongestionField,
   DeliveryJob,
   DisruptionEvent,
@@ -99,6 +101,38 @@ export function logout(): void {
 /** GET /state — full snapshot used to hydrate on load / after a WS drop. */
 export async function getState(): Promise<StateSnapshot> {
   return json<StateSnapshot>(await fetch(`${BASE}/state`));
+}
+
+/** POST /scenario/bridge-closure — inject a Tower Bridge closure. NemoClaw narrates it
+ * through its reasoning chain and offers a reroute decision card; confirming re-plans via
+ * the routing service so the fleet updates live. */
+export async function injectBridgeClosure(): Promise<unknown> {
+  return json(
+    await fetch(`${BASE}/scenario/bridge-closure`, { method: "POST", headers: authHeaders() }),
+  );
+}
+
+/** POST /admin/llm — switch the live cloud model provider ("nemotron" | "openai"). */
+export async function setLlmProvider(provider: "nemotron" | "openai"): Promise<unknown> {
+  return json(
+    await fetch(`${BASE}/admin/llm`, {
+      method: "POST",
+      headers: authHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({ provider }),
+    }),
+  );
+}
+
+/** GET /healthz — service status + which LLM provider is active. Returns null on
+ * error so callers degrade gracefully (the DGX indicator simply stays shown). */
+export async function getHealth(): Promise<Health | null> {
+  try {
+    const res = await fetch(`${BASE}/healthz`);
+    if (!res.ok) return null;
+    return (await res.json()) as Health;
+  } catch {
+    return null;
+  }
 }
 
 /** POST /jobs — server fills id/status/created_at when omitted. */
@@ -300,13 +334,31 @@ export async function getFleetAssessments(): Promise<FleetAssessment[]> {
 
 /** POST /couriers/{id}/redirect — ask the orchestrator to re-route one courier.
  * Throws on 404 (unknown courier) so the caller can surface the failure. */
-export async function redirectCourier(id: string): Promise<{ ok: boolean } & Record<string, unknown>> {
+export async function redirectCourier(
+  id: string,
+  reason?: string,
+): Promise<{ ok: boolean } & Record<string, unknown>> {
+  const q = reason ? `?reason=${encodeURIComponent(reason)}` : "";
   return json(
-    await fetch(`${BASE}/couriers/${encodeURIComponent(id)}/redirect`, {
+    await fetch(`${BASE}/couriers/${encodeURIComponent(id)}/redirect${q}`, {
       method: "POST",
       headers: authHeaders({ "content-type": "application/json" }),
     }),
   );
+}
+
+/** Execute an agent-proposed decision-card action against its named orchestrator
+ * endpoint (e.g. /couriers/{id}/redirect, /optimize, /notifications). Generic so any
+ * future action type works without new client code. Throws on non-2xx so the card can
+ * surface the failure. */
+export async function executeAgentAction(action: AgentAction): Promise<unknown> {
+  const method = (action.method || "POST").toUpperCase();
+  const init: RequestInit = {
+    method,
+    headers: authHeaders(action.body ? { "content-type": "application/json" } : undefined),
+  };
+  if (action.body) init.body = JSON.stringify(action.body);
+  return json(await fetch(`${BASE}${action.endpoint}`, init));
 }
 
 /** GET /cctv/cameras — curated live TfL JamCams. Empty list on 404/error. */

@@ -80,8 +80,11 @@ rung is used, so a valid `Plan` is *always* returned.
 | 3 | Google **OR-Tools** (`solver_baseline.try_ortools`) | `ortools` | skipped (not installed) |
 | 4 | **greedy** (`solver_baseline.greedy_plan`) | `greedy-fallback` | ✅ always available |
 
-Travel-time ladder (`traveltime.py`): GPU batched-SSSP → OSMnx/networkx road graph →
-**haversine/numpy** (active default). The two road-graph tiers are documented seams.
+Travel-time ladder (`traveltime.py`): GPU batched-SSSP → local **Valhalla** matrix
+(`/sources_to_targets` over real London streets) → OSMnx/networkx road graph →
+**haversine/numpy** (always-available default). The Valhalla tier is **fully implemented**
+and degrades silently to haversine if the server is down; the GPU-SSSP and OSMnx rungs are
+documented seams.
 
 ## GARNET — neural route-optimiser (optional, off by default)
 
@@ -142,7 +145,8 @@ constraints greedy ignores (pickup-order, cold-chain, interleaved multi-job load
 | `solver_garnet.py` | GARNET portfolio member + `$GARNET_ENABLED` toggle (off by default) |
 | `train_garnet.py` | Policy-gradient trainer → `garnet.pt` checkpoint (optional, torch) |
 | `solver_baseline.py` | Greedy port + import-guarded cuOpt / OR-Tools |
-| `traveltime.py` | Travel-time matrix (haversine now; GPU-SSSP + OSMnx seams) |
+| `traveltime.py` | Travel-time matrix (haversine default + Valhalla road-graph matrix; GPU-SSSP + OSMnx seams) |
+| `route_geometry.py` | Road-following route shapes via local Valhalla `/route` (haversine fallback) for the UI |
 | `models.py` | Pydantic mirror of `contracts/schemas.json` (self-contained) |
 | `bench.py` | Solver comparison table — the demo's speedup numbers |
 | `requirements.txt` | Core deps + optional accelerators (commented) |

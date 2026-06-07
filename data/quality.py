@@ -471,3 +471,150 @@ def validate_cycleinfra(payload: dict) -> dict:
                 raise AssertionError(f"Highway coordinate {(pt['lat'], pt['lng'])} outside London bbox")
     return payload
 
+
+def validate_kerbside(payload: dict) -> dict:
+    """Validate kerbside loading / handoff zones."""
+    if not payload:
+        raise AssertionError("Kerbside payload is empty")
+    for key in ("source", "fetched_at", "provider", "loading_zones"):
+        if key not in payload:
+            raise AssertionError(f"Kerbside missing key: {key}")
+    zones = payload["loading_zones"]
+    if not zones:
+        raise AssertionError("Kerbside has no loading zones")
+    seen: set[str] = set()
+    for z in zones:
+        for k in (
+            "id",
+            "name",
+            "lat",
+            "lng",
+            "restriction",
+            "window",
+            "max_stay_min",
+            "clinical_priority",
+            "nearest_facility",
+        ):
+            if k not in z:
+                raise AssertionError(f"Kerbside zone missing key: {k}")
+        if z["id"] in seen:
+            raise AssertionError(f"duplicate kerbside id: {z['id']}")
+        seen.add(z["id"])
+        if not point_in_bbox(z["lat"], z["lng"]):
+            raise AssertionError(f"Kerbside coordinate {(z['lat'], z['lng'])} outside London bbox")
+        if not (5 <= int(z["max_stay_min"]) <= 60):
+            raise AssertionError(f"Kerbside max_stay_min out of range: {z['max_stay_min']}")
+        if z["clinical_priority"] not in ("stat", "urgent", "routine"):
+            raise AssertionError(f"Kerbside clinical_priority invalid: {z['clinical_priority']}")
+    return payload
+
+
+def validate_roadsigns(payload: dict) -> dict:
+    """Validate TfL roadside Variable Message Sign records."""
+    if not payload:
+        raise AssertionError("Roadsign payload is empty")
+    for key in ("source", "fetched_at", "provider", "signs"):
+        if key not in payload:
+            raise AssertionError(f"Roadsigns missing key: {key}")
+    signs = payload["signs"]
+    if not signs:
+        raise AssertionError("Roadsigns has no signs")
+    seen: set[str] = set()
+    for s in signs:
+        for k in ("id", "name", "lat", "lng", "message", "severity", "updated_at", "active"):
+            if k not in s:
+                raise AssertionError(f"Roadsign missing key: {k}")
+        if s["id"] in seen:
+            raise AssertionError(f"duplicate roadsign id: {s['id']}")
+        seen.add(s["id"])
+        if not point_in_bbox(s["lat"], s["lng"]):
+            raise AssertionError(f"Roadsign coordinate {(s['lat'], s['lng'])} outside London bbox")
+        if not str(s["message"]).strip():
+            raise AssertionError(f"Roadsign {s['id']} has empty message")
+        if s["severity"] not in ("low", "moderate", "severe"):
+            raise AssertionError(f"Roadsign severity invalid: {s['severity']}")
+    return payload
+
+
+def validate_planning(payload: dict) -> dict:
+    """Validate major-development planning records (data/planning.py)."""
+    if not payload:
+        raise AssertionError("Planning payload is empty")
+    for key in ("source", "fetched_at", "provider", "applications"):
+        if key not in payload:
+            raise AssertionError(f"Planning missing key: {key}")
+    apps = payload["applications"]
+    if not apps:
+        raise AssertionError("Planning has no applications")
+    seen: set[str] = set()
+    for a in apps:
+        for k in ("id", "description", "lat", "lng", "scale", "category"):
+            if k not in a:
+                raise AssertionError(f"Planning application missing key: {k}")
+        if a["id"] in seen:
+            raise AssertionError(f"duplicate planning id: {a['id']}")
+        seen.add(a["id"])
+        if not point_in_bbox(a["lat"], a["lng"]):
+            raise AssertionError(f"Planning coordinate {(a['lat'], a['lng'])} outside London bbox")
+        if not str(a["description"]).strip():
+            raise AssertionError(f"Planning {a['id']} has empty description")
+        if a["scale"] not in ("large", "major"):
+            raise AssertionError(f"Planning scale invalid: {a['scale']}")
+    return payload
+
+
+def validate_conditions(payload: dict) -> dict:
+    """Validate the merged upcoming-conditions feed (data/conditions.py)."""
+    if not payload:
+        raise AssertionError("Conditions payload is empty")
+    for key in ("source", "fetched_at", "provider", "scenario_now", "conditions"):
+        if key not in payload:
+            raise AssertionError(f"Conditions missing key: {key}")
+    conditions = payload["conditions"]
+    if not conditions:
+        raise AssertionError("Conditions feed is empty")
+    allowed_cat = ("works", "bridge", "event", "flood", "development")
+    seen: set[str] = set()
+    for c in conditions:
+        for k in ("id", "category", "title", "severity", "lat", "lng"):
+            if k not in c:
+                raise AssertionError(f"Condition missing key: {k}")
+        if c["id"] in seen:
+            raise AssertionError(f"duplicate condition id: {c['id']}")
+        seen.add(c["id"])
+        if c["category"] not in allowed_cat:
+            raise AssertionError(f"Condition category invalid: {c['category']}")
+        if c["severity"] not in ("low", "moderate", "severe"):
+            raise AssertionError(f"Condition severity invalid: {c['severity']}")
+        if not point_in_bbox(c["lat"], c["lng"]):
+            raise AssertionError(f"Condition coordinate {(c['lat'], c['lng'])} outside London bbox")
+        if not str(c["title"]).strip():
+            raise AssertionError(f"Condition {c['id']} has empty title")
+    return payload
+
+
+def validate_hazards(payload: dict) -> dict:
+    """Validate TfL live road-disruption / hazard records (data/hazards.py)."""
+    if not payload:
+        raise AssertionError("Hazards payload is empty")
+    for key in ("source", "fetched_at", "provider", "hazards"):
+        if key not in payload:
+            raise AssertionError(f"Hazards missing key: {key}")
+    hazards = payload["hazards"]
+    if not hazards:
+        raise AssertionError("Hazards has no records")
+    seen: set[str] = set()
+    for h in hazards:
+        for k in ("id", "description", "lat", "lng", "severity", "category"):
+            if k not in h:
+                raise AssertionError(f"Hazard missing key: {k}")
+        if h["id"] in seen:
+            raise AssertionError(f"duplicate hazard id: {h['id']}")
+        seen.add(h["id"])
+        if not point_in_bbox(h["lat"], h["lng"]):
+            raise AssertionError(f"Hazard coordinate {(h['lat'], h['lng'])} outside London bbox")
+        if not str(h["description"]).strip():
+            raise AssertionError(f"Hazard {h['id']} has empty description")
+        if h["severity"] not in ("low", "moderate", "severe"):
+            raise AssertionError(f"Hazard severity invalid: {h['severity']}")
+    return payload

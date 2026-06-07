@@ -10,6 +10,10 @@ export const DEFAULT_API_URL = (
   process.env.EXPO_PUBLIC_API_URL || "https://api.pulsego.org"
 ).replace(/\/$/, "");
 
+export const LOCAL_NEMOTRON_API_URL = (
+  process.env.EXPO_PUBLIC_LOCAL_API_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+
 export const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || "";
 
 // In-memory cache so synchronous callers (api.ts) get the live value without an

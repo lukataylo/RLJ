@@ -9,18 +9,18 @@
     },
     "ours_blind": {
       "stat_on_time_mean": 0.6166666666666667,
-      "window_rate_mean": 0.8403174603174602,
-      "weighted_late_mean": 75824.280709623
+      "window_rate_mean": 0.845079365079365,
+      "weighted_late_mean": 75563.96954584397
     },
     "ours_reactive": {
       "stat_on_time_mean": 0.6166666666666667,
-      "window_rate_mean": 0.8498412698412697,
-      "weighted_late_mean": 70521.08913453379
+      "window_rate_mean": 0.8546031746031747,
+      "weighted_late_mean": 70941.64885337588
     },
     "ours_anticipatory": {
-      "stat_on_time_mean": 0.9333333333333333,
-      "window_rate_mean": 0.9793650793650793,
-      "weighted_late_mean": 3956.0789636382924
+      "stat_on_time_mean": 0.9166666666666666,
+      "window_rate_mean": 0.9746031746031746,
+      "weighted_late_mean": 6508.350543256176
     },
     "ortools_reactive": {
       "stat_on_time_mean": 0.9333333333333333,
@@ -37,34 +37,34 @@
     "anticipation_vs_reactive_ours": {
       "hi": "ours_anticipatory",
       "lo": "ours_reactive",
-      "p_value": 3.997821380719232e-05,
+      "p_value": 2.849705811665918e-05,
       "median_diff": 0.5,
-      "mean_diff": 0.31666666666666665,
+      "mean_diff": 0.3,
       "n_nonzero": 17
     },
     "anticipation_vs_blind_ours": {
       "hi": "ours_anticipatory",
       "lo": "ours_blind",
-      "p_value": 3.997821380719232e-05,
+      "p_value": 2.849705811665918e-05,
       "median_diff": 0.5,
-      "mean_diff": 0.31666666666666665,
+      "mean_diff": 0.3,
       "n_nonzero": 17
     },
     "anticipation_vs_greedy": {
       "hi": "ours_anticipatory",
       "lo": "greedy",
-      "p_value": 0.15865525393145707,
+      "p_value": 0.23975006109347669,
       "median_diff": 0.0,
-      "mean_diff": 0.05,
-      "n_nonzero": 9
+      "mean_diff": 0.03333333333333333,
+      "n_nonzero": 8
     },
     "ours_anticipatory_vs_ortools_reactive": {
       "hi": "ours_anticipatory",
       "lo": "ortools_reactive",
-      "p_value": 0.5,
+      "p_value": 0.6726395769907115,
       "median_diff": 0.0,
-      "mean_diff": 0.0,
-      "n_nonzero": 6
+      "mean_diff": -0.016666666666666666,
+      "n_nonzero": 5
     },
     "anticipation_vs_reactive_ortools": {
       "hi": "ortools_anticipatory",
