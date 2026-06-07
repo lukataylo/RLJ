@@ -273,9 +273,25 @@ async def healthz():
         "routing_service": routing_ok,
         "llm_provider": provider,           # "local" | "cloud" | "none"
         "llm_model": (config.model() if local else (config.openai_model() if has_cloud_key else None)),
+        "llm_label": config.active_model_label(),
+        "llm_enabled": config.llm_enabled_runtime(),
         "local_model": local,               # local Ollama/Nemotron on the DGX Spark
         "cloud_model": (not local) and has_cloud_key,  # OpenAI-compatible cloud provider
     }
+
+
+class LlmToggle(BaseModel):
+    enabled: bool
+
+
+@app.post("/admin/llm")
+async def admin_llm(body: LlmToggle, _user: CurrentUser = Depends(require_user)):
+    """Operator toggle for the on-prem model. Off → chat uses the deterministic fallback."""
+    config.set_llm_enabled(body.enabled)
+    await HUB.emit("agent_log", {"level": "info", "source": "system",
+                                 "message": f"{config.active_model_label()} model "
+                                            f"{'enabled' if body.enabled else 'disabled'}."})
+    return {"llm_enabled": config.llm_enabled_runtime(), "llm_label": config.active_model_label()}
 
 
 @app.get("/state")

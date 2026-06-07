@@ -213,6 +213,8 @@ export interface Health {
   routing_service: boolean;
   llm_provider: "local" | "cloud" | "none";
   llm_model: string | null;
+  llm_label?: string;
+  llm_enabled?: boolean;
   local_model: boolean;
   cloud_model: boolean;
 }

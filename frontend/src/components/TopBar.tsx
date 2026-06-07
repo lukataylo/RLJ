@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
-import { seedDemo, clearDemo, getHealth, injectBridgeClosure } from "../api";
+import { seedDemo, clearDemo, getHealth, injectBridgeClosure, setLlmEnabled } from "../api";
 import DemoControls from "./DemoControls";
 import ThemeToggle from "./ThemeToggle";
 import RouteSourceToggle from "./RouteSourceToggle";
@@ -34,6 +34,9 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
   // Whether a cloud model is active. Defaults false so the on-prem DGX Spark indicator
   // shows on localhost / local model and is hidden only once we learn it's a cloud model.
   const [cloudModel, setCloudModel] = useState(false);
+  // On-prem model toggle (Nemotron) reflected from /healthz.
+  const [llmEnabled, setLlmEnabledState] = useState(true);
+  const [llmLabel, setLlmLabel] = useState("Nemotron");
   const userRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -56,7 +59,11 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
     let alive = true;
     const check = async () => {
       const h = await getHealth();
-      if (alive && h) setCloudModel(h.cloud_model);
+      if (alive && h) {
+        setCloudModel(h.cloud_model);
+        setLlmEnabledState(h.llm_enabled ?? true);
+        setLlmLabel(h.llm_label ?? "Nemotron");
+      }
     };
     check();
     const id = setInterval(check, 30_000);
@@ -171,6 +178,22 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
             >
               <span>Efficiency panel</span>
               <span className={`dd-switch ${showEfficiency ? "on" : ""}`}><i /></span>
+            </button>
+
+            <button
+              type="button"
+              className="user-dd-toggle"
+              data-testid="toggle-model"
+              role="menuitemcheckbox"
+              aria-checked={llmEnabled}
+              onClick={() => {
+                const next = !llmEnabled;
+                setLlmEnabledState(next); // optimistic
+                void setLlmEnabled(next).catch(() => setLlmEnabledState(!next));
+              }}
+            >
+              <span>{llmLabel} model</span>
+              <span className={`dd-switch ${llmEnabled ? "on" : ""}`}><i /></span>
             </button>
 
             <div className="user-dd-sep" />

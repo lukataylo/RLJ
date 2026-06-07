@@ -112,6 +112,17 @@ export async function injectBridgeClosure(): Promise<unknown> {
   );
 }
 
+/** POST /admin/llm — toggle the on-prem model on/off (off → deterministic fallback). */
+export async function setLlmEnabled(enabled: boolean): Promise<unknown> {
+  return json(
+    await fetch(`${BASE}/admin/llm`, {
+      method: "POST",
+      headers: authHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({ enabled }),
+    }),
+  );
+}
+
 /** GET /healthz — service status + which LLM provider is active. Returns null on
  * error so callers degrade gracefully (the DGX indicator simply stays shown). */
 export async function getHealth(): Promise<Health | null> {
