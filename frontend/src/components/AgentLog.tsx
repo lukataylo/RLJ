@@ -147,7 +147,19 @@ export default function AgentLog() {
       cancelInlineMic();
       return;
     }
-    if (!speechSupported()) return;
+    // Web Speech API needs a secure context — it's blocked on a plain http:// LAN origin
+    // (only localhost / https work). Surface that instead of failing silently.
+    const insecure = !window.isSecureContext && location.hostname !== "localhost";
+    if (!speechSupported() || insecure) {
+      pushLog({
+        level: "warn",
+        source: "system",
+        message: insecure
+          ? "Voice input needs a secure origin — open the console at http://localhost:5173 (the browser blocks the mic over a LAN IP)."
+          : "Voice input isn't supported in this browser — type your question instead.",
+      });
+      return;
+    }
     prepareSpeech();
     setMicActive(true);
     inlineMicRef.current = startListening({
@@ -158,9 +170,16 @@ export default function AgentLog() {
         setMicActive(false);
         void send(t);
       },
-      onError: () => {
+      onError: (e) => {
         inlineMicRef.current = null;
         setMicActive(false);
+        if (e === "not-allowed" || e === "service-not-allowed") {
+          pushLog({
+            level: "warn",
+            source: "system",
+            message: "Mic blocked — allow microphone access, and use http://localhost:5173 (not a LAN IP) for voice.",
+          });
+        }
       },
       onEnd: () => {
         inlineMicRef.current = null;

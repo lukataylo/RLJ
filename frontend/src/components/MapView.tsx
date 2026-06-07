@@ -167,7 +167,35 @@ function _detourVia(point: LngLat, a: LngLat, b: LngLat, centroid: LngLat, offM:
   return [point[0] + (nx * offM) / kLng, point[1] + (ny * offM) / kLat];
 }
 
-/** Insert detour via-waypoints around any disruption lying on a route segment. */
+// Central-London Thames road crossings (lng,lat on the bridge deck). When a disruption
+// sits on one of these, we detour via the NEAREST OTHER crossing — so a Tower Bridge
+// closure routes over London Bridge, deterministically, instead of snapping back.
+const THAMES_CROSSINGS: LngLat[] = [
+  [-0.0754, 51.5055], // Tower Bridge
+  [-0.0875, 51.5074], // London Bridge
+  [-0.0942, 51.5086], // Southwark Bridge
+  [-0.1036, 51.5110], // Blackfriars Bridge
+  [-0.1163, 51.5061], // Waterloo Bridge
+];
+
+function _metresBetween(a: LngLat, b: LngLat): number {
+  const kLat = 111_320, kLng = 111_320 * Math.cos((a[1] * Math.PI) / 180);
+  return Math.hypot((b[0] - a[0]) * kLng, (b[1] - a[1]) * kLat);
+}
+
+function _nearestCrossing(p: LngLat, excludeIdx = -1): { idx: number; dist: number } {
+  let idx = -1, best = Infinity;
+  THAMES_CROSSINGS.forEach((c, i) => {
+    if (i === excludeIdx) return;
+    const d = _metresBetween(p, c);
+    if (d < best) { best = d; idx = i; }
+  });
+  return { idx, dist: best };
+}
+
+/** Insert detour via-waypoints around any disruption lying on a route segment. A
+ * disruption on a Thames crossing routes via the nearest alternate bridge (deterministic);
+ * any other on-route disruption gets a perpendicular side-step. */
 function applyDetours(coords: LngLat[], disruptions: DisruptionLike[] | undefined): LngLat[] {
   const cents = disruptionCentroids(disruptions);
   if (!cents.length || coords.length < 2) return coords;
@@ -177,10 +205,20 @@ function applyDetours(coords: LngLat[], disruptions: DisruptionLike[] | undefine
   const out: LngLat[] = [coords[0]];
   for (let i = 1; i < coords.length; i++) {
     const a = coords[i - 1], b = coords[i];
-    let via: LngLat | null = null, best = 170; // metres: disruption "on" the segment
+    let via: LngLat | null = null, best = 200; // metres: disruption "on" the segment
     for (const d of cents) {
       const { t, distM, point } = _closestOnSeg(d, a, b);
-      if (distM < best && t > 0.08 && t < 0.92) { best = distM; via = _detourVia(point, a, b, centroid, 650); }
+      if (distM < best && t > 0.05 && t < 0.95) {
+        best = distM;
+        // If this disruption is on a known bridge, detour via the nearest other bridge.
+        const onBridge = _nearestCrossing(d);
+        if (onBridge.idx >= 0 && onBridge.dist < 400) {
+          const alt = _nearestCrossing(THAMES_CROSSINGS[onBridge.idx], onBridge.idx);
+          via = alt.idx >= 0 ? THAMES_CROSSINGS[alt.idx] : _detourVia(point, a, b, centroid, 900);
+        } else {
+          via = _detourVia(point, a, b, centroid, 700);
+        }
+      }
     }
     if (via) out.push(via);
     out.push(b);
