@@ -128,6 +128,66 @@ function pathMeters(coords: LngLat[]): number {
   return m;
 }
 
+// --- Detour insertion: when an active disruption sits on a route segment, add a via
+// waypoint offset to the side so the road router (Mapbox) genuinely bends the path around
+// it — making a live re-route VISIBLE even though the pickup/dropoff stops are unchanged.
+type DisruptionLike = { geometry?: { lat: number; lng: number }[] };
+
+function disruptionCentroids(disruptions: DisruptionLike[] | undefined): LngLat[] {
+  const out: LngLat[] = [];
+  for (const d of disruptions ?? []) {
+    const g = d.geometry ?? [];
+    if (!g.length) continue;
+    let lat = 0, lng = 0;
+    for (const p of g) { lat += p.lat; lng += p.lng; }
+    out.push([lng / g.length, lat / g.length]);
+  }
+  return out;
+}
+
+function _closestOnSeg(p: LngLat, a: LngLat, b: LngLat): { t: number; distM: number; point: LngLat } {
+  const kLat = 111_320, kLng = 111_320 * Math.cos((p[1] * Math.PI) / 180);
+  const ax = a[0] * kLng, ay = a[1] * kLat, bx = b[0] * kLng, by = b[1] * kLat;
+  const px = p[0] * kLng, py = p[1] * kLat;
+  const dx = bx - ax, dy = by - ay;
+  const L2 = dx * dx + dy * dy || 1;
+  let t = ((px - ax) * dx + (py - ay) * dy) / L2;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + dx * t, cy = ay + dy * t;
+  return { t, distM: Math.hypot(px - cx, py - cy), point: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] };
+}
+
+function _detourVia(point: LngLat, a: LngLat, b: LngLat, centroid: LngLat, offM: number): LngLat {
+  const kLat = 111_320, kLng = 111_320 * Math.cos((point[1] * Math.PI) / 180);
+  let vx = (b[0] - a[0]) * kLng, vy = (b[1] - a[1]) * kLat;
+  const L = Math.hypot(vx, vy) || 1; vx /= L; vy /= L;
+  let nx = -vy, ny = vx; // perpendicular to the segment
+  const cxm = (centroid[0] - point[0]) * kLng, cym = (centroid[1] - point[1]) * kLat;
+  if (nx * cxm + ny * cym < 0) { nx = -nx; ny = -ny; } // offset toward the route's centre
+  return [point[0] + (nx * offM) / kLng, point[1] + (ny * offM) / kLat];
+}
+
+/** Insert detour via-waypoints around any disruption lying on a route segment. */
+function applyDetours(coords: LngLat[], disruptions: DisruptionLike[] | undefined): LngLat[] {
+  const cents = disruptionCentroids(disruptions);
+  if (!cents.length || coords.length < 2) return coords;
+  let cx = 0, cy = 0;
+  for (const c of coords) { cx += c[0]; cy += c[1]; }
+  const centroid: LngLat = [cx / coords.length, cy / coords.length];
+  const out: LngLat[] = [coords[0]];
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1], b = coords[i];
+    let via: LngLat | null = null, best = 170; // metres: disruption "on" the segment
+    for (const d of cents) {
+      const { t, distM, point } = _closestOnSeg(d, a, b);
+      if (distM < best && t > 0.08 && t < 0.92) { best = distM; via = _detourVia(point, a, b, centroid, 650); }
+    }
+    if (via) out.push(via);
+    out.push(b);
+  }
+  return out;
+}
+
 // Seconds to traverse a courier's route once. Prefers the REAL scheduled duration from
 // the demo data (first→last stop ETA), so the dot's pace matches the plan; falls back to
 // a slow constant city speed over the path length. Always clamped to a believable range.
@@ -573,7 +633,7 @@ function buildLayers(
   const routeLines = (plan?.routes ?? [])
     .map((r): RouteLine | null => {
       const courier = courierById.get(r.courier_id);
-      const stopCoords = routeStopCoords(plan, courier, r.courier_id);
+      const stopCoords = applyDetours(routeStopCoords(plan, courier, r.courier_id), disruptions);
       if (stopCoords.length < 2) return null;
       const road = roadPaths[r.courier_id];
       const onRoad = road && road.coords.length >= 2;
@@ -1392,7 +1452,12 @@ export default function MapView() {
       const courierById = new Map(snap.couriers.map((c) => [c.id, c]));
       const next: Record<string, RoadGeom | null> = {};
       for (const r of snap.plan?.routes ?? []) {
-        const coords = routeStopCoords(snap.plan, courierById.get(r.courier_id), r.courier_id);
+        // Detour the geometry request around any live disruption on the route, so a
+        // re-route (e.g. Tower Bridge closure) actually bends the drawn path.
+        const coords = applyDetours(
+          routeStopCoords(snap.plan, courierById.get(r.courier_id), r.courier_id),
+          snap.disruptions,
+        );
         if (coords.length < 2) continue;
         const sig = routeSignature(r.courier_id, coords);
         // getRoadRoute returns cached geometry or kicks off a fetch (re-resolve on done).
