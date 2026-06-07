@@ -226,7 +226,7 @@ def test_parse_delivery_ignores_place_names_arg(monkeypatch):
 def test_parse_delivery_multidrop(monkeypatch):
     # MULTI-DROP: one pickup (Guy's), two drops (St Thomas' + Moorfields).
     geocode = _load("geocode")
-    intake = _load("intake")
+    intake = _load("nl_intake")
     monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
 
     parsed = intake.parse_delivery(
@@ -246,7 +246,7 @@ def test_parse_delivery_multidrop(monkeypatch):
 
 def test_parse_delivery_single_still_one_destination(monkeypatch):
     # Single-drop request -> destinations length 1, destination == destinations[0].
-    intake = _load("intake")
+    intake = _load("nl_intake")
     monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
     parsed = intake.parse_delivery("urgent meds from Guy's to Moorfields")
     assert len(parsed["destinations"]) == 1

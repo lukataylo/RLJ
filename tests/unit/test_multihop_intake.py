@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[2]
 
 _COLLIDING = (
-    "app", "models", "seed", "greedy", "congestion", "geocode", "intake",
+    "app", "models", "seed", "greedy", "congestion", "geocode", "nl_intake",
     "route_preview", "solver", "solver_baseline", "solver_ortools",
     "solver_aco", "solver_ls", "traveltime",
 )
@@ -54,7 +54,7 @@ def _patch_valhalla(monkeypatch):
 @pytest.fixture()
 def client(monkeypatch):
     app_mod = _load("app")
-    intake = sys.modules["intake"]
+    intake = sys.modules["nl_intake"]
     monkeypatch.setattr(intake.llm, "complete_json", lambda *a, **k: None)
     _patch_valhalla(monkeypatch)
     return TestClient(app_mod.app)
