@@ -249,14 +249,21 @@ function courierAnimPos(
   roadPaths: Record<string, RoadGeom | null>,
   tSec: number,
   plan: Plan | null,
+  disruptions: DisruptionLike[],
 ): [number, number] {
   const road = roadPaths[c.id];
-  if (road && road.coords.length >= 2 && c.status !== "offline" && c.status !== "idle") {
-    // Pace tied to the route's real scheduled duration (demo ETAs), slow + believable.
-    const period = courierTraverseSeconds(c, plan, road.coords);
+  // Animate along the SAME geometry the route line draws: mapbox road geometry when it's
+  // resolved, else the detoured stop path. This makes the dot move (and follow live
+  // re-routes) regardless of route-source mode or whether the mapbox fetch has landed yet.
+  const path =
+    road && road.coords.length >= 2
+      ? road.coords
+      : fallbackPath(plan, c.id, applyDetours(routeStopCoords(plan, c, c.id), disruptions));
+  if (path.length >= 2 && c.status !== "offline" && c.status !== "idle") {
+    const period = courierTraverseSeconds(c, plan, path);
     const u = (tSec / period + courierOffset(c.id)) % 2; // 0..2
     const f = u <= 1 ? u : 2 - u; // triangle wave → smooth out-and-back
-    return posAlong(road.coords, f);
+    return posAlong(path, f);
   }
   return [c.location.lng, c.location.lat];
 }
@@ -888,7 +895,7 @@ function buildLayers(
     new ScatterplotLayer<Courier>({
       id: "couriers-glow",
       data: couriers,
-      getPosition: (c) => courierAnimPos(c, roadPaths, tSec, plan),
+      getPosition: (c) => courierAnimPos(c, roadPaths, tSec, plan, disruptions),
       getRadius: 280,
       radiusUnits: "meters",
       radiusMinPixels: 12,
@@ -905,7 +912,7 @@ function buildLayers(
     new IconLayer<Courier>({
       id,
       data: rows,
-      getPosition: (c) => courierAnimPos(c, roadPaths, tSec, plan),
+      getPosition: (c) => courierAnimPos(c, roadPaths, tSec, plan, disruptions),
       getIcon: (c) => sticker(vehicleEmoji(c.vehicle_type), COURIER_RGB[c.status] ?? [200, 200, 200], false),
       getSize: (c) => (c.id === selectedCourierId ? 46 : 36),
       sizeUnits: "pixels",
@@ -1518,6 +1525,7 @@ export default function MapView() {
   // Keep refs in sync with the store; trigger route resolution when the plan changes.
   useEffect(() => {
     let lastPlanAt = "";
+    let lastDisruptionKey = "";
     const update = () => {
       const s = useStore.getState();
       const jobs = Object.values(s.jobs);
@@ -1542,9 +1550,15 @@ export default function MapView() {
         disruptions: s.disruptions.length,
         signals: s.signalRecs.length,
       });
+      // Re-resolve route geometry when the plan re-plans OR the disruption set changes
+      // (a redirect / Tower Bridge closure injects a disruption) — clearing the geometry
+      // cache so the detoured path is re-fetched and the LINE + DOT update live.
       const planAt = s.plan?.generated_at ?? "";
-      if (planAt !== lastPlanAt) {
+      const disruptionKey = s.disruptions.map((d) => d.id ?? "").join("|");
+      if (planAt !== lastPlanAt || disruptionKey !== lastDisruptionKey) {
         lastPlanAt = planAt;
+        lastDisruptionKey = disruptionKey;
+        clearRouteCache();
         resolveRoutes();
       }
     };
