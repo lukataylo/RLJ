@@ -186,16 +186,22 @@ button {
 .layer-dock {
   position: absolute;
   left: 16px;
-  top: 92px; /* anchored below the top nav so it never overlaps the NemoClaw card */
+  top: 92px; /* anchored below the top nav */
   z-index: 36;
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 6px;
   width: 44px;
-  overflow: hidden;
+  /* Cap the height + scroll so the long layer list never overlaps the NemoClaw card
+     in the lower-left. */
+  max-height: calc(100vh - 460px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
   transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.layer-dock::-webkit-scrollbar { width: 0; height: 0; }
 .layer-dock:hover {
   width: 166px;
 }
@@ -267,8 +273,8 @@ button {
 /* route/layer status chip (kept for tests + glance) */
 .route-status {
   position: absolute;
-  left: 18px;
-  bottom: 16px;
+  left: 18px; /* left side, tucked in the gap between the control dock and the NemoClaw card */
+  bottom: 340px;
   z-index: 25;
   display: flex;
   align-items: center;
@@ -289,6 +295,64 @@ button {
   border-radius: 50%;
   background: var(--lime);
   box-shadow: 0 0 8px var(--lime);
+}
+
+/* ------------------------------------------------- Markers legend chip ----- */
+.marker-legend {
+  position: absolute;
+  left: 18px;
+  bottom: 48px;
+  z-index: 24;
+  padding: 9px 11px;
+  border-radius: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text);
+  pointer-events: none;
+}
+.marker-legend .ml-title {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.marker-legend .ml-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+}
+.marker-legend .ml-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+.marker-legend .ml-text {
+  margin-left: 5px;
+  color: var(--faint);
+}
+.marker-legend .ml-rings {
+  margin-top: 5px;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--faint);
+}
+.marker-legend .ml-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0 2px 0 6px;
+}
+.marker-legend .ml-rings .ml-dot:first-child {
+  margin-left: 0;
+}
+.marker-legend .ml-hint {
+  margin-top: 5px;
+  color: var(--faint);
+  font-size: 10px;
+  opacity: 0.8;
 }
 
 /* ------------------------------------------------------- CCTV popover ------ */
@@ -1379,7 +1443,7 @@ button {
 .nemoclaw {
   position: absolute;
   left: 18px;
-  bottom: 52px;
+  bottom: 14px; /* sit low so the map control dock above never overlaps the card */
   z-index: 35;
   width: 440px;
   padding: 14px 16px;
@@ -1441,7 +1505,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 210px;
+  max-height: 150px; /* shorter feed so the map control dock above clears the card */
   overflow-y: auto;
 }
 .nemo-empty {
