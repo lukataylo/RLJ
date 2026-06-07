@@ -1,6 +1,6 @@
 PY  := ./.venv/bin/python
 
-.PHONY: install verify verify-core data demo e2e-install clean
+.PHONY: install verify verify-core smoke data demo e2e-install clean
 
 # uv-managed environment (https://astral.sh/uv). Creates ./.venv and installs all
 # service + test deps into it; the rest of the targets use ./.venv/bin/python.
@@ -17,6 +17,11 @@ verify:
 # Core gate without the browser e2e (fast inner loop).
 verify-core:
 	$(PY) verification/run.py --core
+
+# Judge smoketest: ~10s READY/NOT-READY check of the live demo-critical paths.
+# Needs the dev stack up (orchestrator :8000, routing :8100, frontend :5173).
+smoke:
+	$(PY) verification/smoke.py
 
 # Build + verify all datasets, writing data/manifest.json (dq_passed flags).
 data:
