@@ -2,9 +2,9 @@
 // shows the live job detail (id, STAT badge, origin→destination, metric row, chips,
 // progress, and the primary YELLOW "CALL COURIER" action). data-testid="inspector".
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
-import { postNotification } from "../api";
+import { postNotification, redirectCourier } from "../api";
 import { courierScheduleOffset, fmtClock } from "../lib/format";
 import type { DeliveryJob } from "../types";
 
@@ -19,9 +19,42 @@ export default function Inspector() {
   const jobsMap = useStore((s) => s.jobs);
   const plan = useStore((s) => s.plan);
   const selectCourier = useStore((s) => s.selectCourier);
+  const pushLog = useStore((s) => s.pushLog);
+  // Two-step redirect so a specific courier isn't re-routed by accident.
+  const [redir, setRedir] = useState<"idle" | "confirm" | "sending" | "done" | "error">("idle");
 
   const jobs = useMemo(() => Object.values(jobsMap), [jobsMap]);
   const courier = selectedId ? couriersMap[selectedId] : null;
+
+  // Reset the redirect control whenever a different courier is selected.
+  useEffect(() => setRedir("idle"), [selectedId]);
+
+  const doRedirect = async () => {
+    if (!courier) return;
+    if (redir === "idle") { setRedir("confirm"); return; }
+    if (redir !== "confirm") return;
+    setRedir("sending");
+    try {
+      const r = await redirectCourier(courier.id, "operator request");
+      setRedir("done");
+      pushLog({
+        level: "info",
+        source: "agent_log",
+        message: `✓ Redirected ${courier.name ?? courier.id} (${courier.vehicle_type})`
+          + (r.next_eta ? ` — next stop ${r.next_eta}` : "") + ".",
+      });
+      window.setTimeout(() => setRedir("idle"), 2200);
+    } catch {
+      setRedir("error");
+      window.setTimeout(() => setRedir("idle"), 2200);
+    }
+  };
+  const redirectLabel =
+    redir === "confirm" ? "CONFIRM REDIRECT"
+      : redir === "sending" ? "REDIRECTING…"
+        : redir === "done" ? "✓ REDIRECTED"
+          : redir === "error" ? "✕ FAILED"
+            : "REDIRECT";
 
   // No courier selected → render nothing (fleet-overview segment removed per
   // design feedback; the right column is just the floating delivery cards).
@@ -45,6 +78,7 @@ export default function Inspector() {
       <div className="insp-id">
         <span className={`insp-dot ${isStat ? "stat" : ""}`} />
         <span className="insp-courier">{courier.name ?? courier.id}</span>
+        <span className="insp-vehicle">{courier.vehicle_type}</span>
         {isStat && <span className="insp-badge">STAT</span>}
         <button className="insp-x" onClick={() => selectCourier(null)} aria-label="Clear">✕</button>
       </div>
@@ -90,6 +124,16 @@ export default function Inspector() {
           }
         >
           CALL COURIER
+        </button>
+        <button
+          className={`btn-redirect ${redir}`}
+          data-testid="btn-redirect-courier"
+          title={`Redirect ${courier.name ?? courier.id} mid-delivery`}
+          disabled={redir === "sending"}
+          onClick={doRedirect}
+          onMouseLeave={() => redir === "confirm" && setRedir("idle")}
+        >
+          {redirectLabel}
         </button>
         <button
           className="btn-ghost-icon"

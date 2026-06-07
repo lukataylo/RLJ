@@ -292,9 +292,13 @@ export async function getFleetAssessments(): Promise<FleetAssessment[]> {
 
 /** POST /couriers/{id}/redirect — ask the orchestrator to re-route one courier.
  * Throws on 404 (unknown courier) so the caller can surface the failure. */
-export async function redirectCourier(id: string): Promise<{ ok: boolean } & Record<string, unknown>> {
+export async function redirectCourier(
+  id: string,
+  reason?: string,
+): Promise<{ ok: boolean } & Record<string, unknown>> {
+  const q = reason ? `?reason=${encodeURIComponent(reason)}` : "";
   return json(
-    await fetch(`${BASE}/couriers/${encodeURIComponent(id)}/redirect`, {
+    await fetch(`${BASE}/couriers/${encodeURIComponent(id)}/redirect${q}`, {
       method: "POST",
       headers: authHeaders({ "content-type": "application/json" }),
     }),

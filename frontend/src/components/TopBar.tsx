@@ -44,8 +44,10 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
+  // Keep the Demo-mode switch in sync with reality BOTH ways, so it never desyncs after
+  // a clear/seed (was set-true-only, which left the toggle stuck on after clearing).
   useEffect(() => {
-    if ((plan?.routes?.length ?? 0) > 0) setDemoOn(true);
+    setDemoOn((plan?.routes?.length ?? 0) > 0);
   }, [plan]);
 
   // Ask the orchestrator which LLM is active; re-check periodically in case it restarts

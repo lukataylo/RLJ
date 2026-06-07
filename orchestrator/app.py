@@ -859,16 +859,71 @@ async def scenario_bridge_closure(_user: CurrentUser = Depends(require_user)):
             "courier_id": (courier.id if courier else None), "task_id": task["id"]}
 
 
+def _avoidance_box(lat: float, lng: float, pad: float = 0.0016) -> list[LatLng]:
+    """A small square avoidance footprint around a point (a localized 'incident ahead')."""
+    return [
+        LatLng(lat=round(lat + pad, 6), lng=round(lng - pad, 6)),
+        LatLng(lat=round(lat + pad, 6), lng=round(lng + pad, 6)),
+        LatLng(lat=round(lat - pad, 6), lng=round(lng + pad, 6)),
+        LatLng(lat=round(lat - pad, 6), lng=round(lng - pad, 6)),
+        LatLng(lat=round(lat + pad, 6), lng=round(lng - pad, 6)),
+    ]
+
+
 @app.post("/couriers/{courier_id}/redirect")
-async def redirect_courier(courier_id: str, _user: CurrentUser = Depends(require_user)):
-    """Operator-triggered redirect: re-optimise (routes avoid live congestion) and narrate."""
+async def redirect_courier(courier_id: str, reason: str = "", targeted: bool = True,
+                           _user: CurrentUser = Depends(require_user)):
+    """Redirect ONE courier (scooter/van) mid-delivery.
+
+    When ``targeted`` (default), inject a localized avoidance just ahead of this courier —
+    on the leg between their current position and their next stop — so the re-plan genuinely
+    bends *their* route around it (not a no-op fleet re-optimise). Narrates it and pushes a
+    notification to that driver so the in-cab app updates. ``reason`` is free-text context."""
     courier = S.couriers.get(courier_id)
     if courier is None:
         raise HTTPException(status_code=404, detail="unknown courier")
+    vt = getattr(courier, "vehicle_type", "courier")
+    who = courier.name or courier_id
+    detail = (reason or "").strip() or "an incident ahead"
+
+    # Place an avoidance midway between the courier and their next stop, so the solver
+    # has to route this specific courier a different way.
+    injected = None
+    route = next((r for r in (S.plan.routes if S.plan else []) if r.courier_id == courier_id), None)
+    loc = getattr(courier, "location", None)
+    if targeted and route and loc:
+        nxt = next((s for s in sorted(route.stops, key=lambda s: s.sequence)), None)
+        if nxt and nxt.location:
+            mlat = (loc.lat + nxt.location.lat) / 2
+            mlng = (loc.lng + nxt.location.lng) / 2
+            S._dis_n += 1
+            injected = DisruptionEvent(
+                id=f"redirect-{courier_id}-{S._dis_n}", kind="traffic",
+                geometry=_avoidance_box(mlat, mlng), source="manual",
+                courier_id=courier_id, at=datetime.now(timezone.utc))
+            S.disruptions.append(injected)
+            await HUB.emit("disruption", injected.model_dump(mode="json"))
+
     await HUB.emit("agent_log", {"level": "info", "source": "operator",
-                                 "message": f"Redirecting {courier.name or courier_id} around current congestion."})
+                                 "message": f"Redirecting {who} ({vt}) mid-delivery around {detail}."})
     plan = await run_optimize()
-    return {"ok": True, "courier_id": courier_id,
+
+    # Tell that driver their route changed (the in-cab app surfaces redirect notifications).
+    with suppress(Exception):
+        n = Notification(channel="redirect", to=(courier.phone or courier.id), job_id=None,
+                         message=f"Dispatch redirected you around {detail}. Follow the new route.")
+        await HUB.emit("notification", n.model_dump(mode="json"))
+
+    # This courier's new next-stop ETA, so the UI can confirm the change landed.
+    next_eta = None
+    new_route = next((r for r in (plan.routes or []) if r.courier_id == courier_id), None)
+    if new_route:
+        nstop = next((s for s in sorted(new_route.stops, key=lambda s: s.sequence) if s.eta), None)
+        if nstop and nstop.eta:
+            next_eta = nstop.eta.strftime("%H:%M")
+
+    return {"ok": True, "courier_id": courier_id, "vehicle_type": vt, "reason": detail,
+            "targeted": bool(injected), "next_eta": next_eta,
             "windows_met": plan.objective.windows_met, "solver": plan.objective.solver}
 
 

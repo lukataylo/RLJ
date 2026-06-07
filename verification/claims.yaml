@@ -509,6 +509,12 @@ claims:
     must_pass: true
     test: "tests/e2e/test_agent_channel_e2e.py::test_redirect_known_and_unknown"
 
+  - id: courier-redirect-targeted
+    statement: "Redirecting one specific courier mid-delivery injects a localized avoidance ahead of that courier so the re-plan bends their route (not a no-op); unknown courier is 404"
+    category: e2e
+    must_pass: true
+    test: "tests/unit/test_redirect_courier.py::test_redirect_specific_courier_injects_targeted_avoidance"
+
   - id: cctv-cameras
     statement: "Live London CCTV (TfL JamCams) endpoint returns curated cameras"
     category: data
