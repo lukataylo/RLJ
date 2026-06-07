@@ -2,6 +2,7 @@
 // Base URL comes from VITE_ORCHESTRATOR_URL, default http://localhost:8000.
 
 import type {
+  AgentAction,
   AgentTask,
   CctvCamera,
   CongestionField,
@@ -276,6 +277,20 @@ export async function redirectCourier(id: string): Promise<{ ok: boolean } & Rec
       headers: authHeaders({ "content-type": "application/json" }),
     }),
   );
+}
+
+/** Execute an agent-proposed decision-card action against its named orchestrator
+ * endpoint (e.g. /couriers/{id}/redirect, /optimize, /notifications). Generic so any
+ * future action type works without new client code. Throws on non-2xx so the card can
+ * surface the failure. */
+export async function executeAgentAction(action: AgentAction): Promise<unknown> {
+  const method = (action.method || "POST").toUpperCase();
+  const init: RequestInit = {
+    method,
+    headers: authHeaders(action.body ? { "content-type": "application/json" } : undefined),
+  };
+  if (action.body) init.body = JSON.stringify(action.body);
+  return json(await fetch(`${BASE}${action.endpoint}`, init));
 }
 
 /** GET /cctv/cameras — curated live TfL JamCams. Empty list on 404/error. */

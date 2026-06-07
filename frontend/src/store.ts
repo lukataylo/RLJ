@@ -3,6 +3,7 @@
 
 import { create } from "zustand";
 import type {
+  AgentAction,
   AgentAnswer,
   AgentLog,
   CctvCamera,
@@ -48,6 +49,12 @@ export interface LogLine {
   source: "agent_log" | "notification" | "system";
   // True for lines narrated by the GB10 Nemotron agent (tinted in the feed).
   nemotron?: boolean;
+  // Set on a NemoClaw answer line: render the message as Markdown, show the reasoning
+  // dimmed above it, and (if present) a Yes/No decision card for the proposed action.
+  agentAnswer?: boolean;
+  taskId?: string;
+  reasoning?: string;
+  action?: AgentAction | null;
 }
 
 interface OpsState {
@@ -202,6 +209,10 @@ export const useStore = create<OpsState>((set, get) => ({
       }
       case "agent_log": {
         const log = e.payload as AgentLog;
+        // The orchestrator echoes every answer as a plain "NemoClaw: …" agent_log line
+        // AND as a rich "agent_answer" frame. Skip the echo so the answer renders once,
+        // styled (Markdown + reasoning + decision card) from the agent_answer handler.
+        if (log.source === "nemotron" && /^NemoClaw:\s/.test(log.message)) break;
         get().pushLog({
           ts: e.ts,
           level: log.level ?? "info",
@@ -254,9 +265,13 @@ export const useStore = create<OpsState>((set, get) => ({
         get().pushLog({
           ts: e.ts,
           level: "info",
-          message: `NemoClaw: ${ans.answer}`,
+          message: ans.answer,
           source: "agent_log",
           nemotron: true,
+          agentAnswer: true,
+          taskId: ans.task_id,
+          reasoning: ans.reasoning,
+          action: ans.action ?? null,
         });
         break;
       }

@@ -1,7 +1,7 @@
 """Pydantic mirror of contracts/schemas.json. Keep the two in sync."""
 from __future__ import annotations
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Dict, Literal, Optional
 from pydantic import BaseModel, Field
 
 Priority = Literal["stat", "urgent", "routine"]
@@ -158,6 +158,12 @@ class AgentAsk(BaseModel):
 class AgentAnswer(BaseModel):
     task_id: str
     answer: str
+    # Optional structured extras. The on-box GB10 worker may post a plain answer
+    # (these stay None and the orchestrator derives them); the direct LLM path fills
+    # them in. ``reasoning`` is the model's chain-of-thought (shown dimmed in chat);
+    # ``action`` is a proposed operator action rendered as a Yes/No decision card.
+    reasoning: Optional[str] = None
+    action: Optional[Dict[str, Any]] = None
 
 
 class FleetAssessment(BaseModel):

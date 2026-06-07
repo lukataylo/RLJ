@@ -8,8 +8,10 @@
 // "nemotron" (plus a WS "agent_answer" event the store also surfaces here).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { askAgent, postIntake } from "../api";
+import { askAgent, executeAgentAction, postIntake } from "../api";
 import { useStore } from "../store";
+import { renderMarkdown } from "../lib/markdown";
+import type { LogLine } from "../store";
 import NemoFace from "./NemoFace";
 import {
   speechSupported,
@@ -31,6 +33,76 @@ const DELIVERY_VERBS =
   /\b(deliver|pick[\s-]?up|collect|drop[\s-]?off|transport|bring|take)\b/i;
 const isDeliveryRequest = (text: string) =>
   DELIVERY_FROM_TO.test(text) || DELIVERY_VERBS.test(text);
+
+// A Yes/No card the operator approves to run an agent-proposed action (reroute a
+// courier, re-optimise the fleet, send a heads-up). "Yes" executes the action against
+// its real orchestrator endpoint; the resulting plan/notification flows back over the
+// WS like any other operator action.
+function DecisionCard({ action }: { action: NonNullable<LogLine["action"]> }) {
+  const pushLog = useStore((s) => s.pushLog);
+  const [status, setStatus] =
+    useState<"idle" | "running" | "done" | "declined">("idle");
+
+  const approve = async () => {
+    setStatus("running");
+    try {
+      await executeAgentAction(action);
+      setStatus("done");
+      pushLog({
+        level: "info",
+        message: `✓ ${action.confirm ?? "Done"} — ${action.label.replace(/\?$/, "")}.`,
+        source: "agent_log",
+      });
+    } catch {
+      setStatus("idle");
+      pushLog({
+        level: "warn",
+        message: `Couldn't ${(action.confirm ?? "run that").toLowerCase()} — try again.`,
+        source: "system",
+      });
+    }
+  };
+
+  if (status === "done")
+    return (
+      <div className="nemo-decision done" data-testid="decision-card">
+        <span className="nemo-decision-result">✓ {action.confirm ?? "Done"}</span>
+      </div>
+    );
+  if (status === "declined")
+    return (
+      <div className="nemo-decision declined" data-testid="decision-card">
+        <span className="nemo-decision-result">Dismissed</span>
+      </div>
+    );
+
+  return (
+    <div className="nemo-decision" data-testid="decision-card">
+      <span className="nemo-decision-label">{action.label}</span>
+      <div className="nemo-decision-btns">
+        <button
+          type="button"
+          className="nemo-decision-yes"
+          data-testid="decision-yes"
+          disabled={status === "running"}
+          onClick={approve}
+        >
+          {status === "running" ? "…" : (action.confirm ?? "Yes")}
+        </button>
+        <button
+          type="button"
+          className="nemo-decision-no"
+          data-testid="decision-no"
+          disabled={status === "running"}
+          onClick={() => setStatus("declined")}
+        >
+          No
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AgentLog() {
   const logs = useStore((s) => s.logs);
   const lastAgentAnswer = useStore((s) => s.lastAgentAnswer);
@@ -366,14 +438,41 @@ export default function AgentLog() {
           // Tint lines narrated by the GB10 Nemotron agent (signal recs / answers).
           const nemotron =
             l.nemotron === true || /nemotron|gb10|green wave|re-?time/i.test(l.message);
+          const ts = new Date(l.ts)
+            .toLocaleTimeString("en-GB", { hour12: false })
+            .slice(0, 5);
+          if (l.agentAnswer) {
+            // A NemoClaw answer: reasoning dimmed above, Markdown-styled answer, and
+            // a Yes/No decision card when the agent proposed an action.
+            return (
+              <div
+                key={l.taskId ?? `${l.ts}-${i}`}
+                className="nemo-line lvl-info src-nemotron is-answer"
+              >
+                <span className="nemo-ts">{ts}</span>
+                <div className="nemo-answer">
+                  {l.reasoning && (
+                    <div className="nemo-reasoning" data-testid="agent-reasoning">
+                      <span className="nemo-reason-tag">Agent reasoning</span>
+                      <span className="nemo-reason-text">{l.reasoning}</span>
+                    </div>
+                  )}
+                  <div
+                    className="nemo-md"
+                    data-testid="agent-answer"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(l.message) }}
+                  />
+                  {l.action && <DecisionCard action={l.action} />}
+                </div>
+              </div>
+            );
+          }
           return (
             <div
               key={`${l.ts}-${i}`}
               className={`nemo-line lvl-${l.level}${nemotron ? " src-nemotron" : ""}`}
             >
-              <span className="nemo-ts">
-                {new Date(l.ts).toLocaleTimeString("en-GB", { hour12: false }).slice(0, 5)}
-              </span>
+              <span className="nemo-ts">{ts}</span>
               <span className="nemo-msg">{l.message}</span>
             </div>
           );

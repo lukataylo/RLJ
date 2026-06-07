@@ -174,9 +174,25 @@ export interface CctvCamera {
 }
 
 // ---- Answer from the GB10 Nemotron agent (WS "agent_answer") ----
+// ---- A proposed operator action, rendered as a Yes/No decision card. Self-describing
+// so the client executes it generically against the named orchestrator endpoint. ----
+export interface AgentAction {
+  type: string; // "redirect" | "optimize" | "notify"
+  label: string; // the question shown on the card
+  confirm?: string; // affirmative button text (e.g. "Reroute")
+  endpoint: string; // e.g. "/couriers/crt-1/redirect"
+  method?: string; // default POST
+  body?: Record<string, unknown>;
+  courier_id?: string | null;
+}
+
 export interface AgentAnswer {
   task_id: string;
   answer: string;
+  // The model's chain-of-thought (shown dimmed above the answer); "" / absent when none.
+  reasoning?: string;
+  // An optional action the operator can approve from chat.
+  action?: AgentAction | null;
 }
 
 // ---- Queued question returned by POST /agent/ask ----
@@ -186,6 +202,8 @@ export interface AgentTask {
   ts: string;
   status: "pending" | "answered";
   answer?: string;
+  reasoning?: string;
+  action?: AgentAction | null;
 }
 
 // ---- Orchestrator state snapshot (GET /state and WS "state" payload) ----

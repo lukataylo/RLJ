@@ -431,6 +431,24 @@ claims:
     must_pass: true
     test: "tests/e2e/test_agent_channel_e2e.py::test_ask_tasks_answer_flow"
 
+  - id: agent-reasoning-split
+    statement: "A reasoning model's chain-of-thought (<think>…</think>) is separated from the answer; the answer is returned clean, the reasoning preserved (local Nemotron, OpenAI, and fallback alike)"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_agent_chat.py::test_ask_strips_reasoning_and_proposes_redirect"
+
+  - id: agent-decision-card
+    statement: "When the agent proposes an action (reroute/re-plan/notify), /agent/ask returns a self-describing decision card wired to a real endpoint; plain questions return none"
+    category: autonomy
+    must_pass: true
+    test: "tests/unit/test_agent_chat.py::test_ask_fallback_still_proposes_action_from_question"
+
+  - id: agent-decision-card-ui
+    statement: "In the browser, asking to reroute a courier renders a styled answer + Yes/No decision card; Yes executes the redirect (browser e2e)"
+    category: e2e
+    must_pass: false
+    test: "tests/e2e/test_ui_playwright.py::test_agent_decision_card_reroute"
+
   - id: driver-directions-ask
     statement: "A driver asks the local model for in-cab directions (POST /driver/ask) and gets a route-grounded answer; never silent (deterministic fallback)"
     category: e2e

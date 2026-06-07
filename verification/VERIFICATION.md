@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-06T21:20:56.549997+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-07T03:51:09.770603+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (79/79) · verified 89/90 · failing 0 · unverified 1
+**Must-pass gate: ✅ GREEN** (81/81) · verified 92/93 · failing 0 · unverified 1
 
 ## impact
 
@@ -89,6 +89,8 @@ _Generated 2026-06-06T21:20:56.549997+00:00 — machine output of `make verify`.
 | ✅ ⭐ | NemoClaw agent ingests data, narrates, and injects a closure (offline-deterministic) | `test_nemo_agent_offline_narrates_and_injects` | verified |
 | ✅ ⭐ | GB10 signal agent parses Nemotron JSON and keeps only well-formed recs | `test_ask_nemotron_parses_and_filters` | verified |
 | ✅ | GB10 signal agent handles non-JSON model output gracefully | `test_ask_nemotron_handles_non_json` | verified |
+| ✅ ⭐ | A reasoning model's chain-of-thought (<think>…</think>) is separated from the answer; the answer is returned clean, the reasoning preserved (local Nemotron, OpenAI, and fallback alike) | `test_ask_strips_reasoning_and_proposes_redirect` | verified |
+| ✅ ⭐ | When the agent proposes an action (reroute/re-plan/notify), /agent/ask returns a self-describing decision card wired to a real endpoint; plain questions return none | `test_ask_fallback_still_proposes_action_from_question` | verified |
 | ✅ ⭐ | Box agent answers queued operator questions via local Nemotron | `test_answer_pending_tasks_posts_answer` | verified |
 | ✅ ⭐ | Box agent assesses each driver and filters invalid statuses | `test_assess_drivers_parses_and_filters` | verified |
 
@@ -109,6 +111,7 @@ _Generated 2026-06-06T21:20:56.549997+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Signal recommendations POST/GET round-trip and appear in /state | `test_signals_post_get_roundtrip` | verified |
 | ✅ ⭐ | Posted signal recommendations broadcast to the map (WS + narration) | `test_signals_broadcast` | verified |
 | ✅ ⭐ | Operator can ask the GB10 agent; question queues, is answered, broadcasts | `test_ask_tasks_answer_flow` | verified |
+| ✅ | In the browser, asking to reroute a courier renders a styled answer + Yes/No decision card; Yes executes the redirect (browser e2e) | `test_agent_decision_card_reroute` | verified |
 | ✅ ⭐ | A driver asks the local model for in-cab directions (POST /driver/ask) and gets a route-grounded answer; never silent (deterministic fallback) | `test_driver_ask_grounded_in_next_stop` | verified |
 | ✅ ⭐ | Per-driver assessments round-trip and broadcast to the map | `test_fleet_assessments_roundtrip_and_broadcast` | verified |
 | ✅ ⭐ | Redirect a courier (200) re-optimises; unknown courier is 404 | `test_redirect_known_and_unknown` | verified |

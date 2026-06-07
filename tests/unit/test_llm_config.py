@@ -251,8 +251,9 @@ def test_agent_ask_answers_via_llm(monkeypatch):
     events = _capture_emits(app_mod, monkeypatch)
     monkeypatch.setattr(app_mod.llm, "chat", lambda *a, **k: "Two couriers are en route.")
 
-    ans = asyncio.run(app_mod._answer_question("status?"))
+    ans, reasoning = asyncio.run(app_mod._answer_question("status?"))
     assert ans == "Two couriers are en route."
+    assert reasoning == ""  # no <think> markers in this answer
 
     app_mod.S.agent_tasks.append({"id": "task-77", "question": "status?",
                                   "ts": "now", "status": "pending"})
@@ -274,5 +275,5 @@ def test_agent_ask_falls_back_when_no_llm(monkeypatch):
     app_mod = _load_app()
     monkeypatch.setattr(app_mod.llm, "chat", lambda *a, **k: None)
 
-    ans = asyncio.run(app_mod._answer_question("anything at all?"))
+    ans, _ = asyncio.run(app_mod._answer_question("anything at all?"))
     assert ans and "NemoClaw is online" in ans

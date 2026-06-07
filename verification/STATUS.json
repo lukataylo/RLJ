@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-06-06T21:20:56.549997+00:00",
+  "generated_at": "2026-06-07T03:51:09.770603+00:00",
   "summary": {
-    "total": 90,
-    "verified": 89,
+    "total": 93,
+    "verified": 92,
     "failing": 0,
     "unverified": 1,
-    "must_pass_total": 79,
-    "must_pass_verified": 79,
+    "must_pass_total": 81,
+    "must_pass_verified": 81,
     "must_pass_green": true,
-    "tests_passed": 241,
+    "tests_passed": 257,
     "tests_failed": 0
   },
   "claims": [
@@ -28,7 +28,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_beats_greedy",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0005
     },
     {
       "id": "eta-sane",
@@ -64,7 +64,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0842
+      "duration_s": 0.0841
     },
     {
       "id": "job-schema",
@@ -91,7 +91,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0025
+      "duration_s": 0.0035
     },
     {
       "id": "data-facilities-complete",
@@ -100,7 +100,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0109
+      "duration_s": 0.0115
     },
     {
       "id": "data-demand-valid",
@@ -109,7 +109,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0063
+      "duration_s": 0.0064
     },
     {
       "id": "data-manifest-gate",
@@ -118,7 +118,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0646
+      "duration_s": 0.0627
     },
     {
       "id": "data-roadgraph",
@@ -127,7 +127,7 @@
       "must_pass": false,
       "test": "tests/data_quality/test_road_graph.py::test_graph_connected_and_bbox",
       "status": "verified",
-      "duration_s": 0.0068
+      "duration_s": 0.0065
     },
     {
       "id": "live-data-integrations",
@@ -145,7 +145,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_nhs_facilities.py",
       "status": "verified",
-      "duration_s": 0.0023
+      "duration_s": 0.0024
     },
     {
       "id": "maps-offline-real",
@@ -181,7 +181,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_beats_greedy_directionally",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "research-beats-ortools",
@@ -307,7 +307,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_routing_latency_p95_cpu",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "bench-scale-100",
@@ -316,7 +316,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput",
       "status": "verified",
-      "duration_s": 7.6308
+      "duration_s": 7.6168
     },
     {
       "id": "bench-anticipation",
@@ -325,7 +325,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_anticipation_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0007
+      "duration_s": 0.0005
     },
     {
       "id": "bench-flywheel",
@@ -343,7 +343,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s",
       "status": "verified",
-      "duration_s": 0.0373
+      "duration_s": 0.0372
     },
     {
       "id": "bench-data-integrity",
@@ -352,7 +352,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable",
       "status": "verified",
-      "duration_s": 0.0077
+      "duration_s": 0.005
     },
     {
       "id": "autonomy-loop",
@@ -361,7 +361,7 @@
       "must_pass": true,
       "test": "tests/unit/test_autonomy.py::test_autonomy_loop_reacts_to_congestion",
       "status": "verified",
-      "duration_s": 0.0811
+      "duration_s": 0.0812
     },
     {
       "id": "solver-optimality-gap",
@@ -370,7 +370,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
       "status": "verified",
-      "duration_s": 10.4802
+      "duration_s": 10.477
     },
     {
       "id": "solver-scales",
@@ -379,7 +379,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
       "status": "verified",
-      "duration_s": 3.1102
+      "duration_s": 3.1045
     },
     {
       "id": "flywheel-value",
@@ -388,7 +388,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0006
     },
     {
       "id": "flywheel-monotone",
@@ -460,7 +460,7 @@
       "must_pass": true,
       "test": "tests/voice/test_driver_tools.py::test_all_tools_degrade_when_orchestrator_down",
       "status": "verified",
-      "duration_s": 0.0
+      "duration_s": 0.0001
     },
     {
       "id": "voice-bridge-status",
@@ -496,7 +496,7 @@
       "must_pass": true,
       "test": "tests/voice/test_voice_flows.py::test_intake_submit_happy",
       "status": "verified",
-      "duration_s": 0.0008
+      "duration_s": 0.0005
     },
     {
       "id": "voice-elevenlabs-guard",
@@ -514,7 +514,7 @@
       "must_pass": true,
       "test": "tests/unit/test_nemo_agent.py::test_nemo_agent_offline_narrates_and_injects",
       "status": "verified",
-      "duration_s": 0.0366
+      "duration_s": 0.0347
     },
     {
       "id": "nemoclaw-online",
@@ -523,7 +523,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration",
       "status": "verified",
-      "duration_s": 0.0022
+      "duration_s": 0.0021
     },
     {
       "id": "courier-vehicle-type",
@@ -532,7 +532,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips",
       "status": "verified",
-      "duration_s": 0.0128
+      "duration_s": 0.0126
     },
     {
       "id": "ui-delivery-list",
@@ -541,7 +541,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards",
       "status": "verified",
-      "duration_s": 8.8202
+      "duration_s": 7.8152
     },
     {
       "id": "ui-click-highlights-route",
@@ -550,7 +550,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights",
       "status": "verified",
-      "duration_s": 10.3743
+      "duration_s": 10.7739
     },
     {
       "id": "brand-landing",
@@ -559,7 +559,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_landing_is_on_brand",
       "status": "verified",
-      "duration_s": 0.8436
+      "duration_s": 0.8829
     },
     {
       "id": "brand-login",
@@ -568,7 +568,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_login_is_on_brand_and_rejects_bad_creds",
       "status": "verified",
-      "duration_s": 0.8411
+      "duration_s": 0.8527
     },
     {
       "id": "signals-roundtrip",
@@ -577,7 +577,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_post_get_roundtrip",
       "status": "verified",
-      "duration_s": 0.0112
+      "duration_s": 0.0115
     },
     {
       "id": "signals-broadcast",
@@ -586,7 +586,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_broadcast",
       "status": "verified",
-      "duration_s": 0.0116
+      "duration_s": 0.012
     },
     {
       "id": "signals-malformed",
@@ -595,7 +595,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_malformed_422",
       "status": "verified",
-      "duration_s": 0.0343
+      "duration_s": 0.0222
     },
     {
       "id": "signal-agent-parse",
@@ -604,7 +604,7 @@
       "must_pass": true,
       "test": "tests/unit/test_signal_agent.py::test_ask_nemotron_parses_and_filters",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0002
     },
     {
       "id": "signal-agent-robust",
@@ -622,7 +622,34 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_ask_tasks_answer_flow",
       "status": "verified",
-      "duration_s": 2.2821
+      "duration_s": 2.2626
+    },
+    {
+      "id": "agent-reasoning-split",
+      "statement": "A reasoning model's chain-of-thought (<think>\u2026</think>) is separated from the answer; the answer is returned clean, the reasoning preserved (local Nemotron, OpenAI, and fallback alike)",
+      "category": "autonomy",
+      "must_pass": true,
+      "test": "tests/unit/test_agent_chat.py::test_ask_strips_reasoning_and_proposes_redirect",
+      "status": "verified",
+      "duration_s": 0.002
+    },
+    {
+      "id": "agent-decision-card",
+      "statement": "When the agent proposes an action (reroute/re-plan/notify), /agent/ask returns a self-describing decision card wired to a real endpoint; plain questions return none",
+      "category": "autonomy",
+      "must_pass": true,
+      "test": "tests/unit/test_agent_chat.py::test_ask_fallback_still_proposes_action_from_question",
+      "status": "verified",
+      "duration_s": 0.0016
+    },
+    {
+      "id": "agent-decision-card-ui",
+      "statement": "In the browser, asking to reroute a courier renders a styled answer + Yes/No decision card; Yes executes the redirect (browser e2e)",
+      "category": "e2e",
+      "must_pass": false,
+      "test": "tests/e2e/test_ui_playwright.py::test_agent_decision_card_reroute",
+      "status": "verified",
+      "duration_s": 12.7056
     },
     {
       "id": "driver-directions-ask",
@@ -631,7 +658,7 @@
       "must_pass": true,
       "test": "tests/unit/test_driver_ask.py::test_driver_ask_grounded_in_next_stop",
       "status": "verified",
-      "duration_s": 0.0013
+      "duration_s": 0.0014
     },
     {
       "id": "fleet-assessments",
@@ -640,7 +667,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_fleet_assessments_roundtrip_and_broadcast",
       "status": "verified",
-      "duration_s": 2.0389
+      "duration_s": 2.04
     },
     {
       "id": "courier-redirect",
@@ -649,7 +676,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_redirect_known_and_unknown",
       "status": "verified",
-      "duration_s": 0.0324
+      "duration_s": 0.0309
     },
     {
       "id": "cctv-cameras",
@@ -658,7 +685,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_cctv_cameras_shape",
       "status": "verified",
-      "duration_s": 0.1386
+      "duration_s": 0.1535
     },
     {
       "id": "agent-answers-tasks",
@@ -685,7 +712,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_register_then_login_returns_jwt_and_me_works",
       "status": "verified",
-      "duration_s": 0.6241
+      "duration_s": 0.6312
     },
     {
       "id": "auth-protects-writes",
@@ -694,7 +721,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_with_token_succeeds",
       "status": "verified",
-      "duration_s": 0.0215
+      "duration_s": 0.0218
     },
     {
       "id": "auth-rejects-no-token",
@@ -703,7 +730,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_without_token_returns_401",
       "status": "verified",
-      "duration_s": 0.0119
+      "duration_s": 0.013
     },
     {
       "id": "auth-wrong-password",
@@ -712,7 +739,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_login_with_wrong_password_returns_401",
       "status": "verified",
-      "duration_s": 0.2038
+      "duration_s": 0.2034
     },
     {
       "id": "auth-backward-compat",
@@ -721,7 +748,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_post_jobs_works_without_token_when_auth_off",
       "status": "verified",
-      "duration_s": 0.0215
+      "duration_s": 0.0211
     },
     {
       "id": "completeness-no-stubs",
@@ -730,7 +757,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist",
       "status": "verified",
-      "duration_s": 0.0105
+      "duration_s": 0.0108
     },
     {
       "id": "completeness-no-unwired-buttons",
@@ -739,7 +766,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_unwired_buttons",
       "status": "verified",
-      "duration_s": 0.0025
+      "duration_s": 0.0024
     },
     {
       "id": "completeness-endpoints",
@@ -748,7 +775,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_orchestrator_rest_endpoints_implemented",
       "status": "verified",
-      "duration_s": 0.0121
+      "duration_s": 0.0129
     },
     {
       "id": "completeness-ws-emitted",
@@ -766,7 +793,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 0.6316
+      "duration_s": 0.6293
     },
     {
       "id": "voice-loop",
@@ -775,7 +802,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.1265
+      "duration_s": 0.2
     },
     {
       "id": "e2e-flywheel-loop",
@@ -784,7 +811,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop",
       "status": "verified",
-      "duration_s": 0.3086
+      "duration_s": 0.31
     },
     {
       "id": "unhappy-cold-safety",
@@ -793,7 +820,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash",
       "status": "verified",
-      "duration_s": 0.1919
+      "duration_s": 0.2002
     },
     {
       "id": "unhappy-routing-fallback",
@@ -802,7 +829,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback",
       "status": "verified",
-      "duration_s": 0.0619
+      "duration_s": 0.0583
     },
     {
       "id": "unhappy-malformed-422",
@@ -811,7 +838,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy",
       "status": "verified",
-      "duration_s": 0.0396
+      "duration_s": 0.04
     },
     {
       "id": "unhappy-bad-telemetry",
@@ -820,7 +847,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted",
       "status": "verified",
-      "duration_s": 0.0223
+      "duration_s": 0.02
     }
   ]
 }

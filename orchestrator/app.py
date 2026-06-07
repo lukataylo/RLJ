@@ -16,6 +16,7 @@ import asyncio
 import sys
 from datetime import datetime, timezone
 from contextlib import suppress
+from typing import Optional
 
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
@@ -46,6 +47,7 @@ from nl_intake import parse_delivery
 import route_preview
 import config
 import llm
+import agent_actions
 import db
 import auth
 from auth import require_user, current_user, CurrentUser
@@ -537,17 +539,32 @@ async def post_signal_recs(body: SignalRecommendations, _user: CurrentUser = Dep
 
 
 # ----------------------------------------------------------------------------- agent channel
-async def _record_agent_answer(task_id: str, answer: str):
+def _fleet_for_actions() -> list[dict]:
+    """Light courier view (id/name/phone) for grounding proposed decision-card actions."""
+    return [{"id": c.id, "name": c.name, "phone": c.phone} for c in S.couriers.values()]
+
+
+async def _record_agent_answer(task_id: str, answer: str, reasoning: str = "",
+                               action: Optional[dict] = None):
     """Mark a queued task answered + emit the NemoClaw-feed events. Shared by the GB10
-    worker path (POST /agent/answer) and the direct answer path below."""
+    worker path (POST /agent/answer) and the direct answer path below. ``reasoning`` is
+    the model's chain-of-thought (shown dimmed in chat); ``action`` is an optional
+    operator action rendered as a Yes/No decision card."""
     for t in S.agent_tasks:
         if t["id"] == task_id:
             t["status"] = "answered"
             t["answer"] = answer
+            t["reasoning"] = reasoning
+            t["action"] = action
             break
     await HUB.emit("agent_log", {"level": "info", "source": "nemotron",
                                  "message": f"NemoClaw: {answer[:280]}"})
-    await HUB.emit("agent_answer", {"task_id": task_id, "answer": answer})
+    payload = {"task_id": task_id, "answer": answer}
+    if reasoning:
+        payload["reasoning"] = reasoning
+    if action:
+        payload["action"] = action
+    await HUB.emit("agent_answer", payload)
 
 
 def _fleet_context() -> str:
@@ -597,15 +614,23 @@ def _fallback_agent_answer(question: str) -> str:
     )
 
 
-async def _answer_question(question: str) -> str:
-    """LLM answer via the seam (OpenAI/Ollama per config); deterministic keyword-aware
-    fallback so Ask NemoClaw always responds, even with no model and no on-box worker."""
-    answer = None
+async def _answer_question(question: str) -> tuple[str, str]:
+    """Answer via the LLM seam (OpenAI/Ollama per config), returning ``(answer, reasoning)``.
+
+    Reasoning models (local Nemotron) wrap their chain-of-thought in ``<think>…</think>``;
+    we lift that out so the spoken/markdown answer stays clean while the UI can still show
+    it. Falls back to a deterministic keyword-aware summary (no reasoning) so Ask NemoClaw
+    always responds, even with no model and no on-box worker."""
+    raw = None
     try:
-        answer = await asyncio.to_thread(llm.chat, question, system=_fleet_context())
+        raw = await asyncio.to_thread(llm.chat, question, system=_fleet_context())
     except Exception:  # noqa: BLE001 - never let the chat hang the request
-        answer = None
-    return answer or _fallback_agent_answer(question)
+        raw = None
+    if raw:
+        reasoning, answer = agent_actions.split_reasoning(raw)
+        if answer:
+            return answer, reasoning
+    return _fallback_agent_answer(question), ""
 
 
 @app.post("/agent/ask")
@@ -619,8 +644,9 @@ async def agent_ask(body: AgentAsk, _user: CurrentUser = Depends(require_user)):
     S.agent_tasks = S.agent_tasks[-50:]
     await HUB.emit("agent_log", {"level": "info", "source": "operator",
                                  "message": f"Asked NemoClaw: {body.question[:120]}"})
-    answer = await _answer_question(body.question)
-    await _record_agent_answer(task["id"], answer)
+    answer, reasoning = await _answer_question(body.question)
+    action = agent_actions.propose_action(body.question, answer, _fleet_for_actions())
+    await _record_agent_answer(task["id"], answer, reasoning, action)
     return task
 
 
@@ -631,8 +657,17 @@ async def agent_tasks():
 
 @app.post("/agent/answer")
 async def agent_answer(body: AgentAnswer, _user: CurrentUser = Depends(require_user)):
-    """The GB10 agent posts its Nemotron answer here; it lands in the NemoClaw feed."""
-    await _record_agent_answer(body.task_id, body.answer)
+    """The GB10 agent posts its Nemotron answer here; it lands in the NemoClaw feed.
+
+    The worker may post a plain answer (older clients) or include ``reasoning``/``action``.
+    Either way we strip any ``<think>`` chain-of-thought and, if no action was supplied,
+    derive one from the original question + answer so the chat still offers a decision card."""
+    reasoning, answer = agent_actions.split_reasoning(body.answer)
+    answer = answer or body.answer
+    reasoning = body.reasoning or reasoning
+    question = next((t.get("question", "") for t in S.agent_tasks if t["id"] == body.task_id), "")
+    action = body.action or agent_actions.propose_action(question, answer, _fleet_for_actions())
+    await _record_agent_answer(body.task_id, answer, reasoning, action)
     return {"ok": True}
 
 
