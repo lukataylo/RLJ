@@ -33,6 +33,8 @@ import floodwarnings as floodwarnings_mod
 import kerbside as kerbside_mod
 import roadsigns as roadsigns_mod
 import hazards as hazards_mod
+import planning as planning_mod
+import conditions as conditions_mod
 from loader import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -268,11 +270,12 @@ def build(
         "dq_suite": "tests/data_quality/test_airquality.py",
     }
 
-    # ---- streetworks ------------------------------------------------------ #
+    # ---- streetworks (LIVE: TfL planned works, bundled fallback) ----------- #
     sw_path = streetworks_mod.STREETWORKS_PATH
-    sw_passed, sw_rows = True, 0
+    sw_passed, sw_rows, sw_live = True, 0, False
     try:
-        streetworks_mod.write_streetworks(sw_path)
+        sw_payload = streetworks_mod.write_streetworks(sw_path, allow_network=allow_network)
+        sw_live = bool(sw_payload.get("live", False))
         disruptions = streetworks_mod.streetwork_disruptions(sample_date)
         sw_rows = len(disruptions)
         quality.validate_timed_events(disruptions)
@@ -280,7 +283,8 @@ def build(
         sw_passed = False
         print(f"[streetworks] DQ FAILED: {e}")
     datasets["streetworks"] = {
-        "source": "scheduled",
+        "source": "live-with-fallback",
+        "live": sw_live,
         "path": _rel(sw_path),
         "rows": sw_rows,
         "sha256": sha256_file(sw_path) if sw_path.exists() else "",
@@ -412,6 +416,48 @@ def build(
         "fetched_at": _now_iso(),
         "dq_passed": haz_passed,
         "dq_suite": "tests/data_quality/test_hazards.py",
+    }
+
+    # ---- planning: major developments (LIVE: planning.data.gov.uk, fallback) #
+    pln_path = planning_mod.PLANNING_PATH
+    pln_passed, pln_rows, pln_live = True, 0, False
+    try:
+        pln_payload = planning_mod.write_planning(pln_path, allow_network=allow_network)
+        pln_rows = len(pln_payload.get("applications", []))
+        pln_live = bool(pln_payload.get("live", False))
+        quality.validate_planning(pln_payload)
+    except Exception as e:  # noqa: BLE001
+        pln_passed = False
+        print(f"[planning] DQ FAILED: {e}")
+    datasets["planning"] = {
+        "source": "live-with-fallback",
+        "live": pln_live,
+        "path": _rel(pln_path),
+        "rows": pln_rows,
+        "sha256": sha256_file(pln_path) if pln_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": pln_passed,
+        "dq_suite": "tests/data_quality/test_planning.py",
+    }
+
+    # ---- conditions: merged forward-looking timeline ---------------------- #
+    cnd_path = conditions_mod.CONDITIONS_PATH
+    cnd_passed, cnd_rows = True, 0
+    try:
+        cnd_payload = conditions_mod.write_conditions(now, cnd_path, allow_network=allow_network)
+        cnd_rows = len(cnd_payload.get("conditions", []))
+        quality.validate_conditions(cnd_payload)
+    except Exception as e:  # noqa: BLE001
+        cnd_passed = False
+        print(f"[conditions] DQ FAILED: {e}")
+    datasets["conditions"] = {
+        "source": "derived",
+        "path": _rel(cnd_path),
+        "rows": cnd_rows,
+        "sha256": sha256_file(cnd_path) if cnd_path.exists() else "",
+        "fetched_at": _now_iso(),
+        "dq_passed": cnd_passed,
+        "dq_suite": "tests/data_quality/test_conditions.py",
     }
 
     manifest = {"generated_at": _now_iso(), "scenario_now": now, "datasets": datasets}

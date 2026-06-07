@@ -189,19 +189,157 @@ def normalize_tfl_road_hazards(payload: Iterable[dict], limit: int | None = None
             or item.get("category")
             or "TfL road disruption"
         )
+        category = str(item.get("category") or "disruption").lower()
+        starts = item.get("startDateTime") or item.get("constructionStartDate")
+        ends = item.get("endDateTime") or item.get("constructionEndDate")
+        record = {
+            "id": str(item.get("id") or f"haz-{len(out) + 1}"),
+            "description": str(description),
+            "lat": float(lat),
+            "lng": float(lng),
+            "severity": hazards_mod.severity_band(item.get("severity")),
+            "category": category,
+        }
+        # Forward-looking enrichment: planned works carry start/end dates; flag them so
+        # the courier sees what is *coming*, not just what is live now.
+        if starts:
+            record["starts"] = str(starts)
+        if ends:
+            record["ends"] = str(ends)
+        record["planned"] = bool(starts) and ("works" in category or "planned" in category)
+        out.append(record)
+        if limit is not None and len(out) >= limit:
+            break
+    return out
+
+
+def _hhmm(ts: str | None) -> str | None:
+    """Extract HH:MM from an ISO datetime string (best-effort)."""
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", "+00:00")).strftime("%H:%M")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _ymd(ts: str | None) -> str | None:
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", "+00:00")).date().isoformat()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def normalize_tfl_planned_streetworks(payload: Iterable[dict], limit: int | None = None) -> list[dict]:
+    """Pull planned street/road works (with start/end dates) out of TfL road disruptions.
+
+    Returns records in the same shape as ``data/streetworks.py``'s bundle so the result
+    can be written straight to ``data/streetworks.json``. Defensive: skips anything that
+    is not a dated, in-bbox planned work.
+    """
+    import hazards as hazards_mod
+
+    out: list[dict] = []
+    for item in payload:
+        category = str(item.get("category") or "").lower()
+        sub = str(item.get("subCategory") or item.get("subcategory") or "").lower()
+        starts = item.get("startDateTime") or item.get("constructionStartDate")
+        ends = item.get("endDateTime") or item.get("constructionEndDate")
+        is_works = ("works" in category or "works" in sub or "planned" in category)
+        if not (is_works and starts and ends):
+            continue
+        coords = _extract_tfl_geometry(item)
+        if not coords:
+            continue
+        first = coords[0]
+        lat, lng = first.get("lat"), first.get("lng")
+        if not _point_in_london(lat, lng):
+            continue
+        date = _ymd(starts)
+        start_hhmm, end_hhmm = _hhmm(starts), _hhmm(ends)
+        if not (date and start_hhmm and end_hhmm):
+            continue
         out.append(
             {
-                "id": str(item.get("id") or f"haz-{len(out) + 1}"),
-                "description": str(description),
+                "id": str(item.get("id") or f"stw-{len(out) + 1}"),
+                "description": str(
+                    item.get("comments") or item.get("currentUpdate")
+                    or item.get("location") or "Planned street works"),
                 "lat": float(lat),
                 "lng": float(lng),
+                "start": start_hhmm,
+                "end": end_hhmm,
+                "date": date,
+                "authority": str(item.get("highwayAuthority") or item.get("authority") or "TfL"),
+                "permit_reference": str(item.get("id") or ""),
+                "traffic_management": str(item.get("subCategory") or "lane_closure").lower().replace(" ", "_"),
                 "severity": hazards_mod.severity_band(item.get("severity")),
-                "category": str(item.get("category") or "disruption").lower(),
             }
         )
         if limit is not None and len(out) >= limit:
             break
     return out
+
+
+def fetch_planned_streetworks(limit: int = 25) -> list[dict]:
+    """Best-effort live planned-streetworks records from the keyless TfL Road API."""
+    tfl = TflClient()
+    return normalize_tfl_planned_streetworks(tfl.road_disruptions(), limit=limit)
+
+
+class PlanningDataClient(JsonFeedClient):
+    """National Planning Data platform adapter (planning.data.gov.uk, keyless)."""
+
+    def __init__(self, **kwargs: Any):
+        super().__init__("https://www.planning.data.gov.uk", **kwargs)
+
+    def planning_applications(self, lat: float, lng: float, limit: int = 50) -> dict:
+        return self.get_json(
+            "/entity.json",
+            {"dataset": "planning-application", "latitude": lat, "longitude": lng, "limit": limit},
+        )
+
+
+def normalize_planning_applications(payload: dict, limit: int | None = None) -> list[dict]:
+    """Flatten Planning Data entities into major-development records (defensive)."""
+    entities = payload.get("entities") or payload.get("results") or []
+    out: list[dict] = []
+    for e in entities:
+        lat = _coerce_float(e.get("latitude") or e.get("lat"))
+        lng = _coerce_float(e.get("longitude") or e.get("lng") or e.get("long"))
+        point = e.get("point") or e.get("geometry")
+        if (lat is None or lng is None) and isinstance(point, dict):
+            coords = point.get("coordinates")
+            if isinstance(coords, list) and len(coords) >= 2:
+                lng, lat = _coerce_float(coords[0]), _coerce_float(coords[1])
+        if not _point_in_london(lat, lng):
+            continue
+        out.append(
+            {
+                "id": str(e.get("entity") or e.get("reference") or f"pln-{len(out) + 1}"),
+                "reference": str(e.get("reference") or e.get("entity") or ""),
+                "description": str(e.get("name") or e.get("description") or "Planning application"),
+                "lat": float(lat),
+                "lng": float(lng),
+                "status": str(e.get("status") or e.get("decision") or "pending").lower(),
+                "authority": str(e.get("organisation-entity") or e.get("organisation") or "LPA"),
+                "received_date": str(e.get("start-date") or e.get("entry-date") or ""),
+                "decision_date": str(e.get("decision-date") or ""),
+                "scale": "major",
+                "category": str(e.get("development-type") or "development").lower(),
+            }
+        )
+        if limit is not None and len(out) >= limit:
+            break
+    return out
+
+
+def fetch_planning_applications(limit: int = 50, lat: float = 51.5072, lng: float = -0.1276) -> list[dict]:
+    """Best-effort live major-development records from the keyless Planning Data platform."""
+    client = PlanningDataClient()
+    return normalize_planning_applications(client.planning_applications(lat, lng, limit), limit=limit)
 
 
 def fetch_road_hazards(limit: int = 25) -> dict:

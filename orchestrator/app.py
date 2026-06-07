@@ -14,7 +14,8 @@ import json
 import pathlib
 import asyncio
 import sys
-from datetime import datetime, timezone
+import math
+from datetime import datetime, timezone, timedelta
 from contextlib import suppress
 from typing import Optional
 
@@ -35,7 +36,7 @@ except ImportError:
     pass
 
 from models import (DeliveryJob, Location, Courier, DisruptionEvent, Notification,
-                    Plan, OptimizeRequest, OptimizeResponse,
+                    Plan, OptimizeRequest, OptimizeResponse, LatLng,
                     Driver, DriverPing, TelemetryBatch,
                     SignalRecommendation, SignalRecommendations,
                     AgentAsk, AgentAnswer, FleetAssessments)
@@ -254,7 +255,19 @@ async def healthz():
     with suppress(Exception):
         async with httpx.AsyncClient(timeout=2.0) as c:
             routing_ok = (await c.get(f"{ROUTING_URL}/healthz")).status_code == 200
-    return {"status": "ok", "routing_service": routing_ok}
+    # Which LLM is in play, so the UI can show the on-prem DGX Spark indicator only when
+    # the model truly runs locally and hide it when a cloud model is active.
+    local = config.is_local()
+    has_cloud_key = bool(config.openai_key())
+    provider = "local" if local else ("cloud" if has_cloud_key else "none")
+    return {
+        "status": "ok",
+        "routing_service": routing_ok,
+        "llm_provider": provider,           # "local" | "cloud" | "none"
+        "llm_model": (config.model() if local else (config.openai_model() if has_cloud_key else None)),
+        "local_model": local,               # local Ollama/Nemotron on the DGX Spark
+        "cloud_model": (not local) and has_cloud_key,  # OpenAI-compatible cloud provider
+    }
 
 
 @app.get("/state")
@@ -688,6 +701,154 @@ async def post_fleet_assessments(body: FleetAssessments, _user: CurrentUser = De
         await HUB.emit("agent_log", {"level": "warn", "source": "nemotron",
                                      "message": f"Nemotron@GB10 flagged {len(flagged)} driver(s) for reroute."})
     return {"accepted": len(body.assessments)}
+
+
+# ----------------------------------------------------------------- upcoming conditions
+_CONDITIONS_PATH = pathlib.Path(__file__).resolve().parent.parent / "data" / "conditions.json"
+
+
+def _parse_iso(ts: str) -> datetime:
+    dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _haversine_km(a_lat: float, a_lng: float, b_lat: float, b_lng: float) -> float:
+    r = 6371.0
+    p1, p2 = math.radians(a_lat), math.radians(b_lat)
+    dp = math.radians(b_lat - a_lat)
+    dl = math.radians(b_lng - a_lng)
+    h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(min(1.0, math.sqrt(h)))
+
+
+@app.get("/conditions/upcoming")
+async def conditions_upcoming(
+    within_hours: float = 6.0,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    radius_km: float = 3.0,
+    now: Optional[str] = None,
+):
+    """Forward-looking conditions on a courier's horizon: planned works, bridge lifts,
+    events, floods (time-windowed) plus standing major developments. Reads the merged
+    data/conditions.json pipeline; optionally filters to those near a point. Public (the
+    driver app calls it). Never 5xx — returns an empty feed if the artifact is missing."""
+    try:
+        payload = json.loads(_CONDITIONS_PATH.read_text())
+    except Exception:  # noqa: BLE001 - artifact missing/unreadable → empty, never crash
+        return {"now": now, "within_hours": within_hours, "count": 0, "conditions": []}
+
+    base_now = now or payload.get("scenario_now") or _now_iso()
+    now_dt = _parse_iso(base_now)
+    until = now_dt + timedelta(hours=within_hours)
+
+    out: list[dict] = []
+    for c in payload.get("conditions", []):
+        starts = c.get("starts")
+        ends = c.get("ends")
+        if starts:  # time-windowed: keep only those overlapping [now, now+within]
+            s = _parse_iso(starts)
+            e = _parse_iso(ends) if ends else until
+            if not (s < until and e > now_dt):
+                continue
+        # developments (no start) are standing context — always included
+        if lat is not None and lng is not None:
+            if _haversine_km(lat, lng, c["lat"], c["lng"]) > radius_km:
+                continue
+        item = dict(c)
+        item["starts_in_min"] = (
+            int((_parse_iso(starts) - now_dt).total_seconds() // 60) if starts else None
+        )
+        out.append(item)
+
+    # Soonest first; standing developments (no start) last.
+    out.sort(key=lambda x: (x["starts_in_min"] is None, x["starts_in_min"] or 0))
+    return {"now": now_dt.isoformat(), "within_hours": within_hours, "count": len(out), "conditions": out}
+
+
+# Tower Bridge bascule-lift closure across the A100 river crossing (north→south span).
+_TOWER_BRIDGE_GEOM = [
+    {"lat": 51.5072, "lng": -0.0757},
+    {"lat": 51.5055, "lng": -0.0754},
+    {"lat": 51.5039, "lng": -0.0750},
+]
+_TOWER_BRIDGE_CENTRE = (51.5055, -0.0754)
+
+
+def _courier_nearest_bridge() -> Optional[Courier]:
+    """The courier currently closest to Tower Bridge — the one a closure most affects."""
+    best, best_d = None, float("inf")
+    for c in S.couriers.values():
+        loc = getattr(c, "location", None)
+        if not loc:
+            continue
+        d = _haversine_km(_TOWER_BRIDGE_CENTRE[0], _TOWER_BRIDGE_CENTRE[1], loc.lat, loc.lng)
+        if d < best_d:
+            best, best_d = c, d
+    return best
+
+
+@app.post("/scenario/bridge-closure")
+async def scenario_bridge_closure(_user: CurrentUser = Depends(require_user)):
+    """Demo scenario: Tower Bridge lifts and closes the A100 crossing.
+
+    Injects the closure into live state (so the planner will avoid it), then narrates it
+    through NemoClaw's reasoning chain and offers a *reroute decision card*. The plan is
+    deliberately NOT re-optimised here — confirming the card calls the redirect endpoint,
+    which re-plans via the routing service (now avoiding the bridge) so the fleet visibly
+    updates in real time."""
+    S._dis_n += 1
+    disr = DisruptionEvent(
+        id=f"bridge-closure-{S._dis_n}",
+        kind="road_closure",
+        geometry=[LatLng(**p) for p in _TOWER_BRIDGE_GEOM],
+        source="manual",
+        at=datetime.now(timezone.utc),
+    )
+    S.disruptions.append(disr)
+    await HUB.emit("disruption", disr.model_dump(mode="json"))
+
+    courier = _courier_nearest_bridge()
+    S._task_n += 1
+    task = {"id": f"task-{S._task_n}", "question": "Tower Bridge closure",
+            "ts": _now_iso(), "status": "pending"}
+    S.agent_tasks.append(task)
+    S.agent_tasks = S.agent_tasks[-50:]
+
+    if courier is not None:
+        who = courier.name or courier.id
+        reasoning = (
+            "Tower Bridge has just lifted and closed the A100 river crossing. "
+            f"{who} is the courier nearest the bridge and their route relies on it; "
+            "waiting for the bascules to lower could add 12–18 minutes. Rerouting now via "
+            "the next downstream crossing protects the STAT delivery window."
+        )
+        answer = f"**Tower Bridge has closed.** I recommend rerouting **{who}** around it now."
+        action = {
+            "type": "redirect",
+            "courier_id": courier.id,
+            "label": f"Reroute {who} around the Tower Bridge closure?",
+            "confirm": "Reroute",
+            "endpoint": f"/couriers/{courier.id}/redirect",
+            "method": "POST",
+        }
+    else:
+        reasoning = (
+            "Tower Bridge has just lifted and closed the A100 river crossing. "
+            "Re-optimising the fleet now routes every courier around it."
+        )
+        answer = "**Tower Bridge has closed.** I recommend re-optimising the fleet to route around it."
+        action = {
+            "type": "optimize",
+            "label": "Re-optimise the fleet around the Tower Bridge closure?",
+            "confirm": "Re-plan",
+            "endpoint": "/optimize",
+            "method": "POST",
+        }
+
+    await _record_agent_answer(task["id"], answer, reasoning, action)
+    return {"ok": True, "disruption_id": disr.id,
+            "courier_id": (courier.id if courier else None), "task_id": task["id"]}
 
 
 @app.post("/couriers/{courier_id}/redirect")

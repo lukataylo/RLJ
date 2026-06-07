@@ -1,8 +1,8 @@
 # Verification status
 
-_Generated 2026-06-07T03:51:09.770603+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
+_Generated 2026-06-07T04:44:51.048573+00:00 — machine output of `make verify`. Each claim is credited only because its external test passed._
 
-**Must-pass gate: ✅ GREEN** (81/81) · verified 92/93 · failing 0 · unverified 1
+**Must-pass gate: ✅ GREEN** (88/88) · verified 99/100 · failing 0 · unverified 1
 
 ## impact
 
@@ -28,6 +28,7 @@ _Generated 2026-06-07T03:51:09.770603+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Every DeliveryJob accepted validates against the shared schema | `test_job_roundtrip_validates` | verified |
 | ✅ ⭐ | Routing /optimize honours the OptimizeRequest/Response contract | `test_optimize_endpoint_contract` | verified |
 | ✅ ⭐ | Courier vehicle_type round-trips (van/scooter) and defaults to van | `test_courier_vehicle_type_roundtrips` | verified |
+| ✅ ⭐ | /healthz reports the active LLM provider (local DGX vs cloud) so the UI shows the on-prem DGX Spark indicator only when the model truly runs locally, and hides it for a cloud model | `test_healthz_reports_cloud_model` | verified |
 
 ## data
 
@@ -51,6 +52,9 @@ _Generated 2026-06-07T03:51:09.770603+00:00 — machine output of `make verify`.
 | ✅ ⭐ | TfL cycle infrastructure paths and hire capacities are schema-valid | `test_cycleinfra_sane` | verified |
 | ✅ ⭐ | Environment Agency flood warning timed disruptions are schema-valid | `test_floodwarnings_sane` | verified |
 | ✅ ⭐ | TfL live road disruptions/hazards are schema-valid, in London, and driver-actionable | `test_hazards_sane` | verified |
+| ✅ ⭐ | Major developments (planning.data.gov.uk, live-with-fallback) are schema-valid, in London, and flag future road impact | `test_planning_bundle_sane` | verified |
+| ✅ ⭐ | Planned street/road works are extracted from the TfL Road API with start/end dates (live-with-fallback) | `test_planned_streetworks_normalizer_extracts_dates` | verified |
+| ✅ ⭐ | The upcoming-conditions pipeline merges works, bridge lifts, events, floods and major developments into one schema-valid forward-looking feed | `test_conditions_feed_sane` | verified |
 | ✅ ⭐ | Traffic-signal junctions + green-wave advice are schema-valid within London | `test_junctions_valid` | verified |
 | ✅ ⭐ | Crowdsourced driver pings are schema-valid, in-bbox, and deterministic | `test_probe_pings_valid` | verified |
 | ✅ | Weather congestion multiplier is sane and deterministic | `test_weather_multiplier_sane` | verified |
@@ -68,6 +72,34 @@ _Generated 2026-06-07T03:51:09.770603+00:00 — machine output of `make verify`.
 | ✅ ⭐ | Zero optimality gap vs Google OR-Tools on the clinical objective (static) | `test_optimality_gap_vs_ortools` | verified |
 | ✅ ⭐ | More contributing drivers significantly improve clinical STAT on-time (network effect) | `test_more_drivers_help` | verified |
 | ✅ | Flywheel benefit is monotone in driver participation | `test_benefit_is_monotone` | verified |
+
+## e2e
+
+| | claim | test | status |
+|--|--|--|--|
+| ✅ ⭐ | GET /conditions/upcoming serves the merged forward-looking feed, horizon- and proximity-filterable, and never 5xx | `test_conditions_upcoming_returns_feed` | verified |
+| ✅ ⭐ | Operator can inject a Tower Bridge closure: it enters live state, NemoClaw narrates it with a reasoning chain and offers a reroute decision card targeting the nearest courier | `test_bridge_closure_injects_and_offers_reroute` | verified |
+| ✅ ⭐ | Confirming the Tower Bridge reroute card hits the redirect endpoint and re-plans via the routing seam | `test_bridge_closure_reroute_replans` | verified |
+| ✅ ⭐ | Driver voice assistant routes the FAQ questions to the correct tools | `test_driver_assistant_answers` | verified |
+| ✅ ⭐ | Voice NLU parses real clinic phrasings into a valid DeliveryJob (priority, cold-chain, places, time) | `test_stat_cold_chain_pickup_from_to` | verified |
+| ✅ ⭐ | bridge_status derives open/closed from live /state disruptions matched to bridge geometry | `test_bridge_status_closed_when_disruption_on_bridge` | verified |
+| ✅ ⭐ | Outbound WS handler places a voice call only on voice_call notifications | `test_outbound_places_call_on_voice_notification` | verified |
+| ✅ ⭐ | Inbound intake parses text and POSTs a DeliveryJob to the orchestrator | `test_intake_submit_happy` | verified |
+| ✅ ⭐ | NemoClaw narration is observable by a client connecting after boot (history replay) | `test_nemoclaw_online_narration` | verified |
+| ✅ | Right delivery list renders cards with van/scooter icons (browser e2e) | `test_delivery_list_and_cards` | verified |
+| ✅ | Clicking a delivery selects it and opens the inspector (browser e2e) | `test_click_delivery_highlights` | verified |
+| ✅ | Landing page is on-brand: mascot mark, Poppins display, Cream surface, Pulse Red CTA -> /login (browser e2e) | `test_landing_is_on_brand` | verified |
+| ✅ | Login page is on-brand (Cream/Pulse Red/Poppins) and rejects bad credentials with an inline error (browser e2e) | `test_login_is_on_brand_and_rejects_bad_creds` | verified |
+| ✅ ⭐ | Signal recommendations POST/GET round-trip and appear in /state | `test_signals_post_get_roundtrip` | verified |
+| ✅ ⭐ | Posted signal recommendations broadcast to the map (WS + narration) | `test_signals_broadcast` | verified |
+| ✅ ⭐ | Operator can ask the GB10 agent; question queues, is answered, broadcasts | `test_ask_tasks_answer_flow` | verified |
+| ✅ | In the browser, asking to reroute a courier renders a styled answer + Yes/No decision card; Yes executes the redirect (browser e2e) | `test_agent_decision_card_reroute` | verified |
+| ✅ ⭐ | A driver asks the local model for in-cab directions (POST /driver/ask) and gets a route-grounded answer; never silent (deterministic fallback) | `test_driver_ask_grounded_in_next_stop` | verified |
+| ✅ ⭐ | Per-driver assessments round-trip and broadcast to the map | `test_fleet_assessments_roundtrip_and_broadcast` | verified |
+| ✅ ⭐ | Redirect a courier (200) re-optimises; unknown courier is 404 | `test_redirect_known_and_unknown` | verified |
+| ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
+| ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |
+| ✅ ⭐ | Telemetry -> congestion -> re-plan loop works end-to-end over the live stack | `test_telemetry_flywheel_loop` | verified |
 
 ## benchmark
 
@@ -93,31 +125,6 @@ _Generated 2026-06-07T03:51:09.770603+00:00 — machine output of `make verify`.
 | ✅ ⭐ | When the agent proposes an action (reroute/re-plan/notify), /agent/ask returns a self-describing decision card wired to a real endpoint; plain questions return none | `test_ask_fallback_still_proposes_action_from_question` | verified |
 | ✅ ⭐ | Box agent answers queued operator questions via local Nemotron | `test_answer_pending_tasks_posts_answer` | verified |
 | ✅ ⭐ | Box agent assesses each driver and filters invalid statuses | `test_assess_drivers_parses_and_filters` | verified |
-
-## e2e
-
-| | claim | test | status |
-|--|--|--|--|
-| ✅ ⭐ | Driver voice assistant routes the FAQ questions to the correct tools | `test_driver_assistant_answers` | verified |
-| ✅ ⭐ | Voice NLU parses real clinic phrasings into a valid DeliveryJob (priority, cold-chain, places, time) | `test_stat_cold_chain_pickup_from_to` | verified |
-| ✅ ⭐ | bridge_status derives open/closed from live /state disruptions matched to bridge geometry | `test_bridge_status_closed_when_disruption_on_bridge` | verified |
-| ✅ ⭐ | Outbound WS handler places a voice call only on voice_call notifications | `test_outbound_places_call_on_voice_notification` | verified |
-| ✅ ⭐ | Inbound intake parses text and POSTs a DeliveryJob to the orchestrator | `test_intake_submit_happy` | verified |
-| ✅ ⭐ | NemoClaw narration is observable by a client connecting after boot (history replay) | `test_nemoclaw_online_narration` | verified |
-| ✅ | Right delivery list renders cards with van/scooter icons (browser e2e) | `test_delivery_list_and_cards` | verified |
-| ✅ | Clicking a delivery selects it and opens the inspector (browser e2e) | `test_click_delivery_highlights` | verified |
-| ✅ | Landing page is on-brand: mascot mark, Poppins display, Cream surface, Pulse Red CTA -> /login (browser e2e) | `test_landing_is_on_brand` | verified |
-| ✅ | Login page is on-brand (Cream/Pulse Red/Poppins) and rejects bad credentials with an inline error (browser e2e) | `test_login_is_on_brand_and_rejects_bad_creds` | verified |
-| ✅ ⭐ | Signal recommendations POST/GET round-trip and appear in /state | `test_signals_post_get_roundtrip` | verified |
-| ✅ ⭐ | Posted signal recommendations broadcast to the map (WS + narration) | `test_signals_broadcast` | verified |
-| ✅ ⭐ | Operator can ask the GB10 agent; question queues, is answered, broadcasts | `test_ask_tasks_answer_flow` | verified |
-| ✅ | In the browser, asking to reroute a courier renders a styled answer + Yes/No decision card; Yes executes the redirect (browser e2e) | `test_agent_decision_card_reroute` | verified |
-| ✅ ⭐ | A driver asks the local model for in-cab directions (POST /driver/ask) and gets a route-grounded answer; never silent (deterministic fallback) | `test_driver_ask_grounded_in_next_stop` | verified |
-| ✅ ⭐ | Per-driver assessments round-trip and broadcast to the map | `test_fleet_assessments_roundtrip_and_broadcast` | verified |
-| ✅ ⭐ | Redirect a courier (200) re-optimises; unknown courier is 404 | `test_redirect_known_and_unknown` | verified |
-| ✅ ⭐ | Closing a road triggers a live re-route and scoreboard update | `test_close_road_reroutes` | verified |
-| ✅ ⭐ | A new job produces a voice_call dispatch notification | `test_voice_call_emitted` | verified |
-| ✅ ⭐ | Telemetry -> congestion -> re-plan loop works end-to-end over the live stack | `test_telemetry_flywheel_loop` | verified |
 
 ## unhappy
 

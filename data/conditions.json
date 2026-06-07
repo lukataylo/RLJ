@@ -1,0 +1,229 @@
+{
+  "source": "derived",
+  "fetched_at": "2026-06-07T04:42:59.670729+00:00",
+  "provider": "PulseGo upcoming-conditions seam (streetworks + bridge + events + flood + planning)",
+  "scenario_now": "2026-06-05T08:00:00+00:00",
+  "horizon_hours": 24,
+  "conditions": [
+    {
+      "id": "stw-holborn-2026-06-05",
+      "category": "works",
+      "title": "Holborn Viaduct \u2014 burst water main repair",
+      "severity": "moderate",
+      "starts": "2026-06-05T06:00:00+00:00",
+      "ends": "2026-06-05T21:00:00+00:00",
+      "lat": 51.5176,
+      "lng": -0.1036,
+      "source": "scheduled"
+    },
+    {
+      "id": "evt-2026-06-05-excel-2",
+      "category": "event",
+      "title": "MedTech Expo @ ExCeL London (~22,000 attending)",
+      "severity": "low",
+      "starts": "2026-06-05T08:00:00+00:00",
+      "ends": "2026-06-05T18:30:00+00:00",
+      "lat": 51.509,
+      "lng": 0.0285,
+      "source": "scheduled"
+    },
+    {
+      "id": "stw-whitechapel-2026-06-05",
+      "category": "works",
+      "title": "Whitechapel Road \u2014 utility main replacement by Thames Water",
+      "severity": "severe",
+      "starts": "2026-06-05T08:00:00+00:00",
+      "ends": "2026-06-05T18:00:00+00:00",
+      "lat": 51.5181,
+      "lng": -0.0606,
+      "source": "scheduled"
+    },
+    {
+      "id": "stw-waterloo-2026-06-05",
+      "category": "works",
+      "title": "Waterloo Bridge approach \u2014 emergency telecoms duct works",
+      "severity": "severe",
+      "starts": "2026-06-05T08:30:00+00:00",
+      "ends": "2026-06-05T16:30:00+00:00",
+      "lat": 51.5091,
+      "lng": -0.1181,
+      "source": "scheduled"
+    },
+    {
+      "id": "twr-2026-06-05-1",
+      "category": "bridge",
+      "title": "Tower Bridge lift for Sabre",
+      "severity": "severe",
+      "starts": "2026-06-05T09:00:00+00:00",
+      "ends": "2026-06-05T09:09:00+00:00",
+      "lat": 51.5055,
+      "lng": -0.0751,
+      "source": "scheduled"
+    },
+    {
+      "id": "twr-2026-06-05-2",
+      "category": "bridge",
+      "title": "Tower Bridge lift for Paddle Steamer Waverley",
+      "severity": "severe",
+      "starts": "2026-06-05T11:15:00+00:00",
+      "ends": "2026-06-05T11:25:00+00:00",
+      "lat": 51.5055,
+      "lng": -0.0751,
+      "source": "scheduled"
+    },
+    {
+      "id": "fld-thames-barrier-2026-06-05",
+      "category": "flood",
+      "title": "Thames Barrier / Woolwich \u2014 high tide flood warning",
+      "severity": "severe",
+      "starts": "2026-06-05T12:00:00+00:00",
+      "ends": "2026-06-05T16:00:00+00:00",
+      "lat": 51.499,
+      "lng": 0.036,
+      "source": "scheduled"
+    },
+    {
+      "id": "twr-2026-06-05-3",
+      "category": "bridge",
+      "title": "Tower Bridge lift for Gloriana",
+      "severity": "severe",
+      "starts": "2026-06-05T13:30:00+00:00",
+      "ends": "2026-06-05T13:42:00+00:00",
+      "lat": 51.5055,
+      "lng": -0.0751,
+      "source": "scheduled"
+    },
+    {
+      "id": "twr-2026-06-05-4",
+      "category": "bridge",
+      "title": "Tower Bridge lift for Dixie Queen",
+      "severity": "severe",
+      "starts": "2026-06-05T16:00:00+00:00",
+      "ends": "2026-06-05T16:10:00+00:00",
+      "lat": 51.5055,
+      "lng": -0.0751,
+      "source": "scheduled"
+    },
+    {
+      "id": "twr-2026-06-05-5",
+      "category": "bridge",
+      "title": "Tower Bridge lift for Silver Sturgeon",
+      "severity": "severe",
+      "starts": "2026-06-05T18:30:00+00:00",
+      "ends": "2026-06-05T18:39:00+00:00",
+      "lat": 51.5055,
+      "lng": -0.0751,
+      "source": "scheduled"
+    },
+    {
+      "id": "evt-2026-06-05-wembley-0",
+      "category": "event",
+      "title": "England v Spain (friendly) @ Wembley Stadium (~88,000 attending)",
+      "severity": "severe",
+      "starts": "2026-06-05T18:45:00+00:00",
+      "ends": "2026-06-05T23:15:00+00:00",
+      "lat": 51.5569,
+      "lng": -0.2805,
+      "source": "scheduled"
+    },
+    {
+      "id": "evt-2026-06-05-the-o2-1",
+      "category": "event",
+      "title": "Arena concert @ The O2 Arena (~18,000 attending)",
+      "severity": "low",
+      "starts": "2026-06-05T19:00:00+00:00",
+      "ends": "2026-06-06T00:00:00+00:00",
+      "lat": 51.5039,
+      "lng": 0.0023,
+      "source": "scheduled"
+    },
+    {
+      "id": "twr-2026-06-05-6",
+      "category": "bridge",
+      "title": "Tower Bridge lift for Jubilant",
+      "severity": "severe",
+      "starts": "2026-06-05T21:15:00+00:00",
+      "ends": "2026-06-05T21:26:00+00:00",
+      "lat": 51.5055,
+      "lng": -0.0751,
+      "source": "scheduled"
+    },
+    {
+      "id": "twr-2026-06-06-0",
+      "category": "bridge",
+      "title": "Tower Bridge lift for Paddle Steamer Waverley",
+      "severity": "severe",
+      "starts": "2026-06-06T07:30:00+00:00",
+      "ends": "2026-06-06T07:40:00+00:00",
+      "lat": 51.5055,
+      "lng": -0.0751,
+      "source": "scheduled"
+    },
+    {
+      "id": "pln-nine-elms",
+      "category": "development",
+      "title": "Nine Elms / Battersea \u2014 mixed-use towers, ongoing public-realm and highway works",
+      "severity": "moderate",
+      "starts": null,
+      "ends": null,
+      "lat": 51.4817,
+      "lng": -0.1445,
+      "source": "planning"
+    },
+    {
+      "id": "pln-euston-hs2",
+      "category": "development",
+      "title": "Euston \u2014 HS2 station enabling works, sustained HGV movements and lane closures",
+      "severity": "moderate",
+      "starts": null,
+      "ends": null,
+      "lat": 51.5281,
+      "lng": -0.1337,
+      "source": "planning"
+    },
+    {
+      "id": "pln-canada-water",
+      "category": "development",
+      "title": "Canada Water masterplan \u2014 phased town-centre redevelopment",
+      "severity": "moderate",
+      "starts": null,
+      "ends": null,
+      "lat": 51.498,
+      "lng": -0.0497,
+      "source": "planning"
+    },
+    {
+      "id": "pln-olympia",
+      "category": "development",
+      "title": "Olympia London \u2014 exhibition-centre redevelopment, Hammersmith Road impact",
+      "severity": "moderate",
+      "starts": null,
+      "ends": null,
+      "lat": 51.4969,
+      "lng": -0.2103,
+      "source": "planning"
+    },
+    {
+      "id": "pln-earls-court",
+      "category": "development",
+      "title": "Earls Court regeneration \u2014 large-scale demolition and build, phased road works",
+      "severity": "moderate",
+      "starts": null,
+      "ends": null,
+      "lat": 51.4895,
+      "lng": -0.1995,
+      "source": "planning"
+    },
+    {
+      "id": "pln-silvertown",
+      "category": "development",
+      "title": "Silvertown Quays \u2014 riverside redevelopment, Tidal Basin Road works",
+      "severity": "low",
+      "starts": null,
+      "ends": null,
+      "lat": 51.502,
+      "lng": 0.026,
+      "source": "planning"
+    }
+  ]
+}

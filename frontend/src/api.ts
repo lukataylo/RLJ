@@ -5,6 +5,7 @@ import type {
   AgentAction,
   AgentTask,
   CctvCamera,
+  Health,
   CongestionField,
   DeliveryJob,
   DisruptionEvent,
@@ -100,6 +101,27 @@ export function logout(): void {
 /** GET /state — full snapshot used to hydrate on load / after a WS drop. */
 export async function getState(): Promise<StateSnapshot> {
   return json<StateSnapshot>(await fetch(`${BASE}/state`));
+}
+
+/** POST /scenario/bridge-closure — inject a Tower Bridge closure. NemoClaw narrates it
+ * through its reasoning chain and offers a reroute decision card; confirming re-plans via
+ * the routing service so the fleet updates live. */
+export async function injectBridgeClosure(): Promise<unknown> {
+  return json(
+    await fetch(`${BASE}/scenario/bridge-closure`, { method: "POST", headers: authHeaders() }),
+  );
+}
+
+/** GET /healthz — service status + which LLM provider is active. Returns null on
+ * error so callers degrade gracefully (the DGX indicator simply stays shown). */
+export async function getHealth(): Promise<Health | null> {
+  try {
+    const res = await fetch(`${BASE}/healthz`);
+    if (!res.ok) return null;
+    return (await res.json()) as Health;
+  } catch {
+    return null;
+  }
 }
 
 /** POST /jobs — server fills id/status/created_at when omitted. */

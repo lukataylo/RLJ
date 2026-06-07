@@ -15,7 +15,11 @@ STREETWORKS_PATH = DATA_DIR / "streetworks.json"
 FRONTEND_STREETWORKS_PATH = ROOT / "frontend" / "public" / "data" / "streetworks.json"
 
 BUNDLE_FETCHED_AT = "2026-06-01T00:00:00+00:00"
-SOURCE = "scheduled"
+SOURCE = "live-with-fallback"
+
+# Populated by build_streetworks() when a live TfL planned-works fetch succeeds; used by
+# streetwork_disruptions() so the scheduled timeline reflects live works when available.
+_LIVE_STREETWORKS: list[dict] | None = None
 
 # Core London Street Manager-style works (representative fallback).
 BUNDLED_STREETWORKS = [
@@ -106,12 +110,17 @@ def _box(lat: float, lng: float) -> list[dict]:
     ]
 
 
+def _active_streetworks() -> list[dict]:
+    """Live works when a network fetch has populated the cache, else the bundle."""
+    return _LIVE_STREETWORKS if _LIVE_STREETWORKS else BUNDLED_STREETWORKS
+
+
 def streetwork_disruptions(d: date | datetime | str) -> list[dict]:
     """Get the planned streetwork disruptions for a date."""
     day = _as_date(d)
     iso = day.isoformat()
     out = []
-    for idx, sw in enumerate(BUNDLED_STREETWORKS):
+    for idx, sw in enumerate(_active_streetworks()):
         if sw["date"] != iso:
             continue
         shh, smm = (int(x) for x in sw["start"].split(":"))
@@ -127,7 +136,9 @@ def streetwork_disruptions(d: date | datetime | str) -> list[dict]:
                 "start": start.isoformat(),
                 "end": end.isoformat(),
                 "intensity": 1.0,
-                "source": SOURCE,
+                # Provenance vocab for TimedEvents is {scheduled,synthetic,live} — keep
+                # it valid regardless of the manifest dataset source label.
+                "source": "live" if _LIVE_STREETWORKS else "scheduled",
                 "label": sw["description"],
                 "authority": sw["authority"],
                 "permit_reference": sw["permit_reference"],
@@ -139,17 +150,42 @@ def streetwork_disruptions(d: date | datetime | str) -> list[dict]:
     return out
 
 
-def build_streetworks() -> dict:
+def build_streetworks(allow_network: bool = False) -> dict:
+    """Build the planned-works payload.
+
+    When ``allow_network`` is set, attempt a live keyless fetch of dated planned works
+    from the TfL Road API; on any failure (or offline) fall back to the bundled
+    representative set so the build always succeeds and the demo is deterministic.
+    """
+    global _LIVE_STREETWORKS
+    if allow_network:
+        try:
+            import integrations
+
+            works = integrations.fetch_planned_streetworks()
+            if works:
+                _LIVE_STREETWORKS = works
+                return {
+                    "source": "live",
+                    "live": True,
+                    "fetched_at": datetime.now(timezone.utc).isoformat(),
+                    "provider": "TfL Unified API Road/All/Disruption (planned works)",
+                    "streetworks": works,
+                }
+        except Exception:  # noqa: BLE001 - any failure → deterministic offline bundle
+            pass
+    _LIVE_STREETWORKS = None
     return {
         "source": SOURCE,
+        "live": False,
         "fetched_at": BUNDLE_FETCHED_AT,
         "provider": "DfT Street Manager / TfL planned works (bundled representative)",
         "streetworks": BUNDLED_STREETWORKS,
     }
 
 
-def write_streetworks(path: Path | str = STREETWORKS_PATH) -> dict:
-    payload = build_streetworks()
+def write_streetworks(path: Path | str = STREETWORKS_PATH, allow_network: bool = False) -> dict:
+    payload = build_streetworks(allow_network=allow_network)
     blob = json.dumps(payload, indent=2) + "\n"
     Path(path).write_text(blob)
     FRONTEND_STREETWORKS_PATH.parent.mkdir(parents=True, exist_ok=True)

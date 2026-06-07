@@ -277,3 +277,44 @@ def test_agent_ask_falls_back_when_no_llm(monkeypatch):
 
     ans, _ = asyncio.run(app_mod._answer_question("anything at all?"))
     assert ans and "NemoClaw is online" in ans
+
+
+# ------------------------------------------------------------ /healthz LLM provider
+# The brand pill shows the on-prem DGX Spark indicator only when the model runs
+# locally, and hides it when a cloud model is active. /healthz exposes which it is.
+def _health(app_mod):
+    from fastapi.testclient import TestClient
+    return TestClient(app_mod.app).get("/healthz").json()
+
+
+def test_healthz_reports_local_model(monkeypatch):
+    # config reads env at call time, so set the flags AFTER import (importing app may
+    # load voice/.env). LOCAL wins regardless of any cloud key present.
+    app_mod = _load_app()
+    monkeypatch.setenv("LOCAL", "true")
+    body = _health(app_mod)
+    assert body["llm_provider"] == "local"
+    assert body["local_model"] is True
+    assert body["cloud_model"] is False  # DGX indicator stays SHOWN
+
+
+def test_healthz_reports_cloud_model(monkeypatch):
+    app_mod = _load_app()
+    monkeypatch.delenv("LOCAL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
+    body = _health(app_mod)
+    assert body["llm_provider"] == "cloud"
+    assert body["local_model"] is False
+    assert body["cloud_model"] is True  # DGX indicator gets HIDDEN
+
+
+def test_healthz_no_provider_is_not_cloud(monkeypatch):
+    # No model configured at all: treated as on-prem, so the indicator shows. Clear the
+    # keys AFTER import to undo any voice/.env injection.
+    app_mod = _load_app()
+    monkeypatch.delenv("LOCAL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    body = _health(app_mod)
+    assert body["llm_provider"] == "none"
+    assert body["cloud_model"] is False

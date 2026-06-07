@@ -1,0 +1,86 @@
+{
+  "source": "live-with-fallback",
+  "live": false,
+  "fetched_at": "2026-06-01T00:00:00+00:00",
+  "provider": "planning.data.gov.uk (bundled representative major schemes)",
+  "applications": [
+    {
+      "id": "pln-nine-elms",
+      "reference": "2024/NE/0421",
+      "description": "Nine Elms / Battersea \u2014 mixed-use towers, ongoing public-realm and highway works",
+      "lat": 51.4817,
+      "lng": -0.1445,
+      "status": "approved",
+      "authority": "Wandsworth",
+      "received_date": "2024-02-14",
+      "decision_date": "2024-09-03",
+      "scale": "major",
+      "category": "mixed_use"
+    },
+    {
+      "id": "pln-euston-hs2",
+      "reference": "2023/EU/1187",
+      "description": "Euston \u2014 HS2 station enabling works, sustained HGV movements and lane closures",
+      "lat": 51.5281,
+      "lng": -0.1337,
+      "status": "approved",
+      "authority": "Camden",
+      "received_date": "2023-05-20",
+      "decision_date": "2023-11-30",
+      "scale": "major",
+      "category": "infrastructure"
+    },
+    {
+      "id": "pln-canada-water",
+      "reference": "2024/CW/0093",
+      "description": "Canada Water masterplan \u2014 phased town-centre redevelopment",
+      "lat": 51.498,
+      "lng": -0.0497,
+      "status": "approved",
+      "authority": "Southwark",
+      "received_date": "2024-01-08",
+      "decision_date": "2024-06-18",
+      "scale": "major",
+      "category": "mixed_use"
+    },
+    {
+      "id": "pln-olympia",
+      "reference": "2023/OL/0762",
+      "description": "Olympia London \u2014 exhibition-centre redevelopment, Hammersmith Road impact",
+      "lat": 51.4969,
+      "lng": -0.2103,
+      "status": "under_construction",
+      "authority": "Hammersmith & Fulham",
+      "received_date": "2022-09-12",
+      "decision_date": "2023-03-27",
+      "scale": "major",
+      "category": "commercial"
+    },
+    {
+      "id": "pln-earls-court",
+      "reference": "2024/EC/0310",
+      "description": "Earls Court regeneration \u2014 large-scale demolition and build, phased road works",
+      "lat": 51.4895,
+      "lng": -0.1995,
+      "status": "approved",
+      "authority": "Kensington & Chelsea",
+      "received_date": "2024-03-01",
+      "decision_date": "2024-10-09",
+      "scale": "major",
+      "category": "mixed_use"
+    },
+    {
+      "id": "pln-silvertown",
+      "reference": "2023/SV/0588",
+      "description": "Silvertown Quays \u2014 riverside redevelopment, Tidal Basin Road works",
+      "lat": 51.502,
+      "lng": 0.026,
+      "status": "under_construction",
+      "authority": "Newham",
+      "received_date": "2022-11-04",
+      "decision_date": "2023-05-15",
+      "scale": "large",
+      "category": "mixed_use"
+    }
+  ]
+}

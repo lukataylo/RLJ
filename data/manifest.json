@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-06T21:19:20.985312+00:00",
+  "generated_at": "2026-06-07T04:42:59.671002+00:00",
   "scenario_now": "2026-06-05T08:00:00+00:00",
   "datasets": {
     "facilities": {
@@ -9,7 +9,7 @@
       "path": "data/facilities.json",
       "rows": 26,
       "sha256": "d6b868efe1bea1dfe9f3172fabd4980bb0d1dc120883080020d6317e73f6f3ea",
-      "fetched_at": "2026-06-06T21:19:20.968991+00:00",
+      "fetched_at": "2026-06-07T04:42:59.654284+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_facilities.py"
     },
@@ -20,7 +20,7 @@
       "path": "data/demand.json",
       "rows": 30,
       "sha256": "09297cd1f8cf39f57c271c48630cca2712a27a416d4c5b5cbc0f0dd7e0376ed7",
-      "fetched_at": "2026-06-06T21:19:20.973943+00:00",
+      "fetched_at": "2026-06-07T04:42:59.659163+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_demand.py"
     },
@@ -31,7 +31,7 @@
       "path": "frontend/public/data/roads.geojson",
       "rows": 586,
       "sha256": "564c9538bb832d3365971ce86104476639f06ebc7994e11a7dcab5c92644f17a",
-      "fetched_at": "2026-06-06T21:19:20.978486+00:00",
+      "fetched_at": "2026-06-07T04:42:59.663350+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_road_graph.py"
     },
@@ -58,7 +58,7 @@
       "path": "data/junctions.json",
       "rows": 30,
       "sha256": "601473a3ce9f3f3ad640eb23c515e4ae8c0b3c8b9fe70640de8d91e5e972081c",
-      "fetched_at": "2026-06-06T21:19:20.979308+00:00",
+      "fetched_at": "2026-06-07T04:42:59.664192+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_junctions.py"
     },
@@ -79,7 +79,7 @@
       "path": "data/probes_snapshot.json",
       "rows": 800,
       "sha256": "8017a6c6611cd9cc3c17edd05211d04dfd539b39dec337530874fbd04ea851de",
-      "fetched_at": "2026-06-06T21:19:20.984190+00:00",
+      "fetched_at": "2026-06-07T04:42:59.669163+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_probes.py"
     },
@@ -88,16 +88,17 @@
       "path": "data/airquality.json",
       "rows": 8,
       "sha256": "71b7c6463ce965e129b46ad45c0b60550f214ee401ba5f9aaff89df221e24357",
-      "fetched_at": "2026-06-06T21:19:20.984318+00:00",
+      "fetched_at": "2026-06-07T04:42:59.669298+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_airquality.py"
     },
     "streetworks": {
-      "source": "scheduled",
+      "source": "live-with-fallback",
+      "live": false,
       "path": "data/streetworks.json",
       "rows": 3,
-      "sha256": "3f845810696a0329e21f62e4f27122c264b4f24163b6e09a16ed6f7e90940dec",
-      "fetched_at": "2026-06-06T21:19:20.984515+00:00",
+      "sha256": "5cacfc3b20c0ce0ee9f0b86fc20b4bcd233d6c60cbd3704a858012bd3c48ed8e",
+      "fetched_at": "2026-06-07T04:42:59.669519+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_streetworks.py"
     },
@@ -106,7 +107,7 @@
       "path": "data/nhspressure.json",
       "rows": 5,
       "sha256": "8134266eb325af1cae96e8f08d64403ab6d4e0194a31916f6a0cc85ec6d664a5",
-      "fetched_at": "2026-06-06T21:19:20.984627+00:00",
+      "fetched_at": "2026-06-07T04:42:59.669631+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_nhspressure.py"
     },
@@ -115,7 +116,7 @@
       "path": "data/cycleinfra.json",
       "rows": 4,
       "sha256": "bae74b395056324ea4d2c29e466f504352b4d9bdd3c951856217c351869a5f6d",
-      "fetched_at": "2026-06-06T21:19:20.984754+00:00",
+      "fetched_at": "2026-06-07T04:42:59.669754+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_cycleinfra.py"
     },
@@ -124,7 +125,7 @@
       "path": "data/floodwarnings.json",
       "rows": 1,
       "sha256": "e9100061e7b7001b5af1a68f8e24ad38c03887c4b8dea603c90482fab455d7c2",
-      "fetched_at": "2026-06-06T21:19:20.984855+00:00",
+      "fetched_at": "2026-06-07T04:42:59.669866+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_floodwarnings.py"
     },
@@ -133,7 +134,7 @@
       "path": "data/kerbside.json",
       "rows": 5,
       "sha256": "92c6aedbfa9c6e8d9905b60ba6e995c2b5a7169f8c5c54586bc7dc2ee396abb4",
-      "fetched_at": "2026-06-06T21:19:20.985020+00:00",
+      "fetched_at": "2026-06-07T04:42:59.670029+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_kerbside.py"
     },
@@ -143,7 +144,7 @@
       "path": "data/roadsigns.json",
       "rows": 3,
       "sha256": "aac71733dcf05d510d88ac461a97427236a1777ec71455f9c547a4a5f8453f1f",
-      "fetched_at": "2026-06-06T21:19:20.985166+00:00",
+      "fetched_at": "2026-06-07T04:42:59.670187+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_roadsigns.py"
     },
@@ -153,9 +154,28 @@
       "path": "data/hazards.json",
       "rows": 5,
       "sha256": "6b84198c9497203592bcf2e0eee782c60ba9b5a36253c466a48a39b69b8d24d2",
-      "fetched_at": "2026-06-06T21:19:20.985311+00:00",
+      "fetched_at": "2026-06-07T04:42:59.670355+00:00",
       "dq_passed": true,
       "dq_suite": "tests/data_quality/test_hazards.py"
+    },
+    "planning": {
+      "source": "live-with-fallback",
+      "live": false,
+      "path": "data/planning.json",
+      "rows": 6,
+      "sha256": "7c185855dc0455cdee6e3678a9666f85650ed2bfaae3f04a0e204a1f3a9ca06f",
+      "fetched_at": "2026-06-07T04:42:59.670540+00:00",
+      "dq_passed": true,
+      "dq_suite": "tests/data_quality/test_planning.py"
+    },
+    "conditions": {
+      "source": "derived",
+      "path": "data/conditions.json",
+      "rows": 20,
+      "sha256": "4322945b18255846e2c8d56fd90aab7fdcbfe0f1507f96f0428fdc283562aa85",
+      "fetched_at": "2026-06-07T04:42:59.671000+00:00",
+      "dq_passed": true,
+      "dq_suite": "tests/data_quality/test_conditions.py"
     }
   }
 }

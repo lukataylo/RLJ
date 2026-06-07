@@ -147,11 +147,15 @@ import {
   mdiBike,
   mdiWeatherPouring,
   mdiCarBrakeAlert,
+  mdiCrane,
+  mdiCalendarClock,
 } from "@mdi/js";
 
 // Civic real-data feeds (published to /data/*.json by data/build.py).
 interface AirBorough { id: string; name: string; lat: number; lng: number; aqi: number }
 interface PointFeature { id: string; description: string; lat: number; lng: number; severity?: string }
+interface PlanningApp { id: string; description: string; lat: number; lng: number; scale?: string; authority?: string; status?: string; category?: string }
+interface Condition { id: string; category: string; title: string; severity: string; starts?: string | null; ends?: string | null; lat: number; lng: number; source?: string }
 interface CycleStation { id: string; name: string; lat: number; lng: number; capacity: number }
 interface CycleHighway { id: string; name: string; geometry: { lat: number; lng: number }[] }
 interface LoadingZone {
@@ -251,7 +255,7 @@ const DISTRICTS: { name: string; lng: number; lat: number }[] = [
 ];
 
 // Toggleable layers shown in the left control stack.
-type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "kerb" | "roadsigns" | "flood" | "cycle" | "weather" | "hazards";
+type LayerKey = "congestion" | "routes" | "incidents" | "signals" | "cctv" | "air" | "roadworks" | "kerb" | "roadsigns" | "flood" | "cycle" | "weather" | "hazards" | "planning" | "conditions";
 type LayerVis = Record<LayerKey, boolean>;
 
 const DEFAULT_VIS: LayerVis = {
@@ -268,6 +272,8 @@ const DEFAULT_VIS: LayerVis = {
   cycle: false, // TfL cycle infra + hire — default OFF
   weather: false, // RainViewer precipitation radar — default OFF
   hazards: false, // TfL live road disruptions/hazards — default OFF
+  planning: false, // major developments (planning) — default OFF
+  conditions: false, // merged upcoming-conditions feed — default OFF
 };
 
 // Cap on simultaneously rendered camera icons so a dense viewport never clutters.
@@ -303,12 +309,14 @@ interface OptionalData {
   cycleStations: CycleStation[];
   cycleHighways: CycleHighway[];
   hazards: PointFeature[];
+  planning: PlanningApp[];
+  conditions: Condition[];
 }
 
 const EMPTY_OPTIONAL: OptionalData = {
   roads: [], facilities: [], venues: [],
   air: [], roadworks: [], kerb: [], roadsigns: [], floods: [], cycleStations: [], cycleHighways: [],
-  hazards: [],
+  hazards: [], planning: [], conditions: [],
 };
 
 const EMPTY_SNAP: Snapshot = {
@@ -1122,6 +1130,46 @@ function buildLayers(
     }
   }
 
+  // Major developments (planning) — diamond markers flagging future road impact.
+  if (vis.planning && data.planning.length) {
+    const apps = data.planning.map((p) => ({ ...p, _t: "planning" as const }));
+    layers.push(
+      new ScatterplotLayer<(typeof apps)[number]>({
+        id: "planning",
+        data: apps,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: (d) => (d.scale === "major" ? 12 : 9),
+        radiusUnits: "pixels",
+        getFillColor: [156, 102, 224, 220], // violet — distinct from hazards/works
+        getLineColor: [24, 12, 40, 255],
+        lineWidthMinPixels: 2,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
+  // Upcoming conditions — the merged forward-looking feed, coloured by severity.
+  if (vis.conditions && data.conditions.length) {
+    const conds = data.conditions.map((c) => ({ ...c, _t: "condition" as const }));
+    const condRGB = (s?: string): [number, number, number] =>
+      s === "severe" ? [232, 60, 50] : s === "moderate" ? [230, 140, 40] : [60, 170, 120];
+    layers.push(
+      new ScatterplotLayer<(typeof conds)[number]>({
+        id: "conditions",
+        data: conds,
+        getPosition: (d) => [d.lng, d.lat],
+        getRadius: 9,
+        radiusUnits: "pixels",
+        getFillColor: (d) => [...condRGB(d.severity), 210] as [number, number, number, number],
+        getLineColor: [12, 20, 16, 255],
+        lineWidthMinPixels: 2,
+        stroked: true,
+        pickable: true,
+      }),
+    );
+  }
+
   // Cycle infrastructure — superhighways (cyan paths) + hire docks (small dots).
   if (vis.cycle) {
     if (data.cycleHighways.length) {
@@ -1188,6 +1236,21 @@ function tooltipFor({ object }: PickingInfo): { html: string; className: string 
       html: `<b>${h.description}</b><br/><span class="tip-dim">TfL road hazard · ${h.category ?? "disruption"} · ${h.severity ?? "moderate"}</span>`,
     };
   }
+  if (o._t === "planning") {
+    const p = object as PlanningApp;
+    return {
+      className: "deck-tip",
+      html: `<b>${p.description}</b><br/><span class="tip-dim">${p.authority ?? "LPA"} · ${p.scale ?? "major"} development · ${p.status ?? "pending"}</span>`,
+    };
+  }
+  if (o._t === "condition") {
+    const c = object as Condition;
+    const when = c.starts ? new Date(c.starts).toLocaleString("en-GB", { hour12: false }).slice(0, 17) : "ongoing";
+    return {
+      className: "deck-tip",
+      html: `<b>${c.title}</b><br/><span class="tip-dim">${c.category} · ${c.severity} · ${when}</span>`,
+    };
+  }
   if ("restriction" in o && "max_stay_min" in o) {
     const k = object as LoadingZone;
     return {
@@ -1245,6 +1308,8 @@ const LEFT_LAYERS: { key: LayerKey; label: string; icon: string; testid: string 
   { key: "cycle", label: "Cycle", icon: mdiBike, testid: "layer-toggle-cycle" },
   { key: "weather", label: "Weather", icon: mdiWeatherPouring, testid: "layer-toggle-weather" },
   { key: "hazards", label: "Hazards", icon: mdiCarBrakeAlert, testid: "layer-toggle-hazards" },
+  { key: "conditions", label: "Upcoming", icon: mdiCalendarClock, testid: "layer-toggle-conditions" },
+  { key: "planning", label: "Works", icon: mdiCrane, testid: "layer-toggle-planning" },
 ];
 
 export default function MapView() {
@@ -1443,7 +1508,7 @@ export default function MapView() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, kerbRaw, signsRaw, fldRaw, cycRaw, hazRaw] = await Promise.all([
+      const [roadsGj, facRaw, evtRaw, aqRaw, swRaw, kerbRaw, signsRaw, fldRaw, cycRaw, hazRaw, plnRaw, cndRaw] = await Promise.all([
         fetchOptionalJson("/data/roads.geojson"),
         fetchOptional<unknown>("/data/facilities.json"),
         fetchOptional<unknown>("/data/events.json"),
@@ -1454,6 +1519,8 @@ export default function MapView() {
         fetchOptional<{ floods?: PointFeature[] }>("/data/floodwarnings.json"),
         fetchOptional<{ stations?: CycleStation[]; highways?: CycleHighway[] }>("/data/cycleinfra.json"),
         fetchOptional<{ hazards?: PointFeature[] }>("/data/hazards.json"),
+        fetchOptional<{ applications?: PlanningApp[] }>("/data/planning.json"),
+        fetchOptional<{ conditions?: Condition[] }>("/data/conditions.json"),
       ]);
       if (cancelled) return;
       const roads = parseRoads(roadsGj);
@@ -1467,7 +1534,9 @@ export default function MapView() {
       const cycleStations = cycRaw?.stations ?? [];
       const cycleHighways = cycRaw?.highways ?? [];
       const hazards = hazRaw?.hazards ?? [];
-      setOptional({ roads, facilities, venues, air, roadworks, kerb, roadsigns, floods, cycleStations, cycleHighways, hazards });
+      const planning = plnRaw?.applications ?? [];
+      const conditions = cndRaw?.conditions ?? [];
+      setOptional({ roads, facilities, venues, air, roadworks, kerb, roadsigns, floods, cycleStations, cycleHighways, hazards, planning, conditions });
       const loaded: string[] = [];
       if (roads.length) loaded.push(`${roads.length} roads`);
       if (facilities.length) loaded.push(`${facilities.length} facilities`);
@@ -1479,6 +1548,8 @@ export default function MapView() {
       if (floods.length) loaded.push(`${floods.length} flood warnings`);
       if (cycleHighways.length) loaded.push(`${cycleHighways.length} cycle routes`);
       if (hazards.length) loaded.push(`${hazards.length} road hazards`);
+      if (planning.length) loaded.push(`${planning.length} major works`);
+      if (conditions.length) loaded.push(`${conditions.length} upcoming conditions`);
       if (loaded.length) {
         useStore.getState().pushLog({
           level: "info",

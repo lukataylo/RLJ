@@ -206,6 +206,17 @@ export interface AgentTask {
   action?: AgentAction | null;
 }
 
+// ---- GET /healthz — service + active-LLM provider, so the UI can show the on-prem
+// DGX Spark indicator only when the model runs locally. ----
+export interface Health {
+  status: string;
+  routing_service: boolean;
+  llm_provider: "local" | "cloud" | "none";
+  llm_model: string | null;
+  local_model: boolean;
+  cloud_model: boolean;
+}
+
 // ---- Orchestrator state snapshot (GET /state and WS "state" payload) ----
 export interface StateSnapshot {
   jobs: DeliveryJob[];

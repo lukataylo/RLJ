@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-06-07T03:51:09.770603+00:00",
+  "generated_at": "2026-06-07T04:44:51.048573+00:00",
   "summary": {
-    "total": 93,
-    "verified": 92,
+    "total": 100,
+    "verified": 99,
     "failing": 0,
     "unverified": 1,
-    "must_pass_total": 81,
-    "must_pass_verified": 81,
+    "must_pass_total": 88,
+    "must_pass_verified": 88,
     "must_pass_green": true,
-    "tests_passed": 257,
+    "tests_passed": 272,
     "tests_failed": 0
   },
   "claims": [
@@ -28,7 +28,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_routing_sla.py::test_beats_greedy",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0006
     },
     {
       "id": "eta-sane",
@@ -55,7 +55,7 @@
       "must_pass": false,
       "test": "tests/backtests/test_routing_sla.py::test_golden_no_regression",
       "status": "verified",
-      "duration_s": 0.0009
+      "duration_s": 0.0002
     },
     {
       "id": "plan-schema",
@@ -64,7 +64,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_plan_validates",
       "status": "verified",
-      "duration_s": 0.0841
+      "duration_s": 0.0843
     },
     {
       "id": "job-schema",
@@ -73,7 +73,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_job_roundtrip_validates",
       "status": "verified",
-      "duration_s": 0.0834
+      "duration_s": 0.0841
     },
     {
       "id": "optimize-contract",
@@ -82,7 +82,7 @@
       "must_pass": true,
       "test": "tests/contracts/test_schema_conformance.py::test_optimize_endpoint_contract",
       "status": "verified",
-      "duration_s": 0.0853
+      "duration_s": 0.086
     },
     {
       "id": "data-facilities-bbox",
@@ -91,7 +91,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_within_london_bbox",
       "status": "verified",
-      "duration_s": 0.0035
+      "duration_s": 0.0008
     },
     {
       "id": "data-facilities-complete",
@@ -100,7 +100,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_facilities.py::test_required_fields_and_unique",
       "status": "verified",
-      "duration_s": 0.0115
+      "duration_s": 0.0083
     },
     {
       "id": "data-demand-valid",
@@ -109,7 +109,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_demand.py::test_demand_schema_and_windows",
       "status": "verified",
-      "duration_s": 0.0064
+      "duration_s": 0.0067
     },
     {
       "id": "data-manifest-gate",
@@ -118,7 +118,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_manifest.py::test_only_verified_data_loadable",
       "status": "verified",
-      "duration_s": 0.0627
+      "duration_s": 0.0733
     },
     {
       "id": "data-roadgraph",
@@ -145,7 +145,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_nhs_facilities.py",
       "status": "verified",
-      "duration_s": 0.0024
+      "duration_s": 0.0025
     },
     {
       "id": "maps-offline-real",
@@ -172,7 +172,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_anticipation_beats_blind",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0
     },
     {
       "id": "research-beats-greedy",
@@ -181,7 +181,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_policy_value.py::test_beats_greedy_directionally",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0
     },
     {
       "id": "research-beats-ortools",
@@ -292,6 +292,60 @@
       "duration_s": 0.0001
     },
     {
+      "id": "data-planning",
+      "statement": "Major developments (planning.data.gov.uk, live-with-fallback) are schema-valid, in London, and flag future road impact",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_planning.py::test_planning_bundle_sane",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-streetworks-planned",
+      "statement": "Planned street/road works are extracted from the TfL Road API with start/end dates (live-with-fallback)",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_streetworks.py::test_planned_streetworks_normalizer_extracts_dates",
+      "status": "verified",
+      "duration_s": 0.0001
+    },
+    {
+      "id": "data-conditions",
+      "statement": "The upcoming-conditions pipeline merges works, bridge lifts, events, floods and major developments into one schema-valid forward-looking feed",
+      "category": "data",
+      "must_pass": true,
+      "test": "tests/data_quality/test_conditions.py::test_conditions_feed_sane",
+      "status": "verified",
+      "duration_s": 0.0003
+    },
+    {
+      "id": "conditions-upcoming-endpoint",
+      "statement": "GET /conditions/upcoming serves the merged forward-looking feed, horizon- and proximity-filterable, and never 5xx",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/unit/test_conditions_endpoint.py::test_conditions_upcoming_returns_feed",
+      "status": "verified",
+      "duration_s": 0.0017
+    },
+    {
+      "id": "scenario-bridge-closure",
+      "statement": "Operator can inject a Tower Bridge closure: it enters live state, NemoClaw narrates it with a reasoning chain and offers a reroute decision card targeting the nearest courier",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/unit/test_bridge_closure.py::test_bridge_closure_injects_and_offers_reroute",
+      "status": "verified",
+      "duration_s": 0.0016
+    },
+    {
+      "id": "scenario-bridge-reroute-replans",
+      "statement": "Confirming the Tower Bridge reroute card hits the redirect endpoint and re-plans via the routing seam",
+      "category": "e2e",
+      "must_pass": true,
+      "test": "tests/unit/test_bridge_closure.py::test_bridge_closure_reroute_replans",
+      "status": "verified",
+      "duration_s": 0.0164
+    },
+    {
       "id": "bench-latency-p50",
       "statement": "Real-time replan p50 < 400ms on CPU (GB10 target <50ms)",
       "category": "benchmark",
@@ -307,7 +361,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_routing_latency_p95_cpu",
       "status": "verified",
-      "duration_s": 0.0001
+      "duration_s": 0.0002
     },
     {
       "id": "bench-scale-100",
@@ -316,7 +370,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_scale_100_jobs_throughput",
       "status": "verified",
-      "duration_s": 7.6168
+      "duration_s": 7.6218
     },
     {
       "id": "bench-anticipation",
@@ -325,7 +379,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_anticipation_lift_and_significance",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0006
     },
     {
       "id": "bench-flywheel",
@@ -343,7 +397,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_telemetry_ingest_10k_under_2s",
       "status": "verified",
-      "duration_s": 0.0372
+      "duration_s": 0.0377
     },
     {
       "id": "bench-data-integrity",
@@ -352,7 +406,7 @@
       "must_pass": true,
       "test": "tests/benchmarks/test_benchmarks.py::test_every_dataset_dq_passed_and_loadable",
       "status": "verified",
-      "duration_s": 0.005
+      "duration_s": 0.0056
     },
     {
       "id": "autonomy-loop",
@@ -370,7 +424,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_optimality_gap_vs_ortools",
       "status": "verified",
-      "duration_s": 10.477
+      "duration_s": 10.4785
     },
     {
       "id": "solver-scales",
@@ -379,7 +433,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_solver_quality.py::test_scales_to_large_fleets",
       "status": "verified",
-      "duration_s": 3.1045
+      "duration_s": 3.106
     },
     {
       "id": "flywheel-value",
@@ -388,7 +442,7 @@
       "must_pass": true,
       "test": "tests/backtests/test_flywheel.py::test_more_drivers_help",
       "status": "verified",
-      "duration_s": 0.0006
+      "duration_s": 0.0005
     },
     {
       "id": "flywheel-monotone",
@@ -415,7 +469,7 @@
       "must_pass": true,
       "test": "tests/data_quality/test_probes.py::test_probe_pings_valid",
       "status": "verified",
-      "duration_s": 0.0184
+      "duration_s": 0.0186
     },
     {
       "id": "data-weather",
@@ -496,7 +550,7 @@
       "must_pass": true,
       "test": "tests/voice/test_voice_flows.py::test_intake_submit_happy",
       "status": "verified",
-      "duration_s": 0.0005
+      "duration_s": 0.0004
     },
     {
       "id": "voice-elevenlabs-guard",
@@ -514,7 +568,7 @@
       "must_pass": true,
       "test": "tests/unit/test_nemo_agent.py::test_nemo_agent_offline_narrates_and_injects",
       "status": "verified",
-      "duration_s": 0.0347
+      "duration_s": 0.0359
     },
     {
       "id": "nemoclaw-online",
@@ -523,7 +577,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_nemoclaw_online_narration",
       "status": "verified",
-      "duration_s": 0.0021
+      "duration_s": 0.0031
     },
     {
       "id": "courier-vehicle-type",
@@ -532,7 +586,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_nemoclaw_e2e.py::test_courier_vehicle_type_roundtrips",
       "status": "verified",
-      "duration_s": 0.0126
+      "duration_s": 0.0117
     },
     {
       "id": "ui-delivery-list",
@@ -541,7 +595,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_delivery_list_and_cards",
       "status": "verified",
-      "duration_s": 7.8152
+      "duration_s": 7.4961
     },
     {
       "id": "ui-click-highlights-route",
@@ -550,7 +604,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_click_delivery_highlights",
       "status": "verified",
-      "duration_s": 10.7739
+      "duration_s": 11.7122
     },
     {
       "id": "brand-landing",
@@ -559,7 +613,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_landing_is_on_brand",
       "status": "verified",
-      "duration_s": 0.8829
+      "duration_s": 0.7955
     },
     {
       "id": "brand-login",
@@ -568,7 +622,7 @@
       "must_pass": false,
       "test": "tests/e2e/test_brand_site_e2e.py::test_login_is_on_brand_and_rejects_bad_creds",
       "status": "verified",
-      "duration_s": 0.8527
+      "duration_s": 0.8161
     },
     {
       "id": "signals-roundtrip",
@@ -577,7 +631,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_post_get_roundtrip",
       "status": "verified",
-      "duration_s": 0.0115
+      "duration_s": 0.0117
     },
     {
       "id": "signals-broadcast",
@@ -595,7 +649,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_signals_e2e.py::test_signals_malformed_422",
       "status": "verified",
-      "duration_s": 0.0222
+      "duration_s": 0.0336
     },
     {
       "id": "signal-agent-parse",
@@ -604,7 +658,7 @@
       "must_pass": true,
       "test": "tests/unit/test_signal_agent.py::test_ask_nemotron_parses_and_filters",
       "status": "verified",
-      "duration_s": 0.0002
+      "duration_s": 0.0001
     },
     {
       "id": "signal-agent-robust",
@@ -622,7 +676,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_ask_tasks_answer_flow",
       "status": "verified",
-      "duration_s": 2.2626
+      "duration_s": 2.5095
     },
     {
       "id": "agent-reasoning-split",
@@ -631,7 +685,7 @@
       "must_pass": true,
       "test": "tests/unit/test_agent_chat.py::test_ask_strips_reasoning_and_proposes_redirect",
       "status": "verified",
-      "duration_s": 0.002
+      "duration_s": 0.0021
     },
     {
       "id": "agent-decision-card",
@@ -640,7 +694,7 @@
       "must_pass": true,
       "test": "tests/unit/test_agent_chat.py::test_ask_fallback_still_proposes_action_from_question",
       "status": "verified",
-      "duration_s": 0.0016
+      "duration_s": 0.0017
     },
     {
       "id": "agent-decision-card-ui",
@@ -649,7 +703,16 @@
       "must_pass": false,
       "test": "tests/e2e/test_ui_playwright.py::test_agent_decision_card_reroute",
       "status": "verified",
-      "duration_s": 12.7056
+      "duration_s": 13.4035
+    },
+    {
+      "id": "llm-provider-indicator",
+      "statement": "/healthz reports the active LLM provider (local DGX vs cloud) so the UI shows the on-prem DGX Spark indicator only when the model truly runs locally, and hides it for a cloud model",
+      "category": "contract",
+      "must_pass": true,
+      "test": "tests/unit/test_llm_config.py::test_healthz_reports_cloud_model",
+      "status": "verified",
+      "duration_s": 0.0434
     },
     {
       "id": "driver-directions-ask",
@@ -667,7 +730,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_fleet_assessments_roundtrip_and_broadcast",
       "status": "verified",
-      "duration_s": 2.04
+      "duration_s": 2.0441
     },
     {
       "id": "courier-redirect",
@@ -676,7 +739,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_redirect_known_and_unknown",
       "status": "verified",
-      "duration_s": 0.0309
+      "duration_s": 0.0322
     },
     {
       "id": "cctv-cameras",
@@ -685,7 +748,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_agent_channel_e2e.py::test_cctv_cameras_shape",
       "status": "verified",
-      "duration_s": 0.1535
+      "duration_s": 0.2257
     },
     {
       "id": "agent-answers-tasks",
@@ -712,7 +775,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_register_then_login_returns_jwt_and_me_works",
       "status": "verified",
-      "duration_s": 0.6312
+      "duration_s": 0.6283
     },
     {
       "id": "auth-protects-writes",
@@ -721,7 +784,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_with_token_succeeds",
       "status": "verified",
-      "duration_s": 0.0218
+      "duration_s": 0.0226
     },
     {
       "id": "auth-rejects-no-token",
@@ -730,7 +793,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_protected_write_without_token_returns_401",
       "status": "verified",
-      "duration_s": 0.013
+      "duration_s": 0.0121
     },
     {
       "id": "auth-wrong-password",
@@ -739,7 +802,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_login_with_wrong_password_returns_401",
       "status": "verified",
-      "duration_s": 0.2034
+      "duration_s": 0.2043
     },
     {
       "id": "auth-backward-compat",
@@ -748,7 +811,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_auth.py::test_post_jobs_works_without_token_when_auth_off",
       "status": "verified",
-      "duration_s": 0.0211
+      "duration_s": 0.0218
     },
     {
       "id": "completeness-no-stubs",
@@ -757,7 +820,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_notimplemented_outside_allowlist",
       "status": "verified",
-      "duration_s": 0.0108
+      "duration_s": 0.0035
     },
     {
       "id": "completeness-no-unwired-buttons",
@@ -766,7 +829,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_no_stubs.py::test_no_unwired_buttons",
       "status": "verified",
-      "duration_s": 0.0024
+      "duration_s": 0.0026
     },
     {
       "id": "completeness-endpoints",
@@ -775,7 +838,7 @@
       "must_pass": true,
       "test": "tests/completeness/test_endpoints_implemented.py::test_orchestrator_rest_endpoints_implemented",
       "status": "verified",
-      "duration_s": 0.0129
+      "duration_s": 0.0123
     },
     {
       "id": "completeness-ws-emitted",
@@ -793,7 +856,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_close_road_reroutes",
       "status": "verified",
-      "duration_s": 0.6293
+      "duration_s": 0.6321
     },
     {
       "id": "voice-loop",
@@ -802,7 +865,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_demo_flow.py::test_voice_call_emitted",
       "status": "verified",
-      "duration_s": 0.2
+      "duration_s": 0.1298
     },
     {
       "id": "e2e-flywheel-loop",
@@ -811,7 +874,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_flywheel_e2e.py::test_telemetry_flywheel_loop",
       "status": "verified",
-      "duration_s": 0.31
+      "duration_s": 0.3103
     },
     {
       "id": "unhappy-cold-safety",
@@ -820,7 +883,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_infeasible_cold_job_unassigned_no_crash",
       "status": "verified",
-      "duration_s": 0.2002
+      "duration_s": 0.1224
     },
     {
       "id": "unhappy-routing-fallback",
@@ -829,7 +892,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_routing_down_uses_greedy_fallback",
       "status": "verified",
-      "duration_s": 0.0583
+      "duration_s": 0.0615
     },
     {
       "id": "unhappy-malformed-422",
@@ -838,7 +901,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_malformed_job_is_422_and_system_healthy",
       "status": "verified",
-      "duration_s": 0.04
+      "duration_s": 0.052
     },
     {
       "id": "unhappy-bad-telemetry",
@@ -847,7 +910,7 @@
       "must_pass": true,
       "test": "tests/e2e/test_unhappy.py::test_bad_pings_rejected_good_accepted",
       "status": "verified",
-      "duration_s": 0.02
+      "duration_s": 0.0201
     }
   ]
 }

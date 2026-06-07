@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
-import { seedDemo, clearDemo } from "../api";
+import { seedDemo, clearDemo, getHealth, injectBridgeClosure } from "../api";
 import DemoControls from "./DemoControls";
 import ThemeToggle from "./ThemeToggle";
 import RouteSourceToggle from "./RouteSourceToggle";
@@ -31,6 +31,9 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
   const [userOpen, setUserOpen] = useState(false);
   const [demoOn, setDemoOn] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
+  // Whether a cloud model is active. Defaults false so the on-prem DGX Spark indicator
+  // shows on localhost / local model and is hidden only once we learn it's a cloud model.
+  const [cloudModel, setCloudModel] = useState(false);
   const userRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -44,6 +47,22 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
   useEffect(() => {
     if ((plan?.routes?.length ?? 0) > 0) setDemoOn(true);
   }, [plan]);
+
+  // Ask the orchestrator which LLM is active; re-check periodically in case it restarts
+  // into a different mode (local DGX vs cloud). Hide the DGX indicator when cloud.
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      const h = await getHealth();
+      if (alive && h) setCloudModel(h.cloud_model);
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const summary = status.report?.summary;
   const mustPassGreen = summary?.must_pass_green ?? false;
@@ -79,10 +98,14 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
         <img src="/pulsego.svg" className="brand-mark" alt="" aria-hidden />
         <div className="brand-lines">
           <div className="brand-name">Pulse<b>Go</b></div>
-          <div className="brand-sub">
-            <span className={`prov-dot ${connected ? "live" : "off"}`} />
-            Local · DGX Spark GB10 · {solveMs != null ? Math.round(solveMs) : "—"} ms
-          </div>
+          {/* On-prem DGX Spark indicator — shown only when the model runs locally;
+              hidden when a cloud model is active (e.g. OpenAI in production). */}
+          {!cloudModel && (
+            <div className="brand-sub" data-testid="dgx-indicator">
+              <span className={`prov-dot ${connected ? "live" : "off"}`} />
+              Local · DGX Spark GB10 · {solveMs != null ? Math.round(solveMs) : "—"} ms
+            </div>
+          )}
         </div>
       </div>
 
@@ -156,6 +179,18 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
 
             <div className="user-dd-sep" />
             <div className="user-dd-section">Scenario actions</div>
+            <button
+              type="button"
+              className="user-dd-item"
+              data-testid="scenario-bridge"
+              role="menuitem"
+              onClick={() => {
+                setUserOpen(false);
+                void injectBridgeClosure().catch(() => {});
+              }}
+            >
+              Tower Bridge closure
+            </button>
             <DemoControls />
 
             <div className="user-dd-sep" />

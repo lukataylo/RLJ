@@ -536,6 +536,63 @@ def validate_roadsigns(payload: dict) -> dict:
     return payload
 
 
+def validate_planning(payload: dict) -> dict:
+    """Validate major-development planning records (data/planning.py)."""
+    if not payload:
+        raise AssertionError("Planning payload is empty")
+    for key in ("source", "fetched_at", "provider", "applications"):
+        if key not in payload:
+            raise AssertionError(f"Planning missing key: {key}")
+    apps = payload["applications"]
+    if not apps:
+        raise AssertionError("Planning has no applications")
+    seen: set[str] = set()
+    for a in apps:
+        for k in ("id", "description", "lat", "lng", "scale", "category"):
+            if k not in a:
+                raise AssertionError(f"Planning application missing key: {k}")
+        if a["id"] in seen:
+            raise AssertionError(f"duplicate planning id: {a['id']}")
+        seen.add(a["id"])
+        if not point_in_bbox(a["lat"], a["lng"]):
+            raise AssertionError(f"Planning coordinate {(a['lat'], a['lng'])} outside London bbox")
+        if not str(a["description"]).strip():
+            raise AssertionError(f"Planning {a['id']} has empty description")
+        if a["scale"] not in ("large", "major"):
+            raise AssertionError(f"Planning scale invalid: {a['scale']}")
+    return payload
+
+
+def validate_conditions(payload: dict) -> dict:
+    """Validate the merged upcoming-conditions feed (data/conditions.py)."""
+    if not payload:
+        raise AssertionError("Conditions payload is empty")
+    for key in ("source", "fetched_at", "provider", "scenario_now", "conditions"):
+        if key not in payload:
+            raise AssertionError(f"Conditions missing key: {key}")
+    conditions = payload["conditions"]
+    if not conditions:
+        raise AssertionError("Conditions feed is empty")
+    allowed_cat = ("works", "bridge", "event", "flood", "development")
+    seen: set[str] = set()
+    for c in conditions:
+        for k in ("id", "category", "title", "severity", "lat", "lng"):
+            if k not in c:
+                raise AssertionError(f"Condition missing key: {k}")
+        if c["id"] in seen:
+            raise AssertionError(f"duplicate condition id: {c['id']}")
+        seen.add(c["id"])
+        if c["category"] not in allowed_cat:
+            raise AssertionError(f"Condition category invalid: {c['category']}")
+        if c["severity"] not in ("low", "moderate", "severe"):
+            raise AssertionError(f"Condition severity invalid: {c['severity']}")
+        if not point_in_bbox(c["lat"], c["lng"]):
+            raise AssertionError(f"Condition coordinate {(c['lat'], c['lng'])} outside London bbox")
+        if not str(c["title"]).strip():
+            raise AssertionError(f"Condition {c['id']} has empty title")
+    return payload
+
+
 def validate_hazards(payload: dict) -> dict:
     """Validate TfL live road-disruption / hazard records (data/hazards.py)."""
     if not payload:
