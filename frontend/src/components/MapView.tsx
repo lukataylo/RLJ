@@ -598,13 +598,15 @@ function buildLayers(
     focusRouteActive ? 10 : !highlightActive ? 60 : s.highlighted ? 130 : 16;
   const segMainAlpha = (s: RouteSeg) =>
     focusRouteActive ? 28 : !highlightActive ? 215 : s.highlighted ? 255 : 55;
-  // Highlighted (focused/selected) routes render in vivid blue for clarity; every
-  // other route uses the live Waze traffic colour when available, else the
-  // neutral/red congestion fallback.
+  // Highlighted (focused/selected) routes render in vivid blue so the *optimized* route
+  // stands out; every other (background) route uses the live Waze traffic colour when
+  // available, else a neutral GREY (was a blue-grey that read as blue and competed with
+  // the optimized route) — red only for a congested segment.
+  const ROUTE_BG_GREY: [number, number, number] = [146, 146, 146];
   const segColor = (s: RouteSeg): [number, number, number] =>
     s.highlighted
       ? (ROUTE_HIGHLIGHT_RGB as [number, number, number])
-      : (wazeRGB(s.cong) ?? (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_NEUTRAL_RGB));
+      : (wazeRGB(s.cong) ?? (s.congested ? ROUTE_CONGESTED_RGB : ROUTE_BG_GREY));
 
   if (vis.routes && routeSegs.length) {
     layers.push(
