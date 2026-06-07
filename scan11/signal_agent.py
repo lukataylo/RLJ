@@ -57,6 +57,41 @@ def _get_json(url: str, timeout: float = 8.0):
         return json.loads(r.read().decode())
 
 
+def _match_model(desired: str, available: list[str]) -> str:
+    """Pick the served Ollama tag that best matches ``desired`` so the operator can use
+    ``nemotron``, ``nemotron:latest`` and ``nemotron3:33b`` interchangeably. Order: exact
+    -> ``<base>:latest`` -> same base any tag -> base-token overlap -> unchanged. (Mirrors
+    orchestrator/llm.py; duplicated rather than cross-imported to keep the agent standalone.)"""
+    if not available or desired in available:
+        return desired
+    base = desired.split(":", 1)[0].lower()
+    for n in available:
+        if n.lower() == f"{base}:latest":
+            return n
+    for n in available:
+        if n.split(":", 1)[0].lower() == base:
+            return n
+    for n in available:
+        nb = n.split(":", 1)[0].lower()
+        if base and (base in nb or nb in base):
+            return n
+    return desired
+
+
+def _resolve_ollama_model() -> str:
+    """Resolve ``MODEL`` against Ollama's live ``/api/tags`` (local backend only). Falls
+    back to the configured name on any failure, so a missing tag list never blocks start."""
+    if LLM_STYLE != "ollama":
+        return MODEL
+    try:
+        tags = _get_json(f"{LLM_BASE_URL}/api/tags", timeout=5.0)
+        names = [m.get("name", "") for m in tags.get("models", [])]
+        return _match_model(MODEL, [n for n in names if n])
+    except Exception as e:  # noqa: BLE001 - tags unreachable -> use configured name as-is
+        print(f"[warn] could not list Ollama models ({e}); using model={MODEL}", flush=True)
+        return MODEL
+
+
 def _post_json(url: str, payload: dict, timeout: float = 10.0, headers: dict | None = None):
     data = json.dumps(payload).encode()
     h = {"content-type": "application/json", **(headers or {})}
@@ -191,6 +226,10 @@ def assess_drivers(state: dict, cells: list[dict]) -> None:
 
 def main():
     tick_s = float(os.environ.get("TICK_S", str(INTERVAL_S if INTERVAL_S <= 20 else 12)))
+    # Resolve the configured model to whatever nemotron tag Ollama actually serves, once at
+    # startup, so MODEL=nemotron reaches nemotron:latest OR nemotron3:33b transparently.
+    global MODEL
+    MODEL = _resolve_ollama_model()
     print(f"signal_agent: orch={ORCH} ollama={OLLAMA} model={MODEL} tick={tick_s}s", flush=True)
     tick = 0
     while True:

@@ -187,6 +187,92 @@ def test_chat_local_hits_ollama(monkeypatch):
     assert "ctx" in cap["json"]["prompt"]
 
 
+# ------------------------------------------------------- Ollama model-name resolution
+@pytest.mark.parametrize("desired,served,expected", [
+    # exact tag wins
+    ("nemotron3:33b", ["nemotron3:33b", "nemotron:latest"], "nemotron3:33b"),
+    # bare "nemotron" -> nemotron:latest when present
+    ("nemotron", ["nemotron3:33b", "nemotron:latest"], "nemotron:latest"),
+    # bare "nemotron" reaches nemotron3:33b when :latest is absent (the key case)
+    ("nemotron", ["nemotron3:33b"], "nemotron3:33b"),
+    # "nemotron3:33b" requested but only nemotron:latest served -> token overlap
+    ("nemotron3:33b", ["nemotron:latest"], "nemotron:latest"),
+    # same base, non-latest tag
+    ("nemotron3", ["nemotron3:33b"], "nemotron3:33b"),
+    # no models served -> unchanged (let Ollama decide / fail to offline fallback)
+    ("nemotron", [], "nemotron"),
+    # nothing nemotron-ish -> unchanged
+    ("nemotron", ["llama3:8b", "qwen:7b"], "nemotron"),
+])
+def test_match_model_interchangeable(desired, served, expected):
+    assert llm._match_model(desired, served) == expected
+
+
+def _install_fake_httpx_with_tags(monkeypatch, served, gen_body):
+    """Fake httpx.Client supporting GET /api/tags (model list) and POST /api/generate."""
+    cap: dict = {}
+
+    class _Client:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def get(self, url, **k):
+            cap["get_url"] = url
+            return _FakeResp({"models": [{"name": n} for n in served]})
+
+        def post(self, url, json=None, headers=None):
+            cap["json"] = json
+            return _FakeResp(gen_body)
+
+    monkeypatch.setattr(llm.httpx, "Client", _Client)
+    return cap
+
+
+def test_resolve_model_reaches_served_nemotron(monkeypatch):
+    """End-to-end: configured MODEL=nemotron resolves to the served nemotron3:33b tag."""
+    monkeypatch.setenv("LOCAL", "true")
+    monkeypatch.setenv("OLLAMA", "http://gb10:11434")
+    monkeypatch.setenv("MODEL", "nemotron")
+    llm._MODEL_CACHE.clear()
+    cap = _install_fake_httpx_with_tags(
+        monkeypatch, ["nemotron3:33b"], {"response": json.dumps({"ok": True})})
+    out = llm.complete_json("parse")
+    assert out == {"ok": True}
+    assert cap["get_url"] == "http://gb10:11434/api/tags"
+    assert cap["json"]["model"] == "nemotron3:33b"   # reached the served tag, not "nemotron"
+    llm._MODEL_CACHE.clear()
+
+
+def test_resolve_model_falls_back_when_tags_unreachable(monkeypatch):
+    """If /api/tags can't be read, the configured name is used verbatim (old behaviour)."""
+    monkeypatch.setenv("MODEL", "nemotron")
+    monkeypatch.setenv("OLLAMA", "http://gb10:11434")
+    llm._MODEL_CACHE.clear()
+
+    class _Boom:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def get(self, *a, **k):
+            raise RuntimeError("tags down")
+
+    monkeypatch.setattr(llm.httpx, "Client", _Boom)
+    assert llm.resolve_model() == "nemotron"
+    llm._MODEL_CACHE.clear()
+
+
 # --------------------------------------------------------------------------- OpenAI (prod)
 def _openai_body(content):
     return {"choices": [{"message": {"content": content}}]}
