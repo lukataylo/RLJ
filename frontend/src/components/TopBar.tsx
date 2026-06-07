@@ -109,30 +109,28 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
         </div>
       </div>
 
-      {/* RIGHT — theme toggle next to the account avatar */}
+      {/* RIGHT — theme toggle next to the account avatar. The controls menu is always
+          available (Demo mode, Verification, Scenario actions) — it does not require a
+          login; account-only items (email, Log out) are gated on the token below. */}
       <div className="account-pill glass" ref={userRef}>
         <ThemeToggle />
-        {token && (
-          <>
-            <span className="account-sep" />
-            <button
-              type="button"
-              className="nav-avatar"
-              data-testid="user-menu"
-              aria-haspopup="menu"
-              aria-expanded={userOpen}
-              aria-label="Account & controls"
-              title={userLabel}
-              onClick={() => setUserOpen((v) => !v)}
-            >
-              {initial}
-            </button>
-          </>
-        )}
-        {token && userOpen && (
+        <span className="account-sep" />
+        <button
+          type="button"
+          className="nav-avatar"
+          data-testid="user-menu"
+          aria-haspopup="menu"
+          aria-expanded={userOpen}
+          aria-label="Account & controls"
+          title={token ? userLabel : "Controls"}
+          onClick={() => setUserOpen((v) => !v)}
+        >
+          {token ? initial : "≡"}
+        </button>
+        {userOpen && (
           <div className="user-dropdown glass" role="menu">
-            <div className="user-dd-email" title={userLabel}>{userLabel}</div>
-            {role && <div className="user-dd-role">{role}</div>}
+            {token && <div className="user-dd-email" title={userLabel}>{userLabel}</div>}
+            {token && role && <div className="user-dd-role">{role}</div>}
 
             <button
               type="button"
@@ -193,16 +191,20 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
             </button>
             <DemoControls />
 
-            <div className="user-dd-sep" />
-            <button
-              type="button"
-              className="user-dd-item"
-              data-testid="btn-logout"
-              role="menuitem"
-              onClick={handleLogout}
-            >
-              Log out
-            </button>
+            {token && (
+              <>
+                <div className="user-dd-sep" />
+                <button
+                  type="button"
+                  className="user-dd-item"
+                  data-testid="btn-logout"
+                  role="menuitem"
+                  onClick={handleLogout}
+                >
+                  Log out
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

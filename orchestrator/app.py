@@ -63,7 +63,15 @@ _CORS_ORIGINS = [o.strip() for o in os.environ.get(
     "CORS_ORIGINS",
     "http://localhost:5173,http://localhost:5174,"
     "http://127.0.0.1:5173,http://127.0.0.1:5174").split(",") if o.strip()]
-app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS, allow_credentials=True,
+# Also allow any localhost / private-LAN origin on any port, so the console + driver PWA
+# work when opened from a phone/another machine on the same network during the demo
+# (e.g. http://10.x.x.x:5173). Prod still uses the explicit CORS_ORIGINS allowlist.
+_CORS_ORIGIN_REGEX = os.environ.get(
+    "CORS_ORIGIN_REGEX",
+    r"https?://(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?")
+app.add_middleware(CORSMiddleware, allow_origins=_CORS_ORIGINS,
+                   allow_origin_regex=_CORS_ORIGIN_REGEX, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
 
