@@ -107,11 +107,12 @@ function courierOffset(id: string): number {
   return h / 997;
 }
 
-// Realistic cruise speed per vehicle (m/s). Driving the animation off a constant speed
-// (period ∝ actual path length) means a courier on a long route no longer blurs across
-// London faster than one on a short hop — they all move at a believable pace.
-const SPEED_MPS: Record<string, number> = { van: 8, scooter: 9, bike: 5 }; // ~29/32/18 km/h
-const MIN_TRAVERSE_S = 150; // floor so very short paths don't teleport
+// City-traffic cruise speed per vehicle (m/s) — deliberately slow/realistic for central
+// London (~13–16 km/h average in traffic). Used only as a fallback when a route has no
+// scheduled ETAs to derive the pace from.
+const SPEED_MPS: Record<string, number> = { van: 3.6, scooter: 4.2, bike: 2.8 };
+const MIN_TRAVERSE_S = 360; // floor (6 min): a courier never crosses its route faster
+const MAX_TRAVERSE_S = 1800; // ceiling (30 min): keep some visible motion over the demo
 
 // Approximate polyline length in metres (London-local equirectangular projection).
 function pathMeters(coords: LngLat[]): number {
@@ -127,6 +128,26 @@ function pathMeters(coords: LngLat[]): number {
   return m;
 }
 
+// Seconds to traverse a courier's route once. Prefers the REAL scheduled duration from
+// the demo data (first→last stop ETA), so the dot's pace matches the plan; falls back to
+// a slow constant city speed over the path length. Always clamped to a believable range.
+function courierTraverseSeconds(
+  c: Courier,
+  plan: Plan | null,
+  coords: LngLat[],
+): number {
+  const route = plan?.routes?.find((r) => r.courier_id === c.id);
+  const etas = (route?.stops ?? [])
+    .map((s) => (s.eta ? Date.parse(s.eta) : NaN))
+    .filter((n) => !Number.isNaN(n));
+  if (etas.length >= 2) {
+    const spanSec = (Math.max(...etas) - Math.min(...etas)) / 1000;
+    if (spanSec > 0) return Math.min(MAX_TRAVERSE_S, Math.max(MIN_TRAVERSE_S, spanSec));
+  }
+  const speed = SPEED_MPS[c.vehicle_type ?? "van"] ?? 3.6;
+  return Math.min(MAX_TRAVERSE_S, Math.max(MIN_TRAVERSE_S, pathMeters(coords) / speed));
+}
+
 // Animated demo position: progress the courier along its road-following path at a
 // vehicle-appropriate pace. Ping-pongs (start→end→start) so there's no teleport
 // jump at the loop boundary. Falls back to the courier's static location.
@@ -134,12 +155,12 @@ function courierAnimPos(
   c: Courier,
   roadPaths: Record<string, RoadGeom | null>,
   tSec: number,
+  plan: Plan | null,
 ): [number, number] {
   const road = roadPaths[c.id];
   if (road && road.coords.length >= 2 && c.status !== "offline" && c.status !== "idle") {
-    const speed = SPEED_MPS[c.vehicle_type ?? "van"] ?? 8;
-    // One-way traversal time at a constant realistic speed (floored for tiny paths).
-    const period = Math.max(MIN_TRAVERSE_S, pathMeters(road.coords) / speed);
+    // Pace tied to the route's real scheduled duration (demo ETAs), slow + believable.
+    const period = courierTraverseSeconds(c, plan, road.coords);
     const u = (tSec / period + courierOffset(c.id)) % 2; // 0..2
     const f = u <= 1 ? u : 2 - u; // triangle wave → smooth out-and-back
     return posAlong(road.coords, f);
@@ -774,7 +795,7 @@ function buildLayers(
     new ScatterplotLayer<Courier>({
       id: "couriers-glow",
       data: couriers,
-      getPosition: (c) => courierAnimPos(c, roadPaths, tSec),
+      getPosition: (c) => courierAnimPos(c, roadPaths, tSec, plan),
       getRadius: 280,
       radiusUnits: "meters",
       radiusMinPixels: 12,
@@ -791,7 +812,7 @@ function buildLayers(
     new IconLayer<Courier>({
       id,
       data: rows,
-      getPosition: (c) => courierAnimPos(c, roadPaths, tSec),
+      getPosition: (c) => courierAnimPos(c, roadPaths, tSec, plan),
       getIcon: (c) => sticker(vehicleEmoji(c.vehicle_type), COURIER_RGB[c.status] ?? [200, 200, 200], false),
       getSize: (c) => (c.id === selectedCourierId ? 46 : 36),
       sizeUnits: "pixels",
