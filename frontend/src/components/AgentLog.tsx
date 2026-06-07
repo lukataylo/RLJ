@@ -335,7 +335,7 @@ export default function AgentLog() {
           ];
           setFocusStops(stops.length ? stops : null);
           setQuestion("");
-          speakAndContinue(`Done. Created a delivery from ${o} to ${d}.`);
+          speakAndContinue(`Done. Created a delivery from ${o} to ${destNames.join(", ")}.`);
         } else {
           const suffix = res.suggestions?.length
             ? ` Did you mean: ${res.suggestions.join(", ")}?`
