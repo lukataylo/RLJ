@@ -6,6 +6,7 @@ uvicorn>=0.27
 pydantic>=2.6
 numpy>=1.26
 requests>=2.31   # HTTP client for the Valhalla travel-time tier (traveltime.valhalla_matrix)
+python-dotenv>=1.0  # auto-load .env (GARNET_ENABLED / VALHALLA_URL …); optional, import-guarded in app.py
 
 # ----------------------------------------------------------------------------------
 # OPTIONAL — accelerators / higher-fidelity tiers. All are IMPORT-GUARDED in code:

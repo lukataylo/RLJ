@@ -21,6 +21,22 @@ from __future__ import annotations
 import logging
 import os
 
+# Auto-load .env (repo-root, then routing/.env) so GARNET_ENABLED / GARNET_WEIGHTS /
+# VALHALLA_URL need not be exported by hand on every restart. override=False → a real
+# shell env var always wins. dotenv is optional: if it's absent the service still runs
+# (matching the repo's import-guarded style) — you just lose the .env convenience.
+try:
+    import pathlib
+
+    from dotenv import load_dotenv as _load_dotenv
+
+    _root = pathlib.Path(__file__).parent.parent
+    for _envf in (_root / ".env", _root / "routing" / ".env"):
+        if _envf.exists():
+            _load_dotenv(_envf, override=False)
+except Exception:  # noqa: BLE001 - dotenv optional / any load error must not block startup
+    pass
+
 from fastapi import FastAPI
 
 import solver

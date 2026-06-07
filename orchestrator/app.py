@@ -25,13 +25,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response as HTTPResponse
 from pydantic import BaseModel, Field
 
-# Load ElevenLabs key (and other voice config) from voice/.env when not already set in
-# the shell environment. override=False means a real env var always wins.
+# Load configuration + secrets from .env files so the box never needs vars exported by
+# hand. Checked in priority order — repo-root .env, then orchestrator/.env, then
+# voice/.env — each with override=False, so a real shell env var always wins and the
+# first file to define a key wins over later ones. A single root .env can therefore hold
+# everything (LOCAL, OLLAMA, MODEL, VALHALLA_URL, ROUTING_URL, ELEVENLABS_API_KEY, …).
+# Loaded BEFORE `config`/`llm` import so their import-time os.getenv() reads see it.
 try:
     from dotenv import load_dotenv as _load_dotenv
-    _voice_env = pathlib.Path(__file__).parent.parent / "voice" / ".env"
-    if _voice_env.exists():
-        _load_dotenv(_voice_env, override=False)
+    _root = pathlib.Path(__file__).parent.parent
+    for _envf in (_root / ".env", _root / "orchestrator" / ".env", _root / "voice" / ".env"):
+        if _envf.exists():
+            _load_dotenv(_envf, override=False)
 except ImportError:
     pass
 
