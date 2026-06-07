@@ -32,6 +32,7 @@ else NumPy) so the haversine baseline itself already runs on the GPU when one ex
 from __future__ import annotations
 
 import os
+from collections import OrderedDict
 from typing import Iterable, Sequence
 
 # --- array backend: CuPy on the GB10, NumPy on this Mac -----------------------------
@@ -256,6 +257,39 @@ def valhalla_matrix(
         return baseline
 
 
+# --- per-process travel-time matrix cache -------------------------------------------
+# The /optimize portfolio builds the SAME matrix many times: every metaheuristic member
+# (insertion/HGS/GARNET/local-search refine/pick_best) calls travel_time_matrix with the
+# identical node ordering for one request, and the orchestrator re-optimises the same
+# fleet repeatedly. Under Valhalla that was one /sources_to_targets HTTP round-trip PER
+# member — several seconds per /optimize. Caching by (backend, coords, disruptions)
+# collapses them to ONE call per distinct request (and zero on an unchanged re-plan),
+# which is the difference between blowing and meeting the orchestrator's routing budget.
+# Keyed on the backend URL so a haversine result never aliases a Valhalla one.
+_MATRIX_CACHE: "OrderedDict[tuple, np.ndarray]" = OrderedDict()
+_MATRIX_CACHE_MAX = 128
+
+
+def _matrix_disruption_sig(disruptions) -> tuple:
+    """Hashable signature of only the disruptions that change the matrix (road closures +
+    traffic). ``courier_down`` has no geometric effect, so it is excluded to keep hits."""
+    if not disruptions:
+        return ()
+    sig = []
+    for d in disruptions:
+        kind = d.kind if hasattr(d, "kind") else d.get("kind")
+        if kind not in ("road_closure", "traffic"):
+            continue
+        pts = tuple((round(la, 6), round(ln, 6)) for la, ln in _disruption_points(d))
+        sig.append((kind, pts))
+    return tuple(sorted(sig))
+
+
+def clear_matrix_cache() -> None:
+    """Empty the matrix cache (for tests, or when the road graph / costing changes)."""
+    _MATRIX_CACHE.clear()
+
+
 def travel_time_matrix(
     lats: Sequence[float],
     lngs: Sequence[float],
@@ -269,10 +303,31 @@ def travel_time_matrix(
     use the always-available haversine baseline. This keeps the dev box / CI / benchmarks on
     the deterministic haversine model by default, and lights up real roads on the GB10 demo
     box simply by exporting ``VALHALLA_URL``.
+
+    Results are memoised per (backend, coords, disruptions) — see ``_MATRIX_CACHE`` — so the
+    many identical calls a single ``/optimize`` makes hit the network (or even the haversine
+    math) only once. Returned arrays are private copies; mutating them never corrupts the
+    cache.
     """
-    if os.environ.get("VALHALLA_URL"):
-        return valhalla_matrix(lats, lngs, disruptions=disruptions)
-    return build_travel_time_matrix(lats, lngs, disruptions=disruptions)
+    backend = os.environ.get("VALHALLA_URL", "")
+    key = (
+        backend,
+        tuple(round(float(x), 6) for x in lats),
+        tuple(round(float(x), 6) for x in lngs),
+        _matrix_disruption_sig(disruptions),
+    )
+    cached = _MATRIX_CACHE.get(key)
+    if cached is not None:
+        _MATRIX_CACHE.move_to_end(key)          # LRU touch
+        return cached.copy()
+
+    out = (valhalla_matrix(lats, lngs, disruptions=disruptions) if backend
+           else build_travel_time_matrix(lats, lngs, disruptions=disruptions))
+    out = np.asarray(out, dtype=np.float64)
+    _MATRIX_CACHE[key] = out.copy()
+    if len(_MATRIX_CACHE) > _MATRIX_CACHE_MAX:
+        _MATRIX_CACHE.popitem(last=False)       # evict oldest
+    return out
 
 
 # =====================================================================================
