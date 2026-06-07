@@ -110,9 +110,9 @@ function courierOffset(id: string): number {
 // City-traffic cruise speed per vehicle (m/s) — deliberately slow/realistic for central
 // London (~13–16 km/h average in traffic). Used only as a fallback when a route has no
 // scheduled ETAs to derive the pace from.
-const SPEED_MPS: Record<string, number> = { van: 3.6, scooter: 4.2, bike: 2.8 };
-const MIN_TRAVERSE_S = 360; // floor (6 min): a courier never crosses its route faster
-const MAX_TRAVERSE_S = 1800; // ceiling (30 min): keep some visible motion over the demo
+const SPEED_MPS: Record<string, number> = { van: 9, scooter: 11, bike: 7 };
+const MIN_TRAVERSE_S = 600; // floor (10 min): calm, clearly not a blur
+const MAX_TRAVERSE_S = 1200; // ceiling (20 min): still visibly moving over the demo
 
 // Approximate polyline length in metres (London-local equirectangular projection).
 function pathMeters(coords: LngLat[]): number {
@@ -231,18 +231,13 @@ function applyDetours(coords: LngLat[], disruptions: DisruptionLike[] | undefine
 // a slow constant city speed over the path length. Always clamped to a believable range.
 function courierTraverseSeconds(
   c: Courier,
-  plan: Plan | null,
+  _plan: Plan | null,
   coords: LngLat[],
 ): number {
-  const route = plan?.routes?.find((r) => r.courier_id === c.id);
-  const etas = (route?.stops ?? [])
-    .map((s) => (s.eta ? Date.parse(s.eta) : NaN))
-    .filter((n) => !Number.isNaN(n));
-  if (etas.length >= 2) {
-    const spanSec = (Math.max(...etas) - Math.min(...etas)) / 1000;
-    if (spanSec > 0) return Math.min(MAX_TRAVERSE_S, Math.max(MIN_TRAVERSE_S, spanSec));
-  }
-  const speed = SPEED_MPS[c.vehicle_type ?? "van"] ?? 3.6;
+  // Pace from the actual route length at a per-vehicle speed, clamped to a calm,
+  // clearly-moving range (the demo's scheduled ETAs span hours, so they're not used —
+  // they'd pin every courier to the slow ceiling).
+  const speed = SPEED_MPS[c.vehicle_type ?? "van"] ?? 9;
   return Math.min(MAX_TRAVERSE_S, Math.max(MIN_TRAVERSE_S, pathMeters(coords) / speed));
 }
 
@@ -1827,6 +1822,7 @@ export default function MapView() {
     const overlay = new MapboxOverlay({
       interleaved: false,
       layers: [],
+      pickingRadius: 12, // generous hit-area so the moving courier dots are easy to click
       onClick: (info: PickingInfo) => {
         const o = info.object as Record<string, unknown> | null;
         if (o && o._t === "cctv") {
