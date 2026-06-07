@@ -26,6 +26,14 @@ _COLLIDING = (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_provider():
+    """Each test starts on the default provider; the openai-path tests opt in explicitly."""
+    config.set_provider("nemotron")
+    yield
+    config.set_provider("nemotron")
+
+
 def _load_app():
     """Load orchestrator/app.py with an isolated import cache (its app/models would
     otherwise collide with routing/'s — same trick as test_intake_geocode.py)."""
@@ -58,9 +66,12 @@ def test_config_helpers_defaults(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     assert config.ollama_url() == "http://localhost:11434"
     assert config.model() == "nemotron"
+    # provider-aware: check the OpenAI provider's defaults explicitly, then restore.
+    config.set_provider("openai")
     assert config.openai_key() == ""
     assert config.openai_model() == "gpt-4o-mini"
     assert config.openai_base_url() == "https://api.openai.com/v1"
+    config.set_provider("nemotron")
     assert config.valhalla_enabled() is False
     assert config.llm_available() is False
 
@@ -197,6 +208,7 @@ def test_complete_json_openai(monkeypatch):
     monkeypatch.delenv("LLM_BASE_URL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
     monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
+    config.set_provider("openai")
     cap = _install_fake_httpx(
         monkeypatch, lambda url: _openai_body(json.dumps({"answer": 42})))
     out = llm.complete_json("give me json")
@@ -213,6 +225,7 @@ def test_chat_openai(monkeypatch):
     monkeypatch.delenv("LOCAL", raising=False)
     monkeypatch.delenv("LLM_BASE_URL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
+    config.set_provider("openai")
     cap = _install_fake_httpx(monkeypatch, lambda url: _openai_body("fleet looks healthy"))
     out = llm.chat("status?", system="you are a dispatcher")
     assert out == "fleet looks healthy"

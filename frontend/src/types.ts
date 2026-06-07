@@ -215,6 +215,7 @@ export interface Health {
   llm_model: string | null;
   llm_label?: string;
   llm_enabled?: boolean;
+  active_provider?: "nemotron" | "openai";
   local_model: boolean;
   cloud_model: boolean;
 }

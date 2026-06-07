@@ -112,13 +112,13 @@ export async function injectBridgeClosure(): Promise<unknown> {
   );
 }
 
-/** POST /admin/llm — toggle the on-prem model on/off (off → deterministic fallback). */
-export async function setLlmEnabled(enabled: boolean): Promise<unknown> {
+/** POST /admin/llm — switch the live cloud model provider ("nemotron" | "openai"). */
+export async function setLlmProvider(provider: "nemotron" | "openai"): Promise<unknown> {
   return json(
     await fetch(`${BASE}/admin/llm`, {
       method: "POST",
       headers: authHeaders({ "content-type": "application/json" }),
-      body: JSON.stringify({ enabled }),
+      body: JSON.stringify({ provider }),
     }),
   );
 }

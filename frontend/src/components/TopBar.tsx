@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store";
 import type { UseStatus } from "../hooks/useStatus";
-import { seedDemo, clearDemo, getHealth, injectBridgeClosure, setLlmEnabled } from "../api";
+import { seedDemo, clearDemo, getHealth, injectBridgeClosure, setLlmProvider } from "../api";
 import DemoControls from "./DemoControls";
 import ThemeToggle from "./ThemeToggle";
 import RouteSourceToggle from "./RouteSourceToggle";
@@ -34,9 +34,8 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
   // Whether a cloud model is active. Defaults false so the on-prem DGX Spark indicator
   // shows on localhost / local model and is hidden only once we learn it's a cloud model.
   const [cloudModel, setCloudModel] = useState(false);
-  // On-prem model toggle (Nemotron) reflected from /healthz.
-  const [llmEnabled, setLlmEnabledState] = useState(true);
-  const [llmLabel, setLlmLabel] = useState("Nemotron");
+  // Live cloud-model provider (nemotron ⇄ openai), reflected from /healthz.
+  const [provider, setProvider] = useState<"nemotron" | "openai">("nemotron");
   const userRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -61,8 +60,7 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
       const h = await getHealth();
       if (alive && h) {
         setCloudModel(h.cloud_model);
-        setLlmEnabledState(h.llm_enabled ?? true);
-        setLlmLabel(h.llm_label ?? "Nemotron");
+        setProvider(h.active_provider ?? "nemotron");
       }
     };
     check();
@@ -185,15 +183,16 @@ export default function TopBar({ status, onOpenVerification, showEfficiency, onT
               className="user-dd-toggle"
               data-testid="toggle-model"
               role="menuitemcheckbox"
-              aria-checked={llmEnabled}
+              aria-checked={provider === "nemotron"}
+              title="Switch the live model between Nemotron and OpenAI"
               onClick={() => {
-                const next = !llmEnabled;
-                setLlmEnabledState(next); // optimistic
-                void setLlmEnabled(next).catch(() => setLlmEnabledState(!next));
+                const next = provider === "nemotron" ? "openai" : "nemotron";
+                setProvider(next); // optimistic
+                void setLlmProvider(next).catch(() => setProvider(provider));
               }}
             >
-              <span>{llmLabel} model</span>
-              <span className={`dd-switch ${llmEnabled ? "on" : ""}`}><i /></span>
+              <span>Model · {provider === "nemotron" ? "Nemotron" : "OpenAI"}</span>
+              <span className={`dd-switch ${provider === "nemotron" ? "on" : ""}`}><i /></span>
             </button>
 
             <div className="user-dd-sep" />

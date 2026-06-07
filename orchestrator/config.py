@@ -35,19 +35,65 @@ def model() -> str:
     return os.getenv("MODEL", "nemotron")
 
 
+# --- Two switchable cloud providers, selected at runtime from the operator UI. ---
+# "nemotron" → Nebius-hosted NVIDIA Nemotron (the repo's LLM_* env);
+# "openai"   → OpenAI (OPENAI_API_KEY / OPENAI_MODEL).
+_PROVIDER = os.getenv("LLM_PROVIDER", "nemotron").strip().lower()
+if _PROVIDER not in ("nemotron", "openai"):
+    _PROVIDER = "nemotron"
+
+
+def active_provider() -> str:
+    return _PROVIDER
+
+
+def set_provider(p: str) -> str:
+    """Switch the live cloud model. Returns the active provider after the change."""
+    global _PROVIDER
+    p = (p or "").strip().lower()
+    if p in ("nemotron", "openai"):
+        _PROVIDER = p
+    return _PROVIDER
+
+
+def _nemotron_key() -> str:
+    return os.getenv("LLM_API_KEY") or os.getenv("NEBIUS_API_KEY", "")
+
+
+def _nemotron_model() -> str:
+    return os.getenv("LLM_MODEL") or "nvidia/nemotron-3-super-120b-a12b"
+
+
+def _nemotron_base() -> str:
+    return (os.getenv("LLM_BASE_URL")
+            or "https://api.tokenfactory.us-central1.nebius.com/v1").rstrip("/")
+
+
+def _provider_openai_key() -> str:
+    return os.getenv("OPENAI_API_KEY", "")
+
+
+def _provider_openai_model() -> str:
+    return os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
+
+
+def _provider_openai_base() -> str:
+    return (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+
+
 def openai_key() -> str:
-    """Bearer key for the OpenAI-compatible provider (empty string if unset)."""
-    return os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY", "")
+    """Bearer key for the ACTIVE cloud provider (empty string if unset)."""
+    return _provider_openai_key() if _PROVIDER == "openai" else _nemotron_key()
 
 
 def openai_model() -> str:
-    """Model name for the OpenAI-compatible provider."""
-    return os.getenv("OPENAI_MODEL") or os.getenv("LLM_MODEL", "gpt-4o-mini")
+    """Model name for the ACTIVE cloud provider."""
+    return _provider_openai_model() if _PROVIDER == "openai" else _nemotron_model()
 
 
 def openai_base_url() -> str:
-    """OpenAI-compatible API base, supporting the repo's existing LLM_BASE_URL."""
-    return (os.getenv("LLM_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+    """API base for the ACTIVE cloud provider."""
+    return _provider_openai_base() if _PROVIDER == "openai" else _nemotron_base()
 
 
 def valhalla_enabled() -> bool:
@@ -56,8 +102,8 @@ def valhalla_enabled() -> bool:
 
 
 def llm_available() -> bool:
-    """True iff some LLM provider is reachable: local Ollama, or an OpenAI key."""
-    return is_local() or bool(openai_key())
+    """True iff some LLM provider is reachable: local Ollama, or either cloud key."""
+    return is_local() or bool(_provider_openai_key()) or bool(_nemotron_key())
 
 
 # Runtime master switch for the LLM, toggled from the operator UI (POST /admin/llm).
@@ -78,10 +124,6 @@ def set_llm_enabled(value: bool) -> bool:
 
 def active_model_label() -> str:
     """Short human label for the active model (for the UI)."""
-    name = model() if is_local() else openai_model()
-    low = name.lower()
-    if "nemotron" in low:
-        return "Nemotron"
-    if "gpt" in low:
-        return name
-    return name or "—"
+    if is_local():
+        return "Nemotron (local)"
+    return "OpenAI" if _PROVIDER == "openai" else "Nemotron"

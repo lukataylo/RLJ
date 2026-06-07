@@ -275,23 +275,31 @@ async def healthz():
         "llm_model": (config.model() if local else (config.openai_model() if has_cloud_key else None)),
         "llm_label": config.active_model_label(),
         "llm_enabled": config.llm_enabled_runtime(),
+        "active_provider": config.active_provider(),   # "nemotron" | "openai"
         "local_model": local,               # local Ollama/Nemotron on the DGX Spark
         "cloud_model": (not local) and has_cloud_key,  # OpenAI-compatible cloud provider
     }
 
 
 class LlmToggle(BaseModel):
-    enabled: bool
+    provider: Optional[str] = None   # "nemotron" | "openai"
+    enabled: Optional[bool] = None
 
 
 @app.post("/admin/llm")
 async def admin_llm(body: LlmToggle, _user: CurrentUser = Depends(require_user)):
-    """Operator toggle for the on-prem model. Off → chat uses the deterministic fallback."""
-    config.set_llm_enabled(body.enabled)
+    """Operator control for the live model: switch provider (nemotron/openai) and/or
+    enable/disable it (off → deterministic fallback)."""
+    if body.provider is not None:
+        config.set_provider(body.provider)
+    if body.enabled is not None:
+        config.set_llm_enabled(body.enabled)
     await HUB.emit("agent_log", {"level": "info", "source": "system",
-                                 "message": f"{config.active_model_label()} model "
-                                            f"{'enabled' if body.enabled else 'disabled'}."})
-    return {"llm_enabled": config.llm_enabled_runtime(), "llm_label": config.active_model_label()}
+                                 "message": f"Live model: {config.active_model_label()}"
+                                            f"{'' if config.llm_enabled_runtime() else ' (disabled)'}."})
+    return {"active_provider": config.active_provider(),
+            "llm_label": config.active_model_label(),
+            "llm_enabled": config.llm_enabled_runtime()}
 
 
 @app.get("/state")
