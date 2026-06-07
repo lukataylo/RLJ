@@ -20,9 +20,9 @@
       "id": "crt-2",
       "name": "Scooter B",
       "location": {
-        "lat": 51.51,
-        "lng": -0.09,
-        "name": "Euston depot",
+        "lat": 51.5079,
+        "lng": -0.0762,
+        "name": "Tower Bridge north",
         "facility_id": null
       },
       "capacity": 3.0,
@@ -257,6 +257,32 @@
       "status": "new",
       "raw_text": "routine sample Oval health centre -> Guy's lab",
       "created_at": "2026-06-06T10:43:53.286629Z"
+    },
+    {
+      "id": "job-9",
+      "type": "sample_pickup",
+      "origin": {
+        "lat": 51.5095,
+        "lng": -0.0759,
+        "name": "Tower Hill clinic",
+        "facility_id": null
+      },
+      "destination": {
+        "lat": 51.4975,
+        "lng": -0.0745,
+        "name": "Bermondsey lab",
+        "facility_id": null
+      },
+      "priority": "stat",
+      "time_window": {
+        "ready_at": "2026-06-06T10:43:52.548277Z",
+        "due_by": "2026-06-06T11:43:52.548277Z"
+      },
+      "cold_chain": false,
+      "capacity_units": 1.0,
+      "status": "new",
+      "raw_text": "stat sample Tower Hill clinic -> Bermondsey lab via Tower Bridge",
+      "created_at": "2026-06-06T10:43:53.400000Z"
     }
   ]
 }

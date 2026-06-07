@@ -23,7 +23,7 @@ import maplibregl from "maplibre-gl";
 import mapboxgl from "mapbox-gl";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { Layer, PickingInfo } from "@deck.gl/core";
-import { ScatterplotLayer, PathLayer, TextLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, PathLayer, TextLayer, IconLayer } from "@deck.gl/layers";
 import { useStore } from "../store";
 import type {
   CctvCamera,
@@ -32,6 +32,7 @@ import type {
   Courier,
   DeliveryJob,
   DisruptionEvent,
+  Location,
   Plan,
   SignalRec,
 } from "../types";
@@ -60,6 +61,7 @@ import {
   type Facility,
 } from "../lib/datasets";
 import { getRoadRoute, routeSignature, clearRouteCache, type LngLat, type RoadGeom } from "../lib/routing";
+import { sticker, vehicleEmoji, pickupEmoji, dropoffEmoji, facilityEmoji } from "../lib/emojiMarkers";
 
 // Waze-style live-traffic colour for a Mapbox congestion_numeric value (0–100).
 // -1 (unknown) returns null so the caller uses the neutral free-flow colour.
@@ -105,9 +107,25 @@ function courierOffset(id: string): number {
   return h / 997;
 }
 
-// Seconds to traverse a full route once, by vehicle — slower = more realistic
-// (a bike shouldn't blur across London). Demo-compressed but believable.
-const TRAVERSE_SECONDS: Record<string, number> = { van: 480, scooter: 660, bike: 900 };
+// Realistic cruise speed per vehicle (m/s). Driving the animation off a constant speed
+// (period ∝ actual path length) means a courier on a long route no longer blurs across
+// London faster than one on a short hop — they all move at a believable pace.
+const SPEED_MPS: Record<string, number> = { van: 8, scooter: 9, bike: 5 }; // ~29/32/18 km/h
+const MIN_TRAVERSE_S = 150; // floor so very short paths don't teleport
+
+// Approximate polyline length in metres (London-local equirectangular projection).
+function pathMeters(coords: LngLat[]): number {
+  if (coords.length < 2) return 0;
+  const kLat = 111_320;
+  const kLng = 111_320 * Math.cos((coords[0][1] * Math.PI) / 180);
+  let m = 0;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const dLng = (coords[i + 1][0] - coords[i][0]) * kLng;
+    const dLat = (coords[i + 1][1] - coords[i][1]) * kLat;
+    m += Math.hypot(dLng, dLat);
+  }
+  return m;
+}
 
 // Animated demo position: progress the courier along its road-following path at a
 // vehicle-appropriate pace. Ping-pongs (start→end→start) so there's no teleport
@@ -119,7 +137,9 @@ function courierAnimPos(
 ): [number, number] {
   const road = roadPaths[c.id];
   if (road && road.coords.length >= 2 && c.status !== "offline" && c.status !== "idle") {
-    const period = TRAVERSE_SECONDS[c.vehicle_type ?? "van"] ?? 150;
+    const speed = SPEED_MPS[c.vehicle_type ?? "van"] ?? 8;
+    // One-way traversal time at a constant realistic speed (floored for tiny paths).
+    const period = Math.max(MIN_TRAVERSE_S, pathMeters(road.coords) / speed);
     const u = (tSec / period + courierOffset(c.id)) % 2; // 0..2
     const f = u <= 1 ? u : 2 - u; // triangle wave → smooth out-and-back
     return posAlong(road.coords, f);
@@ -338,14 +358,6 @@ const SIGNAL_ACTION_LABEL: Record<string, string> = {
   retime: "RETIME",
   hold: "HOLD",
   clear: "CLEAR",
-};
-
-const FACILITY_GLYPH: Record<string, string> = {
-  hospital: "H",
-  lab: "L",
-  gp: "G",
-  clinic: "C",
-  pharmacy: "P",
 };
 
 // Ordered stop coords for a route (courier start + stops in sequence), de-duped.
@@ -700,73 +712,57 @@ function buildLayers(
       const selRoute = plan?.routes?.find((r) => r.courier_id === selectedCourierId);
       for (const s of selRoute?.stops ?? []) selectedJobIds.add(s.job_id);
     }
-    const dimA = (jobId: string, base: number) =>
-      !selActive || selectedJobIds.has(jobId) ? base : Math.round(base * 0.18);
-    const pickups = jobs.map((j) => ({ job: j, loc: j.origin }));
-    const drops = jobs.map((j) => ({ job: j, loc: j.destination }));
-    layers.push(
-      new ScatterplotLayer<(typeof pickups)[number]>({
-        id: "job-pickups",
-        data: pickups,
+    // Emoji "sticker" pins: white teardrop + accent ring (priority for pickups,
+    // lime for dropoffs) with the job-type glyph inside. Jobs not on the selected
+    // courier's route fade into a dimmed layer.
+    type JobNode = { job: DeliveryJob; loc: Location };
+    const isDim = (jobId: string) => selActive && !selectedJobIds.has(jobId);
+    const DROP_RGB: [number, number, number] = [191, 227, 107];
+    const pickIcon = (d: JobNode) => sticker(pickupEmoji(d.job.type), PRIORITY_RGB[d.job.priority], true);
+    const dropIcon = (d: JobNode) => sticker(dropoffEmoji(d.job.type), DROP_RGB, true);
+    const jobLayer = (
+      id: string,
+      rows: JobNode[],
+      getIcon: (d: JobNode) => ReturnType<typeof sticker>,
+      dim: boolean,
+    ) =>
+      new IconLayer<JobNode>({
+        id,
+        data: rows,
         getPosition: (d) => [d.loc.lng, d.loc.lat],
-        getRadius: 7,
-        radiusUnits: "pixels",
-        radiusMinPixels: 5,
-        stroked: true,
-        lineWidthMinPixels: 2,
-        getLineColor: (d) => [...PRIORITY_RGB[d.job.priority], dimA(d.job.id, 230)] as [number, number, number, number],
-        getFillColor: (d) => [...PRIORITY_RGB[d.job.priority], dimA(d.job.id, 90)] as [number, number, number, number],
-        pickable: true,
-        updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
-      }),
-    );
-    layers.push(
-      new ScatterplotLayer<(typeof drops)[number]>({
-        id: "job-drops",
-        data: drops,
-        getPosition: (d) => [d.loc.lng, d.loc.lat],
-        getRadius: 6,
-        radiusUnits: "pixels",
-        radiusMinPixels: 4,
-        stroked: true,
-        lineWidthMinPixels: 1,
-        getLineColor: (d) => [5, 9, 11, dimA(d.job.id, 220)] as [number, number, number, number],
-        getFillColor: (d) => [191, 227, 107, dimA(d.job.id, 235)] as [number, number, number, number],
-        pickable: true,
-        updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId },
-      }),
-    );
+        getIcon,
+        getSize: 34,
+        sizeUnits: "pixels",
+        sizeMinPixels: 22,
+        sizeMaxPixels: 48,
+        opacity: dim ? 0.22 : 1,
+        pickable: !dim,
+        updateTriggers: { getIcon: selectedCourierId },
+      });
+    const pickups: JobNode[] = jobs.map((j) => ({ job: j, loc: j.origin }));
+    const drops: JobNode[] = jobs.map((j) => ({ job: j, loc: j.destination }));
+    const pickDim = pickups.filter((d) => isDim(d.job.id));
+    const dropDim = drops.filter((d) => isDim(d.job.id));
+    if (dropDim.length) layers.push(jobLayer("job-drops-dim", dropDim, dropIcon, true));
+    if (pickDim.length) layers.push(jobLayer("job-pickups-dim", pickDim, pickIcon, true));
+    layers.push(jobLayer("job-drops", drops.filter((d) => !isDim(d.job.id)), dropIcon, false));
+    layers.push(jobLayer("job-pickups", pickups.filter((d) => !isDim(d.job.id)), pickIcon, false));
   }
 
-  // 5. NHS facilities — subtle markers + glyph (atmosphere / context).
+  // 5. NHS facilities — subtle emoji sticker badges (🏥/🔬/🩺/🩹/💊), ring by type.
   if (data.facilities.length) {
     layers.push(
-      new ScatterplotLayer<Facility>({
+      new IconLayer<Facility>({
         id: "facilities",
         data: data.facilities,
         getPosition: (f) => [f.lng, f.lat],
-        getRadius: 90,
-        radiusUnits: "meters",
-        radiusMinPixels: 5,
-        radiusMaxPixels: 12,
-        stroked: true,
-        lineWidthMinPixels: 1,
-        getLineColor: [5, 9, 11, 220],
-        getFillColor: (f) => [...facilityRGB(f.type), 200] as [number, number, number, number],
+        getIcon: (f) => sticker(facilityEmoji(f.type), facilityRGB(f.type), false),
+        getSize: 26,
+        sizeUnits: "pixels",
+        sizeMinPixels: 16,
+        sizeMaxPixels: 34,
+        opacity: 0.95,
         pickable: true,
-      }),
-    );
-    layers.push(
-      new TextLayer<Facility>({
-        id: "facilities-glyph",
-        data: data.facilities,
-        getPosition: (f) => [f.lng, f.lat],
-        getText: (f) => FACILITY_GLYPH[f.type] ?? "•",
-        getSize: 10,
-        getColor: [5, 9, 11, 255],
-        fontWeight: 700,
-        getTextAnchor: "middle",
-        getAlignmentBaseline: "center",
       }),
     );
   }
@@ -788,24 +784,27 @@ function buildLayers(
       updateTriggers: { getFillColor: selectedCourierId, getPosition: tSec },
     }),
   );
-  layers.push(
-    new ScatterplotLayer<Courier>({
-      id: "couriers",
-      data: couriers,
+  // Vehicle emoji "sticker" badge: white round badge + status-coloured ring with the
+  // 🚚/🛵/🚲 glyph. The selected courier is enlarged; the rest fade into a dimmed layer
+  // while a route is selected (IconLayer can't tint full-colour emoji, so we dim via opacity).
+  const courierIconLayer = (id: string, rows: Courier[], dim: boolean) =>
+    new IconLayer<Courier>({
+      id,
+      data: rows,
       getPosition: (c) => courierAnimPos(c, roadPaths, tSec),
-      getRadius: 110,
-      radiusUnits: "meters",
-      radiusMinPixels: 6,
-      radiusMaxPixels: 16,
-      stroked: true,
-      lineWidthMinPixels: 2,
-      getLineColor: (c) => (c.id === selectedCourierId ? [232, 237, 230, 255] : [5, 9, 11, 255]),
-      getFillColor: (c) =>
-        [...(COURIER_RGB[c.status] ?? [200, 200, 200]), selActive && c.id !== selectedCourierId ? 70 : 255] as [number, number, number, number],
-      pickable: true,
-      updateTriggers: { getLineColor: selectedCourierId, getFillColor: selectedCourierId, getPosition: tSec },
-    }),
-  );
+      getIcon: (c) => sticker(vehicleEmoji(c.vehicle_type), COURIER_RGB[c.status] ?? [200, 200, 200], false),
+      getSize: (c) => (c.id === selectedCourierId ? 46 : 36),
+      sizeUnits: "pixels",
+      sizeMinPixels: 24,
+      sizeMaxPixels: 56,
+      opacity: dim ? 0.35 : 1,
+      pickable: !dim,
+      updateTriggers: { getIcon: selectedCourierId, getSize: selectedCourierId, getPosition: tSec },
+    });
+  const courierDim = selActive ? couriers.filter((c) => c.id !== selectedCourierId) : [];
+  const courierLit = selActive ? couriers.filter((c) => c.id === selectedCourierId) : couriers;
+  if (courierDim.length) layers.push(courierIconLayer("couriers-dim", courierDim, true));
+  layers.push(courierIconLayer("couriers", courierLit, false));
 
   // 8. Disruptions — pulsing markers; red ✕ glyph for road closures.
   if (vis.incidents) {
@@ -1799,6 +1798,20 @@ export default function MapView() {
           <span className="ld-icon"><McIcon path={mdiMinus} /></span>
           <span className="ld-label">Zoom out</span>
         </button>
+      </div>
+
+      {/* Markers legend — what the on-map emoji stickers + ring colours mean. */}
+      <div className="marker-legend glass" data-testid="marker-legend">
+        <div className="ml-title">Markers</div>
+        <div className="ml-row"><span className="ml-emoji">🚚</span><span className="ml-emoji">🛵</span><span className="ml-emoji">🚲</span><span className="ml-text">couriers</span></div>
+        <div className="ml-row"><span className="ml-emoji">🩸</span><span className="ml-emoji">💊</span><span className="ml-text">pickup</span></div>
+        <div className="ml-row"><span className="ml-emoji">🔬</span><span className="ml-emoji">🏥</span><span className="ml-text">dropoff</span></div>
+        <div className="ml-row ml-rings">
+          <span className="ml-dot" style={{ background: "rgb(255,77,77)" }} />stat
+          <span className="ml-dot" style={{ background: "rgb(224,162,58)" }} />urgent
+          <span className="ml-dot" style={{ background: "rgb(159,184,90)" }} />routine
+        </div>
+        <div className="ml-hint">ring colour = priority / status</div>
       </div>
 
       {/* Route/layer status — kept for tests + at-a-glance health */}

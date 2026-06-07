@@ -273,8 +273,8 @@ button {
 /* route/layer status chip (kept for tests + glance) */
 .route-status {
   position: absolute;
-  left: 18px; /* left side, tucked in the gap between the control dock and the NemoClaw card */
-  bottom: 340px;
+  right: 18px; /* bottom-right — clear of the dock, NemoClaw card and Mapbox logo */
+  bottom: 18px;
   z-index: 25;
   display: flex;
   align-items: center;
